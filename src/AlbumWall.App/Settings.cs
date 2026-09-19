@@ -25,10 +25,6 @@ public sealed class Settings
 
     public bool Maximized { get; set; }
 
-    /// The cover-size slider. Same complaint as the window geometry: having to
-    /// set it on every launch is the problem being solved.
-    public double? CoverSize { get; set; }
-
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 

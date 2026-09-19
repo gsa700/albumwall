@@ -14,6 +14,19 @@
 
     <Window.Resources>
 
+        <!-- Fluent draws the slider thumb from THESE keys, not from Thumb's own
+             Background, which is why setting that left the thumb system-blue on
+             an otherwise entirely warm window. -->
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="#F3EEE6"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="#C9BFB2"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#E8E0D4"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#F3EEE6"/>
+        <SolidColorBrush x:Key="SliderTrackFill" Color="#4A423B"/>
+        <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#564D45"/>
+        <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#564D45"/>
+
         <!-- One row of covers. The row is exactly as wide as its albums, so the
              arrow offsets computed for the panel below it stay correct. -->
         <DataTemplate x:Key="AlbumRowTemplate" DataType="app:AlbumRow">
@@ -338,35 +351,32 @@
 
         <Border x:Name="TopBar" DockPanel.Dock="Top" Background="#1C1915" BorderBrush="#2B2620"
                 BorderThickness="0,0,0,1" Height="60">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" Margin="8,0,0,0">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="8,0,0,0">
                 <StackPanel Grid.Column="0" x:Name="LeftButtons" Orientation="Horizontal"
                             Margin="0,0,10,0" Spacing="6" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="Library" FontSize="21" FontWeight="Bold"
+                <TextBlock Grid.Column="1" x:Name="AppName" Text="AlbumWall"
+                           FontSize="21" FontWeight="Bold"
                            Margin="12,0,0,0" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="2" x:Name="CountsText" Classes="dim mono" FontSize="12"
-                           Margin="18,0,0,0" VerticalAlignment="Center"/>
-                <TextBox Grid.Column="3" x:Name="SearchBox" Classes="search" Width="280"
+                <TextBox Grid.Column="2" x:Name="SearchBox" Classes="search" Width="280"
                          PlaceholderText="Search artist or album…" VerticalAlignment="Center"
                          FontSize="13" Padding="10,6"/>
 
                 <!-- Filled in code from the window manager's own button-layout
                      preference: which buttons, which side, what order. -->
-                <StackPanel Grid.Column="4" x:Name="RightButtons" Orientation="Horizontal"
+                <StackPanel Grid.Column="3" x:Name="RightButtons" Orientation="Horizontal"
                             Margin="14,0,8,0" Spacing="6" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
         <!-- SIZE is the control; column count and library length follow from it. -->
         <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Background="#1C1915" BorderBrush="#2B2620"
-                BorderThickness="0,1,0,0" Height="50">
+                BorderThickness="0,1,0,0" Height="38">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" Margin="26,0">
-                <TextBlock Grid.Column="0" Text="COVER SIZE" Classes="dim" FontSize="11"
-                           FontWeight="Bold" VerticalAlignment="Center"/>
-                <Slider Grid.Column="1" x:Name="SizeSlider" Minimum="48" Maximum="320" Value="185"
-                        Width="220" Margin="14,0" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="2" x:Name="SizeText" Classes="mono" FontSize="12"
+                <!-- No cover-size control. The covers size themselves to fill the
+                     window exactly; see MainWindow.ComputeLayout. -->
+                <TextBlock Grid.Column="0" x:Name="CountsText" Classes="dim mono" FontSize="11"
                            VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="5" x:Name="StatusText" Classes="dim" FontSize="12"
+                <TextBlock Grid.Column="5" x:Name="StatusText" Classes="dim" FontSize="11"
                            VerticalAlignment="Center"/>
             </Grid>
         </Border>
@@ -374,7 +384,7 @@
         <!-- Transport. Declared after the controls bar so it docks ABOVE it, and
              hidden entirely until something is playing: an empty transport is a
              row of dead controls taking up wall. -->
-        <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="66"
+        <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="82"
                 BorderThickness="0,1,0,0" IsVisible="False">
             <!-- Title and progress SHARE the slack, weighted 1 : 1.6 in the
                  progress bar's favour. A fixed width for either is wrong: a
@@ -384,7 +394,7 @@
                  do not. -->
             <Grid ColumnDefinitions="Auto,*,Auto,1.6*,Auto" Margin="26,0">
 
-                <Border Grid.Column="0" Width="46" Height="46" CornerRadius="2"
+                <Border Grid.Column="0" Width="58" Height="58" CornerRadius="3"
                         VerticalAlignment="Center" ClipToBounds="True">
                     <Image x:Name="TransportArt" Stretch="UniformToFill"/>
                 </Border>

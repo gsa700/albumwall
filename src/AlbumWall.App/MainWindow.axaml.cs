@@ -81,12 +81,9 @@ public partial class MainWindow : Window
 
         Wall.ItemsSource = _rows;
         Wall.ElementPrepared += OnElementPrepared;
-        SizeSlider.PropertyChanged += OnSliderChanged;
         WallScroller.SizeChanged += OnWallResized;
         SearchBox.PropertyChanged += OnSearchChanged;
 
-        if (_settings.CoverSize is >= 48 and <= 320) SizeSlider.Value = _settings.CoverSize.Value;
-        ApplyCoverSize(CoverPx);
         StatusText.Text = "scanning…";
 
 
@@ -152,38 +149,101 @@ public partial class MainWindow : Window
         }, TimeSpan.FromMilliseconds(500));
     }
 
-    private int CoverPx => (int)Math.Round(SizeSlider.Value);
+    private int CoverPx { get; set; } = 185;
 
-    /// Puts the window back where it was, unless where it was no longer exists.
+    /// The size a cover would ideally be. Not a limit — the actual size is
+    /// whatever divides the window evenly nearest to this.
+    private const int TargetCover = 185;
+
+    /// How far the covers may be stretched or squeezed from the target before the
+    /// column count is the better thing to change.
+    private const int MinCover = 132;
+    private const int MaxCover = 268;
+
+    /// Chooses the column count and the cover size together, so a row fills the
+    /// window EXACTLY.
     ///
-    /// A saved position is only good while the screen it referred to is still
-    /// there. Unplug a monitor, or take a laptop somewhere, and restoring
-    /// faithfully means opening the window somewhere the user cannot see or
-    /// reach it — so the rectangle is checked against the CURRENT screens and a
-    /// position that is not substantially visible is discarded rather than
-    /// honoured.
+    /// This replaced a cover-size slider. The slider set a fixed size, which left
+    /// a ragged strip of unused wall at the right edge at almost every window
+    /// width — the leftover of dividing the width by a number that did not go
+    /// into it. Choosing the count nearest the target size and then stretching
+    /// the covers to fit removes the leftover entirely, and means resizing the
+    /// window scales the art rather than only re-flowing it.
+    ///
+    /// Cover size still drives the column count, which was the rule all along.
+    /// The window now supplies the size instead of a control.
+    private (int Columns, int Cover) ComputeLayout()
+    {
+        var available = WallScroller.Bounds.Width
+                      - WallScroller.Padding.Left - WallScroller.Padding.Right;
+        if (available <= 0) return (_columns, CoverPx);
+
+        var columns = Math.Max(1, (int)Math.Round((available + RowSpacing)
+                                                / (TargetCover + RowSpacing)));
+
+        var cover = (int)((available - (columns - 1) * RowSpacing) / columns);
+
+        // At the extremes the covers would have to distort further than looks
+        // right, so give up filling the row exactly rather than show covers the
+        // wrong size.
+        if (cover < MinCover && columns > 1)
+        {
+            columns--;
+            cover = (int)((available - (columns - 1) * RowSpacing) / columns);
+        }
+
+        return (columns, Math.Clamp(cover, MinCover, MaxCover));
+    }
+
+    /// Puts the window back where it was, corrected to fit the screen it lands on.
+    ///
+    /// The first version only checked for SOME overlap with a screen — 200x100 px
+    /// — and accepted anything that passed. That is far too weak: a window almost
+    /// entirely off the edge satisfies it, which is exactly what happened. What is
+    /// wanted is not a yes/no test but a correction, so the saved geometry is
+    /// clamped into the target screen's working area instead of being trusted or
+    /// discarded wholesale.
     private void RestorePosition()
     {
         if (_settings.Maximized) { WindowState = WindowState.Maximized; return; }
-        if (_settings.WindowX is not { } x || _settings.WindowY is not { } y) return;
 
-        var w = (int)(Width * RenderScaling);
-        var h = (int)(Height * RenderScaling);
-        var wanted = new PixelRect(x, y, w, h);
-
-        foreach (var screen in Screens.All)
+        // No saved position means a first run. WindowStartupLocation is Manual so
+        // that a saved position is honoured exactly, but with nothing to honour
+        // that would drop the window in the top-left corner.
+        if (_settings.WindowX is not { } x || _settings.WindowY is not { } y)
         {
-            var overlap = screen.Bounds.Intersect(wanted);
-            // Enough of the title bar and a corner to grab hold of.
-            if (overlap.Width >= 200 && overlap.Height >= 100)
-            {
-                Position = new PixelPoint(x, y);
-                return;
-            }
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            return;
         }
 
-        Console.WriteLine($"[wall] saved position {x},{y} is off every current screen; centring");
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        // The screen the saved top-left corner sits on, found from the POINT so
+        // that the screen's own scaling can be used for the conversion below.
+        var screen = Screens.ScreenFromPoint(new PixelPoint(x, y)) ?? Screens.Primary;
+        if (screen is null) return;
+
+        // The SCREEN's scaling, not RenderScaling. RenderScaling is not reliably
+        // settled when Opened fires, and reading 1.0 on a 2x display makes the
+        // window appear half its real size to this arithmetic — which then places
+        // a window twice as large as calculated, hanging off the bottom edge.
+        var scale = screen.Scaling > 0 ? screen.Scaling : RenderScaling;
+        var w = (int)(Width * scale);
+        var h = (int)(Height * scale);
+
+        var area = screen.WorkingArea;
+
+        // Never larger than the space available.
+        if (w > area.Width) { w = area.Width; Width = w / scale; }
+        if (h > area.Height) { h = area.Height; Height = h / scale; }
+
+        // Then fully inside it.
+        var cx = Math.Clamp(x, area.X, area.X + area.Width - w);
+        var cy = Math.Clamp(y, area.Y, area.Y + area.Height - h);
+
+        if (cx != x || cy != y)
+            Console.WriteLine($"[wall] saved geometry {x},{y} did not fit "
+                            + $"{area.Width}x{area.Height}; corrected to {cx},{cy} {w}x{h}");
+
+        Position = new PixelPoint(cx, cy);
     }
 
     private bool _restored;
@@ -225,7 +285,6 @@ public partial class MainWindow : Window
             _settings.WindowY = Position.Y;
         }
 
-        _settings.CoverSize = SizeSlider.Value;
         _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
         _settings.Save();
     }
@@ -236,6 +295,12 @@ public partial class MainWindow : Window
         // simply takes. Report what the window manager actually granted.
         Console.WriteLine($"[wall] transparency={ActualTransparencyLevel} "
                         + $"corner={Surface.CornerRadius.TopLeft}");
+        foreach (var sc in Screens.All)
+            Console.WriteLine($"[wall] screen bounds={sc.Bounds} working={sc.WorkingArea} "
+                            + $"scaling={sc.Scaling} primary={sc.IsPrimary}");
+        Console.WriteLine($"[wall] window pos={Position} size={Width}x{Height} "
+                        + $"renderScaling={RenderScaling}");
+
         Console.WriteLine($"[wall] decorations={WindowDecorations} "
                         + $"extended={IsExtendedIntoWindowDecorations} "
                         + $"decorationMargin={WindowDecorationMargin}");
@@ -410,13 +475,6 @@ public partial class MainWindow : Window
                         + $"bar {_ramp.BarHex} field {_ramp.FieldHex}");
     }
 
-    private void OnSliderChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
-    {
-        if (e.Property != Slider.ValueProperty) return;
-        ApplyCoverSize(CoverPx);
-        ScheduleSave();
-    }
-
     private void OnSearchChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property != TextBox.TextProperty) return;
@@ -426,13 +484,6 @@ public partial class MainWindow : Window
 
     /// One resource drives every tile's geometry, so a slider drag re-lays out
     /// the wall without rebuilding items or touching per-tile bindings.
-    private void ApplyCoverSize(int px)
-    {
-        Resources["CoverPx"] = (double)px;
-        SizeText.Text = $"{px} px";
-        Rebuild();
-    }
-
     private void ApplyFilter()
     {
         _visible = _filter.Length == 0
@@ -492,24 +543,43 @@ public partial class MainWindow : Window
     }
 #endif
 
-    private void OnWallResized(object? sender, SizeChangedEventArgs e)
+    private void OnWallResized(object? sender, SizeChangedEventArgs e) => Relayout();
+
+    /// Applies the window's current size to the wall.
+    ///
+    /// Cover size changes on every pixel of a drag, but the ROW CHUNKING only
+    /// changes when the column count does — so the tiles are resized through the
+    /// shared resource, which costs a layout pass, and the rows are rebuilt only
+    /// when they actually need to be.
+    private void Relayout()
     {
-        if (ColumnCount() != _columns) Rebuild();
+        var (columns, cover) = ComputeLayout();
+
+        if (cover != CoverPx)
+        {
+            CoverPx = cover;
+            Resources["CoverPx"] = (double)cover;
+        }
+
+        if (columns != _columns) Rebuild();
+        else if (_open is not null) SchedulePanelRefresh();
     }
 
-    /// How many covers fit across the wall right now.
-    ///
-    /// SIZE is the control and the column count is a consequence — this is that
-    /// consequence, computed rather than configured. The padding comes off the
-    /// viewport first, and a row always has at least one column so a very narrow
-    /// window degrades instead of dividing by zero.
-    private int ColumnCount()
+    private DispatcherTimer? _panelRefresh;
+
+    /// The open panel caches the cover size for its arrow, so it has to be rebuilt
+    /// when the covers resize — but not on every frame of a drag.
+    private void SchedulePanelRefresh()
     {
-        var available = WallScroller.Bounds.Width
-                      - WallScroller.Padding.Left - WallScroller.Padding.Right;
-        if (available <= 0) return 1;
-        var cover = CoverPx;
-        return Math.Max(1, (int)((available + RowSpacing) / (cover + RowSpacing)));
+        _panelRefresh?.Stop();
+        _panelRefresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(160) };
+        _panelRefresh.Tick += (_, _) =>
+        {
+            _panelRefresh?.Stop();
+            _panelRefresh = null;
+            SyncPanel(false);
+        };
+        _panelRefresh.Start();
     }
 
     /// Lays the wall out.
@@ -524,7 +594,7 @@ public partial class MainWindow : Window
     {
         if (_all.Count == 0 && _visible.Count == 0) return;
 
-        var columns = ColumnCount();
+        var (columns, _) = ComputeLayout();
         var key = $"{columns}|{_visible.Count}|{_filter}";
 
         if (key != _chunkKey)
@@ -887,6 +957,27 @@ public partial class MainWindow : Window
     /// ItemsRepeater is still revising its extent estimate and the unfold is still
     /// growing the panel while this runs. Easing toward a moving target converges;
     /// jumping to a stale one does not.
+    /// The wall does not take clicks while it is moving.
+    ///
+    /// Opening an album unfolds a panel and scrolls the wall, which together take
+    /// the better part of a second. A click during that lands on whatever row has
+    /// slid under the cursor, not the one that was aimed at — which is how
+    /// clicking disc 2 track 6 started disc 1 track 1, and why clicking the same
+    /// place again worked. The app was not choosing the wrong track; it was told
+    /// the wrong track, by a row that had moved.
+    private void FreezeWall(bool frozen)
+    {
+        if (Wall.IsHitTestVisible == !frozen) return;
+        Wall.IsHitTestVisible = !frozen;
+
+        // A dead-safe release. A wall that stays unclickable because an animation
+        // did not finish cleanly is far worse than the mis-click this prevents,
+        // and this path does not depend on any of the timers above completing.
+        if (frozen)
+            DispatcherTimer.RunOnce(() => Wall.IsHitTestVisible = true,
+                                    TimeSpan.FromMilliseconds(AnchorMs + UnfoldMs + 200));
+    }
+
     private void AnchorOn(AlbumVm album)
     {
         var index = _visible.IndexOf(album);
@@ -894,6 +985,7 @@ public partial class MainWindow : Window
         var rowIndex = index / _columns;
 
         _anchor?.Stop();
+        FreezeWall(true);
         var until = DateTime.UtcNow.AddMilliseconds(AnchorMs);
 
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -902,8 +994,7 @@ public partial class MainWindow : Window
             var element = Wall.TryGetElement(rowIndex);
             if (element is null || DateTime.UtcNow > until)
             {
-                _anchor?.Stop();
-                _anchor = null;
+                Settle();
                 return;
             }
 
@@ -915,8 +1006,9 @@ public partial class MainWindow : Window
             var y = WallScroller.Offset.Y;
             if (Math.Abs(target - y) < 0.5)
             {
-                _anchor?.Stop();
-                _anchor = null;
+                // Settled early, but the unfold may still be growing the panel,
+                // so hold the freeze until that is done too.
+                Settle();
                 return;
             }
 
@@ -925,6 +1017,19 @@ public partial class MainWindow : Window
             WallScroller.Offset = WallScroller.Offset.WithY(y + (target - y) * AnchorEase);
         };
         _anchor.Start();
+        return;
+
+        void Settle()
+        {
+            _anchor?.Stop();
+            _anchor = null;
+
+            // The unfold and the scroll are separate animations and either can
+            // finish first. Release only once the slower of the two can no longer
+            // be moving anything.
+            DispatcherTimer.RunOnce(() => FreezeWall(false),
+                                    TimeSpan.FromMilliseconds(UnfoldMs + 60));
+        }
     }
 
     private static Transitions Unfolding() =>
