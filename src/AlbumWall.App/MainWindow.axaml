@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        xmlns:app="clr-namespace:AlbumWall.App"
+        x:Class="AlbumWall.App.MainWindow"
+        Title="Album Wall"
+        Width="1444" Height="1080"
+        Background="#14120F"
+        RequestedThemeVariant="Dark">
+
+    <Window.Resources>
+        <!-- The single source of truth for tile geometry. Updating this at
+             runtime re-sizes every realised tile without touching bindings. -->
+        <sys:Double x:Key="CoverPx">185</sys:Double>
+    </Window.Resources>
+
+    <Window.Styles>
+        <!-- Warm dark ground so the covers are the brightest thing on screen.
+             Deliberately unlike the amber station-tools house style: a wall of
+             album art wants different chrome than an instrument panel. -->
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+        </Style>
+        <Style Selector="TextBlock.dim">
+            <Setter Property="Foreground" Value="#A2978A"/>
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+        </Style>
+        <Style Selector="Button.tile">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.tile /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TextBox.search">
+            <Setter Property="Background" Value="#241F1A"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="BorderBrush" Value="#3A332B"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+
+        <Border DockPanel.Dock="Top" Background="#1C1915" BorderBrush="#2B2620"
+                BorderThickness="0,0,0,1" Height="60">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="26,0">
+                <TextBlock Grid.Column="0" Text="Library" FontSize="21" FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" x:Name="CountsText" Classes="dim mono" FontSize="12"
+                           Margin="18,0,0,0" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="3" x:Name="SearchBox" Classes="search" Width="280"
+                         PlaceholderText="Search artist or album…" VerticalAlignment="Center"
+                         FontSize="13" Padding="10,6"/>
+            </Grid>
+        </Border>
+
+        <!-- SIZE is the control; column count and library length follow from it. -->
+        <Border DockPanel.Dock="Bottom" Background="#1C1915" BorderBrush="#2B2620"
+                BorderThickness="0,1,0,0" Height="50">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="26,0">
+                <TextBlock Grid.Column="0" Text="COVER SIZE" Classes="dim" FontSize="11"
+                           FontWeight="Bold" VerticalAlignment="Center"/>
+                <Slider Grid.Column="1" x:Name="SizeSlider" Minimum="48" Maximum="320" Value="185"
+                        Width="220" Margin="14,0" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" x:Name="SizeText" Classes="mono" FontSize="12"
+                           VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="4" x:Name="StatusText" Classes="dim" FontSize="12"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Vertical scrolling only: width is fixed by the window. -->
+        <ScrollViewer x:Name="WallScroller"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="26,20,26,0">
+            <ItemsRepeater x:Name="Wall">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="185" MinItemHeight="225"
+                                       MinColumnSpacing="15" MinRowSpacing="15"
+                                       ItemsStretch="None"/>
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate DataType="app:AlbumVm">
+                        <Button Classes="tile">
+                            <StackPanel Spacing="5"
+                                        Width="{DynamicResource CoverPx}">
+                                <Panel Width="{DynamicResource CoverPx}"
+                                       Height="{DynamicResource CoverPx}">
+                                    <Border Background="{Binding Placeholder}" CornerRadius="2"/>
+                                    <Image Source="{Binding Cover}" Stretch="UniformToFill"/>
+                                </Panel>
+                                <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Medium"
+                                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                                <TextBlock Text="{Binding Artist}" Classes="dim" FontSize="10"
+                                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>

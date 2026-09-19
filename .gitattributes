@@ -1,0 +1,6 @@
+# Normalise line endings in the repo. The Avalonia project template emits
+# CRLF for some files; without this a Windows contributor's first commit
+# would look like a whole-file rewrite.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

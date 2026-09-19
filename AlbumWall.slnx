@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AlbumWall.App/AlbumWall.App.csproj" />
+    <Project Path="src/AlbumWall.Domain/AlbumWall.Domain.csproj" />
+    <Project Path="src/AlbumWall.Playback/AlbumWall.Playback.csproj" />
+  </Folder>
+</Solution>
