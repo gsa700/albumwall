@@ -655,6 +655,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Scrolls the wall the way a wheel would, so a bug that depends on where
+        // the wall is sitting can be reproduced from here.
+        if (text.StartsWith("scroll ", StringComparison.OrdinalIgnoreCase)
+            && double.TryParse(text[7..].Trim(), out var dy))
+        {
+            var to = Math.Clamp(WallScroller.Offset.Y + dy, 0,
+                        Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height));
+            WallScroller.Offset = WallScroller.Offset.WithY(to);
+            Console.WriteLine($"[wall] scroll -> {WallScroller.Offset.Y:F0}");
+            return;
+        }
+
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine("[wall] command: close");
@@ -1285,7 +1297,18 @@ public partial class MainWindow : Window
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
         {
-            var element = Wall.TryGetElement(rowIndex);
+            // FORCE the row into existence rather than giving up on it.
+            //
+            // Opening a second album folds the first panel away, and if that
+            // panel was above the viewport the wall slides up by its whole
+            // height — a box set is thousands of pixels — landing the view
+            // somewhere else entirely and leaving the row we are anchoring on
+            // unrealised. Bailing here is what let an album open completely
+            // offscreen: "it opens but offscreen. then I had to scroll up to
+            // find it."
+            var element = rowIndex < _rows.Count
+                ? Wall.TryGetElement(rowIndex) ?? Wall.GetOrCreateElement(rowIndex)
+                : null;
             if (element is null)
             {
                 Settle();
