@@ -102,9 +102,12 @@ public sealed class PanelRow : WallItem
     {
         var specs = a.Tracks
             .Where(t => t.SampleRate > 0)
+            // NO UNIT HERE. It is appended once below, and a lossy file that
+            // carried its own "kHz" came out as "44.1 kHz kHz" — invisible in a
+            // library of FLAC, which all take the first branch.
             .Select(t => t.BitDepth > 0
                 ? $"{t.BitDepth}/{t.SampleRate / 1000.0:0.#}"
-                : $"{t.SampleRate / 1000.0:0.#} kHz")
+                : $"{t.SampleRate / 1000.0:0.#}")
             .Distinct()
             .ToList();
 
@@ -112,7 +115,7 @@ public sealed class PanelRow : WallItem
         {
             0 => "",
             1 => specs[0] + " kHz",
-            _ => "mixed " + string.Join(", ", specs)
+            _ => "mixed " + string.Join(", ", specs) + " kHz"
         };
     }
 
