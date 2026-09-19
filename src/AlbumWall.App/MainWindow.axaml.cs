@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Animation;
+using Avalonia.VisualTree;
 using Avalonia.Animation.Easings;
 using Avalonia.Media;
 using Avalonia.Layout;
@@ -535,6 +536,28 @@ public partial class MainWindow : Window
             File.Delete(path);      // before acting, so a throw cannot spin
         }
         catch { return; }
+
+        // Toggles the real :pointerover pseudoclass on the sleeve — the same switch
+        // Avalonia's input system flips when a pointer arrives.
+        //
+        // A hover-only style cannot otherwise be checked from here: there is no
+        // pointer to move. Forcing the overlay's Opacity to 1 in the markup and
+        // photographing it is NOT the same test — it proves the overlay renders
+        // and says nothing about whether hovering ever reaches it, which is
+        // exactly how a broken one shipped: Opacity="0" in the markup is a LOCAL
+        // value, it outranks every style setter, and :pointerover could never win.
+        if (text.Equals("hover", StringComparison.OrdinalIgnoreCase))
+        {
+            var btn = this.GetVisualDescendants()
+                          .OfType<Button>()
+                          .FirstOrDefault(b => b.Classes.Contains("coverplay"));
+            if (btn is null) { Console.WriteLine("[wall] hover: no coverplay button"); return; }
+
+            var on = !btn.Classes.Contains(":pointerover");
+            ((Avalonia.Controls.IPseudoClasses)btn.Classes).Set(":pointerover", on);
+            Console.WriteLine($"[wall] hover: :pointerover {(on ? "set" : "cleared")} on the sleeve");
+            return;
+        }
 
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {

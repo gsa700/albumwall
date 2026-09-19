@@ -146,7 +146,7 @@
                                     Background="{Binding Album.Placeholder}">
                                 <Panel>
                                     <Image Source="{Binding Album.Cover}" Stretch="UniformToFill"/>
-                                    <Panel x:Name="PlayOverlay" Opacity="0">
+                                    <Panel x:Name="PlayOverlay">
                                         <Border Background="#2E000000"/>
                                         <Ellipse Width="88" Height="88" Fill="#59000000"
                                                  HorizontalAlignment="Center"
@@ -251,7 +251,13 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
         </Style>
+        <!-- The resting state MUST come from a style, not from Opacity="0" on the
+             element. A value set directly in the markup is a LOCAL value, and a
+             local value beats every style setter in Avalonia's precedence order —
+             so :pointerover set 1, the local 0 won, and the overlay never
+             appeared however correct the hover rule looked. -->
         <Style Selector="Button.coverplay Panel#PlayOverlay">
+            <Setter Property="Opacity" Value="0"/>
             <Setter Property="Transitions">
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.16"
