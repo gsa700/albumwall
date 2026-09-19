@@ -131,7 +131,7 @@ every cover's size readable.
 ### Two copies of %AppData%, and the hour it cost
 
 The Claude desktop app sandboxes its tool shell: anything launched from there
-gets a PRIVATE copy of `%AppData%lbumwall`. His own terminal, and anything
+gets a PRIVATE copy of `%AppData%\albumwall`. His own terminal, and anything
 started through Explorer, use the real one. They are different files with the
 same path.
 
