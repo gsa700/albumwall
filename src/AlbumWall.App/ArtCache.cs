@@ -67,6 +67,11 @@ public static class ArtCache
         }
     }
 
+    /// A one-off tiny decode that deliberately BYPASSES the cache: it is used to
+    /// derive the ground colour at startup, and a 16 px thumbnail has no business
+    /// occupying a cache slot that a display-size cover will want.
+    public static Bitmap? DecodeTiny(string source, int px) => Decode(source, px);
+
     private static bool IsImageFile(string path) =>
         Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif";
 }

@@ -11,8 +11,11 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia.Threading;
 
@@ -30,6 +33,13 @@ public partial class MainWindow : Window
     private long _scanMs;
     private int _lastReported = -1;
 
+    private readonly int _rung = Ground.DefaultRung;
+    private readonly int _chrome = Ground.DefaultChrome;
+    private Ground.Ramp _ramp = new(Ground.FallbackHue, 0,
+                                    Ground.Rungs[Ground.DefaultRung],
+                                    Ground.Chromes[Ground.DefaultChrome]);
+    private string _counts = "scanning\u2026";
+
     public MainWindow()
     {
         InitializeComponent();
@@ -41,6 +51,21 @@ public partial class MainWindow : Window
 
         ApplyCoverSize(CoverPx);
         StatusText.Text = "scanning…";
+
+
+        // There are no system decorations, so there is no system resize border
+        // either and we own that too. Tunnelling, because the wall and the
+        // controls sit over the edges and would otherwise swallow the press.
+        AddHandler(PointerMovedEvent, OnPointerMovedForResize, RoutingStrategies.Tunnel);
+        AddHandler(PointerPressedEvent, OnPointerPressedForResize, RoutingStrategies.Tunnel);
+
+        // The top bar IS the title bar now, so it owes the window the three
+        // behaviours the system one provided: drag to move, double-click to
+        // maximise, and the buttons the desktop asked for.
+        TopBar.PointerPressed += OnTitleBarPressed;
+        TopBar.DoubleTapped += (_, _) => ToggleMaximised();
+        BuildWindowButtons();
+        ApplyGround();
 
         Loaded += OnLoaded;
 
@@ -69,6 +94,14 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
+        // Borderless windows are a per-platform negotiation, not a setting that
+        // simply takes. Report what the window manager actually granted.
+        Console.WriteLine($"[wall] transparency={ActualTransparencyLevel} "
+                        + $"corner={Surface.CornerRadius.TopLeft}");
+        Console.WriteLine($"[wall] decorations={WindowDecorations} "
+                        + $"extended={IsExtendedIntoWindowDecorations} "
+                        + $"decorationMargin={WindowDecorationMargin}");
+
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music");
 
         // Scan on a worker thread: a cold scan of this library is ~0.1 s but it
@@ -95,11 +128,147 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.Post(() =>
             {
                 _all = vms;
-                CountsText.Text = $"{albums.Count} albums · {tracks} tracks · {artists} artists";
+                _counts = $"{albums.Count} albums · {tracks} tracks · {artists} artists";
+                ApplyGround();
                 _scanMs = sw.ElapsedMilliseconds;
                 ApplyFilter();
             });
+
+            // Ground hue comes from the art, so it can only be derived after the
+            // scan. Separate task: the wall must be on screen immediately, not
+            // waiting on 200 thumbnail decodes.
+            var gsw = Stopwatch.StartNew();
+            var (hue, concentration) = Ground.HueOf(albums);
+            gsw.Stop();
+            Console.WriteLine($"[wall] ground hue derived in {gsw.ElapsedMilliseconds} ms");
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                // A library whose covers agree on nothing gets the fallback
+                // rather than an arbitrary hue dressed up as a derived one.
+                var h = concentration < 0.2 ? Ground.FallbackHue : hue;
+                _ramp = new Ground.Ramp(h, concentration, Ground.Rungs[_rung],
+                                        Ground.Chromes[_chrome]);
+                ApplyGround();
+            });
         });
+    }
+
+    /// Draws the window controls the desktop asked for, on the side it asked
+    /// for. On this GNOME that is minimise and close on the right and NO
+    /// maximise button, because the user turned it off; double-clicking the bar
+    /// still maximises, which is how GNOME expects it to be done.
+    private void BuildWindowButtons()
+    {
+        var (left, right) = WindowButtons.Layout();
+        Console.WriteLine($"[wall] window buttons left=[{string.Join(",", left)}] "
+                        + $"right=[{string.Join(",", right)}]");
+
+        foreach (var (panel, kinds) in new[] { (LeftButtons, left), (RightButtons, right) })
+            foreach (var kind in kinds)
+                panel.Children.Add(WindowButtons.Create(kind, () => Invoke(kind)));
+
+        void Invoke(WindowButtons.Kind k)
+        {
+            switch (k)
+            {
+                case WindowButtons.Kind.Minimize: WindowState = WindowState.Minimized; break;
+                case WindowButtons.Kind.Maximize: ToggleMaximised(); break;
+                default: Close(); break;
+            }
+        }
+    }
+
+    /// Width of the invisible grab band around the window edge. 7 px is the
+    /// smallest that stays comfortable to hit; GNOME's own CSD band is similar.
+    private const double ResizeBand = 7;
+
+    private StandardCursorType _cursor = StandardCursorType.Arrow;
+
+    private WindowEdge? EdgeAt(Point p)
+    {
+        if (WindowState != WindowState.Normal) return null;   // nothing to resize
+
+        double w = Bounds.Width, h = Bounds.Height;
+        bool l = p.X <= ResizeBand, r = p.X >= w - ResizeBand;
+        bool t = p.Y <= ResizeBand, b = p.Y >= h - ResizeBand;
+
+        return (l, r, t, b) switch
+        {
+            (true, _, true, _) => WindowEdge.NorthWest,
+            (_, true, true, _) => WindowEdge.NorthEast,
+            (true, _, _, true) => WindowEdge.SouthWest,
+            (_, true, _, true) => WindowEdge.SouthEast,
+            (true, _, _, _) => WindowEdge.West,
+            (_, true, _, _) => WindowEdge.East,
+            (_, _, true, _) => WindowEdge.North,
+            (_, _, _, true) => WindowEdge.South,
+            _ => null
+        };
+    }
+
+    private void OnPointerMovedForResize(object? sender, PointerEventArgs e)
+    {
+        var cursor = EdgeAt(e.GetPosition(this)) switch
+        {
+            WindowEdge.North or WindowEdge.South => StandardCursorType.SizeNorthSouth,
+            WindowEdge.West or WindowEdge.East => StandardCursorType.SizeWestEast,
+            // All four corners named individually. These are four distinct arrow
+            // glyphs on X11, not one shared diagonal, so pairing NW with SE drew
+            // an arrow pointing up-left at the bottom-right corner.
+            WindowEdge.NorthWest => StandardCursorType.TopLeftCorner,
+            WindowEdge.NorthEast => StandardCursorType.TopRightCorner,
+            WindowEdge.SouthWest => StandardCursorType.BottomLeftCorner,
+            WindowEdge.SouthEast => StandardCursorType.BottomRightCorner,
+            _ => StandardCursorType.Arrow
+        };
+
+        // Only assign on change: setting Cursor on every mouse move churns the
+        // platform cursor and makes the pointer flicker over the wall.
+        if (_cursor == cursor) return;
+        _cursor = cursor;
+        Cursor = new Cursor(cursor);
+    }
+
+    private void OnPointerPressedForResize(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var edge = EdgeAt(e.GetPosition(this));
+        if (edge is null) return;
+        BeginResizeDrag(edge.Value, e);
+        e.Handled = true;
+    }
+
+    private void OnTitleBarPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Only a press on the bar's own background starts a drag. A press that
+        // landed on the search box or a window button belongs to that control.
+        if (e.Source is not Border) return;
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            BeginMoveDrag(e);
+    }
+
+    private void ToggleMaximised() =>
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+
+    private void ApplyGround()
+    {
+        Surface.Background = SolidColorBrush.Parse(_ramp.GroundHex);
+        TopBar.Background = BottomBar.Background = SolidColorBrush.Parse(_ramp.BarHex);
+        TopBar.BorderBrush = BottomBar.BorderBrush = SolidColorBrush.Parse(_ramp.EdgeHex);
+
+        // Controls sitting on the bars have to track the bar, not the wall.
+        var field = SolidColorBrush.Parse(_ramp.FieldHex);
+        var fieldEdge = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
+        SearchBox.Background = field;
+        SearchBox.BorderBrush = fieldEdge;
+
+        CountsText.Text = _counts;
+        Console.WriteLine($"[wall] ground {_ramp.GroundHex} L{_ramp.Lightness}% "
+                        + $"hue {_ramp.Hue:0.#} \u00b7 chrome {_ramp.Chrome.Name} "
+                        + $"bar {_ramp.BarHex} field {_ramp.FieldHex}");
     }
 
     private void OnSliderChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)

@@ -5,8 +5,11 @@
         x:Class="AlbumWall.App.MainWindow"
         Title="Album Wall"
         Width="1444" Height="1080"
-        Background="#14120F"
-        RequestedThemeVariant="Dark">
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        RequestedThemeVariant="Dark"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowDecorations="None">
 
     <Window.Resources>
         <!-- The single source of truth for tile geometry. Updating this at
@@ -36,6 +39,46 @@
         <Style Selector="Button.tile /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+        <!-- Window buttons. Two treatments, because the conventions genuinely
+             differ: GNOME draws circular controls, Windows draws full-height
+             squares that meet the top edge. -->
+        <Style Selector="Button.wbtn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#A2978A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.wbtn.round">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="CornerRadius" Value="13"/>
+        </Style>
+        <Style Selector="Button.wbtn.square">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="Button.wbtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#3A332B"/>
+        </Style>
+        <Style Selector="Button.wbtn.square /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.wbtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#554A40"/>
+        </Style>
+        <Style Selector="Button.wbtn:pointerover">
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+        </Style>
+        <Style Selector="Button.wbtn.close:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#C42B1C"/>
+        </Style>
+        <Style Selector="Button.wbtn.close:pointerover">
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+
         <Style Selector="TextBox.search">
             <Setter Property="Background" Value="#241F1A"/>
             <Setter Property="Foreground" Value="#F3EEE6"/>
@@ -44,32 +87,47 @@
         </Style>
     </Window.Styles>
 
+    <!-- The window's real surface. Rounded and clipped here rather than on the
+         Window, because the Window's own backing surface is square: a radius set
+         on it leaves the old corners showing through. Matches GNOME and Windows
+         11, where every other window is rounded. -->
+    <Border x:Name="Surface" CornerRadius="12" ClipToBounds="True" Background="#14120F">
     <DockPanel>
 
-        <Border DockPanel.Dock="Top" Background="#1C1915" BorderBrush="#2B2620"
+        <Border x:Name="TopBar" DockPanel.Dock="Top" Background="#1C1915" BorderBrush="#2B2620"
                 BorderThickness="0,0,0,1" Height="60">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="26,0">
-                <TextBlock Grid.Column="0" Text="Library" FontSize="21" FontWeight="Bold"
-                           VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" x:Name="CountsText" Classes="dim mono" FontSize="12"
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" Margin="8,0,0,0">
+                <StackPanel Grid.Column="0" x:Name="LeftButtons" Orientation="Horizontal"
+                            Margin="0,0,10,0" Spacing="6" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Library" FontSize="21" FontWeight="Bold"
+                           Margin="12,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" x:Name="CountsText" Classes="dim mono" FontSize="12"
                            Margin="18,0,0,0" VerticalAlignment="Center"/>
                 <TextBox Grid.Column="3" x:Name="SearchBox" Classes="search" Width="280"
                          PlaceholderText="Search artist or album…" VerticalAlignment="Center"
                          FontSize="13" Padding="10,6"/>
+
+                <!-- Filled in code from the window manager's own button-layout
+                     preference: which buttons, which side, what order. -->
+                <StackPanel Grid.Column="4" x:Name="RightButtons" Orientation="Horizontal"
+                            Margin="14,0,8,0" Spacing="6" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
         <!-- SIZE is the control; column count and library length follow from it. -->
-        <Border DockPanel.Dock="Bottom" Background="#1C1915" BorderBrush="#2B2620"
+        <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Background="#1C1915" BorderBrush="#2B2620"
                 BorderThickness="0,1,0,0" Height="50">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="26,0">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" Margin="26,0">
                 <TextBlock Grid.Column="0" Text="COVER SIZE" Classes="dim" FontSize="11"
                            FontWeight="Bold" VerticalAlignment="Center"/>
                 <Slider Grid.Column="1" x:Name="SizeSlider" Minimum="48" Maximum="320" Value="185"
                         Width="220" Margin="14,0" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="2" x:Name="SizeText" Classes="mono" FontSize="12"
                            VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="4" x:Name="StatusText" Classes="dim" FontSize="12"
+                <!-- A visible control, not just the G shortcut: a keyboard-only
+                     affordance is invisible, and it loses to the search box for
+                     focus the moment you type in it. -->
+                <TextBlock Grid.Column="5" x:Name="StatusText" Classes="dim" FontSize="12"
                            VerticalAlignment="Center"/>
             </Grid>
         </Border>
@@ -107,4 +165,5 @@
         </ScrollViewer>
 
     </DockPanel>
+    </Border>
 </Window>
