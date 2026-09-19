@@ -564,6 +564,16 @@
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             Margin="24,0,10,0">
 
+                    <!-- HIDDEN, not removed. The values have settled (Light 21,
+                         Tint 2, ink — now the defaults in Ground) so the bench has
+                         done what the note above said it was for. It stays in the
+                         tree because the right values differ per screen and the
+                         levers are due to move into Preferences; until then
+                         ALBUMWALL_BENCH=1 brings it back, and the light/tint/
+                         chrome trigger commands work either way. -->
+                    <StackPanel x:Name="Bench" Orientation="Horizontal" Spacing="20"
+                                VerticalAlignment="Center" IsVisible="False">
+
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="Light" Classes="dim" FontSize="10"
                                    VerticalAlignment="Center"/>
@@ -589,6 +599,8 @@
                     <Button x:Name="ChromeButton" Classes="chrome" VerticalAlignment="Center"
                             FontSize="10" Padding="10,5"
                             ToolTip.Tip="How the bars separate from the wall — click to change"/>
+
+                    </StackPanel>
 
                     <!-- THIS APP'S OWN VOLUME, not the system's.
                          For turning the music down so something else can be

@@ -60,7 +60,10 @@ public static class Ground
     /// turn dark — so the slider stops where the current palette stops working.
     public const int MinLightness = 10;
     public const int MaxLightness = 40;
-    public const int DefaultLightness = 22;
+    /// 21, not 22: where he settled after living with the slider on two very
+    /// different screens (a 6K panel at 2x, then a pair of 4K panels at 150%).
+    /// One point is visible. A default, not a verdict — see DefaultChrome.
+    public const int DefaultLightness = 21;
 
     /// How the app's own furniture separates itself from the wall.
     ///
@@ -88,7 +91,14 @@ public static class Ground
         new("warm",   +11, 0.16, +22),
     ];
 
-    public const int DefaultChrome = 0;
+    /// "ink". His choice once the bench had done its job: "I think I've settled
+    /// on the window colors I like best: Light 21, Tint 2, INK". With that the
+    /// bench is hidden, as its own comment in the markup always said it would
+    /// be. These are only the values a machine STARTS from — anything already
+    /// saved in settings.json wins, so the other machine keeps what it has —
+    /// and he expects the right numbers to differ per screen, so the levers are
+    /// meant to come back in Preferences rather than be deleted.
+    public const int DefaultChrome = 2;
 
     public sealed record Ramp(double Hue, double Concentration, int Lightness, Chrome Chrome)
     {

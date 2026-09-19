@@ -858,6 +858,8 @@ public partial class MainWindow : Window
 
         Palette.SetGroundLightness(_lightness);
 
+        Bench.IsVisible = Environment.GetEnvironmentVariable("ALBUMWALL_BENCH") == "1";
+
         LightSlider.Value = _lightness;
         TintSlider.Value = tint;
         LightValue.Text = _lightness.ToString();
