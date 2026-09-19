@@ -120,7 +120,7 @@ Set `ALBUMWALL_SNAP` to a path before launching. Then:
   (`Set-Content "$env:ALBUMWALL_SNAP.cmd" "open dirt" -NoNewline`):
   `open <text>` (substring match on artist or album), `close`, `play <n>`,
   `search <text>` (bare `search` clears), `scroll <px>`, `volume <n>`, `rescan`,
-  `reveal`, `prefs`, `about`, `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
+  `reveal`, `prefs`, `prefs startup`, `about`, `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
   `hover` / `hover transport`, `trace`.
 
 `trace` prints the wall's geometry — panel height, scroll offset, extent,

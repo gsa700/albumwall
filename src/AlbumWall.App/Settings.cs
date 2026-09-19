@@ -28,6 +28,14 @@ public sealed class Settings
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 
+    /// Startup. Whether to pick up the album, track and position from the last
+    /// run — on unless he turns it off — and whether to start it PLAYING, which
+    /// is off unless he turns it on. His words: "let's NOT have it auto play
+    /// though, that will be an option in the settings page." An app that makes
+    /// noise because it was opened is a surprise, and not a good one.
+    public bool? ResumeSession { get; set; }
+    public bool? AutoPlay { get; set; }
+
     /// Where the music lives. Null means the platform's own Music folder, which
     /// is the right default everywhere and the only one that needs no setup.
     ///

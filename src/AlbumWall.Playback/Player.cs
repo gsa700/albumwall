@@ -65,6 +65,14 @@ public sealed class Player : IDisposable
     private DateTime _pendingUntil = DateTime.MinValue;
     private bool _pendingStarted;
 
+    /// Set when a queue is being RESTORED rather than played: arrive on the
+    /// track, at the position, and stay silent. See Play's `paused`.
+    private bool _pendingHold;
+
+    /// True while mpv's `start` option holds a resume position that has to be
+    /// taken away again once the file it was meant for has loaded.
+    private bool _startArmed;
+
     /// Whether playback is possible at all on this machine.
     public static bool IsAvailable => Mpv.IsAvailable;
 
@@ -187,7 +195,24 @@ public sealed class Player : IDisposable
     /// Position is then read back from mpv's `playlist-pos` rather than tracked
     /// here, so the app's idea of the current track cannot drift from what is
     /// actually coming out of the speakers.
-    public void Play(IEnumerable<string> paths, int start = 0)
+    ///
+    /// `at` and `paused` are for picking up where the last run left off: land on
+    /// the track at that position and wait. It goes through exactly the same
+    /// path as a real play — the same stop/append/play-index, the same
+    /// reassertion if mpv drifts — because that path exists to defeat a race
+    /// that only shows on the FIRST play after launch, which is precisely when
+    /// a restore happens. The one difference is the last step: on arriving,
+    /// hold instead of releasing.
+    ///
+    /// The position is given to mpv as its `start` option rather than as a seek
+    /// afterwards. A seek needs a loaded file and there is no good moment to
+    /// send one from here; `start` is read by the loader itself, so the file
+    /// opens already at the right place, paused, with nothing heard from the
+    /// beginning of the track. It is a global option, so it is cleared again
+    /// the moment that file has loaded — left set, every later track would
+    /// start part-way through.
+    public void Play(IEnumerable<string> paths, int start = 0,
+                     TimeSpan? at = null, bool paused = false)
     {
         var list = paths.ToList();
         if (list.Count == 0) return;
@@ -221,7 +246,13 @@ public sealed class Player : IDisposable
         _pending = wanted;
         _pendingTries = 0;
         _pendingStarted = false;
+        _pendingHold = paused;
         _pendingUntil = DateTime.UtcNow.AddSeconds(3);
+
+        _startArmed = at is { TotalSeconds: > 0.5 };
+        Mpv.mpv_set_property_string(_ctx, "start",
+            _startArmed ? at!.Value.TotalSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                        : "none");
 
         // `playlist-play-index` is the purpose-built command for "play this entry",
         // rather than setting a property and hoping nothing else writes it.
@@ -248,6 +279,7 @@ public sealed class Player : IDisposable
         _pending = index;
         _pendingTries = 0;
         _pendingStarted = false;
+        _pendingHold = false;
         _pendingUntil = DateTime.UtcNow.AddSeconds(3);
         Mpv.Command(_ctx, "playlist-play-index", index.ToString());
     }
@@ -318,9 +350,10 @@ public sealed class Player : IDisposable
             {
                 if (!_pendingStarted)
                 {
-                    Console.WriteLine($"[mpv] never reached {_pending}; playing anyway");
+                    Console.WriteLine($"[mpv] never reached {_pending}; "
+                                    + (_pendingHold ? "holding anyway" : "playing anyway"));
                     _pendingStarted = true;
-                    SetPaused(false);
+                    SetPaused(_pendingHold);
                 }
                 _pending = -1;
             }
@@ -337,6 +370,16 @@ public sealed class Player : IDisposable
 
                 case Mpv.EventId.PropertyChange:
                     OnPropertyChanged(ev);
+                    break;
+
+                case Mpv.EventId.FileLoaded:
+                    // The loader has read `start`; take it away before the next
+                    // track can inherit it.
+                    if (_startArmed)
+                    {
+                        _startArmed = false;
+                        Mpv.mpv_set_property_string(_ctx, "start", "none");
+                    }
                     break;
             }
         }
@@ -381,9 +424,10 @@ public sealed class Player : IDisposable
                     }
                     else if (!_pendingStarted)
                     {
-                        // On the requested track at last — let it be heard.
+                        // On the requested track at last — let it be heard,
+                        // unless this is a restore, which arrives and waits.
                         _pendingStarted = true;
-                        SetPaused(false);
+                        SetPaused(_pendingHold);
                     }
                     // A match does NOT disarm: it may still drift away afterwards.
                 }

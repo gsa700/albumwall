@@ -524,6 +524,19 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Padding" Value="15,6"/>
         </Style>
+        <!-- Preferences tabs. The selected one is the filled one. -->
+        <Style Selector="Button.tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#99F3EEE6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+        <Style Selector="Button.tab.selected">
+            <Setter Property="Background" Value="#26FFFFFF"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+        </Style>
         <Style Selector="TextBox.search">
             <Setter Property="Background" Value="#241F1A"/>
             <Setter Property="Foreground" Value="#F3EEE6"/>
@@ -810,7 +823,38 @@
             <StackPanel Spacing="22">
                 <TextBlock x:Name="SheetTitle" FontSize="21" FontWeight="Bold"/>
 
-                <StackPanel x:Name="PrefsSection" Spacing="12">
+                <!-- TABBED, and meant to grow: "fully tabbed prefs dialog with
+                     options build out as we go". Two tabs today. A tab is added
+                     when a second option for it turns up, not in anticipation —
+                     see docs/roadmap.md for what is expected (Colours next).
+
+                     Hand-rolled rather than a TabControl: the stock one arrives
+                     with its own header typography, underline and padding, all
+                     of which would have to be beaten back into this sheet's
+                     style, and what is needed is two buttons and a visibility
+                     switch. -->
+                <StackPanel x:Name="PrefsTabs" Orientation="Horizontal" Spacing="6">
+                    <Button x:Name="TabLibrary" Classes="tab" Content="Library"/>
+                    <Button x:Name="TabStartup" Classes="tab" Content="Startup"/>
+                </StackPanel>
+
+                <StackPanel x:Name="StartupSection" Spacing="14" IsVisible="False" MinHeight="196">
+                    <TextBlock Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
+                    <StackPanel Spacing="4">
+                        <CheckBox x:Name="PrefsResume" Content="Pick up where I left off"/>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Margin="28,0,0,0"
+                                   Text="Brings back the album, the track and how far into it you were."/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <CheckBox x:Name="PrefsAutoPlay" Content="…and start playing straight away"/>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Margin="28,0,0,0"
+                                   Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel x:Name="PrefsSection" Spacing="12" MinHeight="196">
                     <TextBlock Text="Music folder" FontSize="14" FontWeight="SemiBold"/>
                     <Border CornerRadius="4" Padding="13,11"
                             Background="{DynamicResource SheetField}">

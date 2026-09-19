@@ -120,7 +120,16 @@ public partial class MainWindow : Window
         ApplyGround();
 
         Opened += (_, _) => { _restored = true; RestorePosition(); };
-        Closing += (_, _) => { SaveSettings(); _watcher?.Dispose(); };
+        Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
+
+        // The position is only worth as much as its last write, and a crash, a
+        // logout or a pulled plug does not run the Closing handler. Five seconds
+        // is the most he can lose; the file is a few kilobytes.
+        DispatcherTimer.Run(() =>
+        {
+            if (_player is { IsPlaying: true }) SaveSession();
+            return true;
+        }, TimeSpan.FromSeconds(5));
 
         // Saving ONLY on close loses the window setup to anything that is not a
         // clean exit — a crash, a logout, or a SIGTERM. Geometry is cheap to
@@ -454,6 +463,14 @@ public partial class MainWindow : Window
                 ApplyGround();
                 ShowEmptyState(albums.Count == 0, root);
 
+                // Once, and only after the first scan: there is nothing to
+                // resume INTO until the library exists.
+                if (!_resumeTried)
+                {
+                    _resumeTried = true;
+                    ResumeSession();
+                }
+
                 // Ground hue comes from the art, so it can only be derived after
                 // the scan. Separate task: the wall must be on screen
                 // immediately, not waiting on 200 thumbnail decodes.
@@ -783,13 +800,54 @@ public partial class MainWindow : Window
         };
 
         PrefsRescan.Click += (_, _) => ScanLibrary();
+
+        TabLibrary.Click += (_, _) => ShowPrefsTab(startup: false);
+        TabStartup.Click += (_, _) => ShowPrefsTab(startup: true);
+
+        // Written straight through, like everything else in the sheet: there is
+        // no OK button to forget, and a setting that only takes effect at the
+        // next launch has nothing to apply in the meantime.
+        PrefsResume.IsCheckedChanged += (_, _) =>
+        {
+            if (_fillingPrefs) return;
+            _settings.ResumeSession = PrefsResume.IsChecked == true;
+            PrefsAutoPlay.IsEnabled = PrefsResume.IsChecked == true;
+            _settings.Save();
+        };
+        PrefsAutoPlay.IsCheckedChanged += (_, _) =>
+        {
+            if (_fillingPrefs) return;
+            _settings.AutoPlay = PrefsAutoPlay.IsChecked == true;
+            _settings.Save();
+        };
+    }
+
+    private bool _fillingPrefs;
+
+    private void ShowPrefsTab(bool startup)
+    {
+        PrefsSection.IsVisible = !startup;
+        StartupSection.IsVisible = startup;
+        TabLibrary.Classes.Set("selected", !startup);
+        TabStartup.Classes.Set("selected", startup);
     }
 
     private void ShowSheet(bool about)
     {
         SheetTitle.Text = about ? "About" : "Preferences";
-        PrefsSection.IsVisible = !about;
+        PrefsTabs.IsVisible = !about;
         AboutSection.IsVisible = about;
+        if (about) PrefsSection.IsVisible = StartupSection.IsVisible = false;
+        else ShowPrefsTab(startup: false);
+
+        // Resume is on unless turned off; auto-play is off unless turned on.
+        // Filling the boxes is not him ticking them: without the guard, merely
+        // opening Preferences would write the defaults into his settings file.
+        _fillingPrefs = true;
+        PrefsResume.IsChecked = _settings.ResumeSession != false;
+        PrefsAutoPlay.IsChecked = _settings.AutoPlay == true;
+        PrefsAutoPlay.IsEnabled = PrefsResume.IsChecked == true;
+        _fillingPrefs = false;
 
         PrefsPath.Text = LibraryRoot;
 
@@ -1224,6 +1282,12 @@ public partial class MainWindow : Window
         // over in seconds, so catching its progress display means starting one
         // on demand and photographing it straight away.
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(); return; }
+        if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase))
+        {
+            ShowSheet(about: false);
+            ShowPrefsTab(startup: true);
+            return;
+        }
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: false); return; }
         if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: true); return; }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { Sheet.IsVisible = false; return; }
@@ -1426,15 +1490,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var fresh = _player is null;
-            _player ??= new Playback.Player(
-                Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved)
-                    ? saved
-                    : Playback.GainMode.Album);
-
-            // A player built now starts at whatever the slider already says.
-            if (fresh) _player.Volume = _volume;
-
+            EnsurePlayer();
             var paths = album.Album.Tracks.Select(t => t.Path).ToList();
 
             // Context picks the mode only while the user has not picked one.
@@ -1455,13 +1511,9 @@ public partial class MainWindow : Window
                 _player.Gain = Playback.GainMode.Album;
             }
 
-            _player.TrackChanged -= OnTrackChanged;
-            _player.TrackChanged += OnTrackChanged;
-            _player.StateChanged -= OnPlaybackState;
-            _player.StateChanged += OnPlaybackState;
-
             _playingAlbum = album;
             _playingPaths = paths;
+            _sessionOver = false;
             _player.Play(paths, from);
             MarkPlayingTrack();
 
@@ -1476,6 +1528,143 @@ public partial class MainWindow : Window
             StatusText.Text = ex.Message;
             Console.WriteLine($"[wall] playback unavailable: {ex.Message}");
         }
+    }
+
+    /// The player, built on first use and wired once.
+    ///
+    /// Throws if libmpv cannot be loaded; both callers turn that into a
+    /// transport that explains itself rather than a crash.
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_player))]
+    private void EnsurePlayer()
+    {
+        if (_player is not null) return;
+
+        _player = new Playback.Player(
+            Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved)
+                ? saved
+                : Playback.GainMode.Album);
+
+        // A player built now starts at whatever the slider already says.
+        _player.Volume = _volume;
+
+        _player.TrackChanged += OnTrackChanged;
+        _player.StateChanged += OnPlaybackState;
+
+        // The record ran out: there is nothing left to pick up next time.
+        //
+        // BUT "FINISHED" IS NOT ONLY THE END OF A RECORD. It is mpv going idle,
+        // and mpv is idle when it is first created and again for an instant on
+        // the `stop` that opens every Play(). Taken at face value that marked
+        // the session over the moment anything started, and nothing was ever
+        // saved. A real ending is going idle FROM a track, so the test is
+        // whether the player was on one — and it is made here, on mpv's own
+        // thread at the moment of the event, not inside the posted lambda: by
+        // the time that runs, the track that Play() asked for has usually
+        // arrived and the index says "playing" again.
+        _player.Finished += (_, _) =>
+        {
+            if (_player is not { Index: >= 0 }) return;
+            Dispatcher.UIThread.Post(EndSession);
+        };
+    }
+
+    private void EndSession()
+    {
+        _sessionOver = true;
+        Session.Clear();
+    }
+
+    private bool _resumeTried;
+
+    /// Set when the queue has played out, so the periodic save does not write
+    /// the finished album straight back.
+    private bool _sessionOver;
+
+    /// Records what is playing and where, for the next run.
+    private void SaveSession()
+    {
+        if (_player is null || _playingAlbum is null || _sessionOver) return;
+
+        // Index is -1 until mpv has actually arrived on a track. Saving then
+        // would replace a good record with "track -1 at zero" — and the moment
+        // that happens is just after launch, mid-restore, which is exactly when
+        // the record matters.
+        var i = _player.Index;
+        if (i < 0 || i >= _playingPaths.Count) return;
+
+        new Session
+        {
+            AlbumArtist = _playingAlbum.Artist,
+            Album = _playingAlbum.Title,
+            Queue = _playingPaths,
+            Index = i,
+            PositionSeconds = _player.Position.TotalSeconds
+        }.Save();
+    }
+
+    /// Picks up the album, track and position from the last run — paused.
+    ///
+    /// His words: "remember what album was playing, song, time elapsed, etc. and
+    /// restore on startup ... let's NOT have it auto play though". So the
+    /// transport comes back showing where he was, and nothing is heard until he
+    /// presses play. AutoPlay in the settings turns that into playing.
+    ///
+    /// Everything is checked against the library as it is NOW, because the
+    /// record is from last time and the files are the truth: an album that has
+    /// gone is not resumed, tracks that have gone are dropped from the queue,
+    /// and if the track he was on is one of them the album starts from the top
+    /// rather than part-way through some other song.
+    private void ResumeSession()
+    {
+        if (_settings.ResumeSession == false) return;
+        if (Session.Load() is not { Queue.Count: > 0 } last) return;
+        if (!Playback.Player.IsAvailable || _playerFailed) return;
+
+        var album = _all.FirstOrDefault(v => v.Artist == last.AlbumArtist && v.Title == last.Album);
+        if (album is null)
+        {
+            Console.WriteLine($"[session] {last.AlbumArtist} - {last.Album} is no longer in the library");
+            return;
+        }
+
+        var known = album.Album.Tracks.Select(t => t.Path).ToHashSet();
+        var queue = last.Queue.Where(known.Contains).ToList();
+        if (queue.Count == 0) return;
+
+        var was = last.Index >= 0 && last.Index < last.Queue.Count ? last.Queue[last.Index] : null;
+        var index = was is null ? -1 : queue.IndexOf(was);
+        var at = TimeSpan.FromSeconds(Math.Max(0, last.PositionSeconds));
+        if (index < 0) { index = 0; at = TimeSpan.Zero; }
+
+        try
+        {
+            EnsurePlayer();
+            _playingAlbum = album;
+            _playingPaths = queue;
+            _sessionOver = false;
+            _player.Play(queue, index, at, paused: _settings.AutoPlay != true);
+        }
+        catch (Exception ex)
+        {
+            _playerFailed = true;
+            Console.WriteLine($"[session] could not resume: {ex.Message}");
+            return;
+        }
+
+        Console.WriteLine($"[session] resumed {album.Artist} - {album.Title}, "
+                        + $"track {index + 1}/{queue.Count} at {(int)at.TotalMinutes}:{at.Seconds:00}"
+                        + (_settings.AutoPlay == true ? ", playing" : ", paused"));
+
+        // The transport shows the album's cover, and nothing has asked for it
+        // yet: normally the tile was on screen long before anything played.
+        void OnCover(object? s, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(AlbumVm.Cover)) return;
+            album.PropertyChanged -= OnCover;
+            UpdateNowPlaying();
+        }
+        album.PropertyChanged += OnCover;
+        album.EnsureCover(260);
     }
 
     /// Fisher-Yates, in place. Returns the index to start from.
@@ -1566,10 +1755,10 @@ public partial class MainWindow : Window
     });
 
     private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
-        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); });
+        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); SaveSession(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
-        Dispatcher.UIThread.Post(UpdateNowPlaying);
+        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); SaveSession(); });
 
     /// The transport is the only thing that changes the wall's height while an
     /// album is open, so it is the only place that has to hold the wall still.
