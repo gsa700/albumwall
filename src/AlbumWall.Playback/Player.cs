@@ -43,6 +43,28 @@ public sealed class Player : IDisposable
     private int _index = -1;
     private readonly Lock _gate = new();
 
+    /// The index Play was asked for, held until mpv is observed to be ON it.
+    ///
+    /// Ordering games with mpv have now failed twice — first `loadfile replace`
+    /// started entry 0 asynchronously and overwrote the position, then `stop` plus
+    /// appends did something equivalent. Rather than keep guessing at the command
+    /// sequence that has no race in it, the intent is remembered and reasserted
+    /// if mpv is seen landing anywhere else. Self-correcting beats correct-by-
+    /// argument when the argument keeps losing.
+    private int _pending = -1;
+    private int _pendingTries;
+
+    /// How long the intent is DEFENDED for.
+    ///
+    /// Disarming the moment mpv is first seen on the right track was not enough:
+    /// it lands correctly, then drifts to entry 0 a moment later, and by then
+    /// nothing is watching. So the intent is held for a window rather than
+    /// cleared on first sight. Three seconds is longer than any of the observed
+    /// drifts and far shorter than any track, so a natural advance to the next
+    /// track cannot be mistaken for drift.
+    private DateTime _pendingUntil = DateTime.MinValue;
+    private bool _pendingStarted;
+
     /// Whether playback is possible at all on this machine.
     public static bool IsAvailable => Mpv.IsAvailable;
 
@@ -170,7 +192,14 @@ public sealed class Player : IDisposable
             Mpv.Command(_ctx, "loadfile", path, "append");
 
         var wanted = Math.Clamp(start, 0, list.Count - 1);
-        var rc = Mpv.mpv_set_property_string(_ctx, "playlist-pos", wanted.ToString());
+        _pending = wanted;
+        _pendingTries = 0;
+        _pendingStarted = false;
+        _pendingUntil = DateTime.UtcNow.AddSeconds(3);
+
+        // `playlist-play-index` is the purpose-built command for "play this entry",
+        // rather than setting a property and hoping nothing else writes it.
+        var rc = Mpv.Command(_ctx, "playlist-play-index", wanted.ToString());
 
         Mpv.mpv_get_property(_ctx, "playlist-count", Mpv.Format.Int64, out long count);
         Console.WriteLine($"[mpv] queued {list.Count} (mpv says {count}), "
@@ -178,7 +207,11 @@ public sealed class Player : IDisposable
                         + (rc < 0 ? $"  FAILED: {Mpv.ErrorText(rc)}" : "")
                         + $"  want: {System.IO.Path.GetFileName(list[wanted])}");
 
-        SetPaused(false);
+        // DELIBERATELY STILL PAUSED. When mpv is idle and the playlist is empty,
+        // appending the first file makes it start playing entry 0 on its own —
+        // which is why this only ever went wrong on the FIRST play after launch,
+        // and was fine every time after. Sound is released below, from the event
+        // pump, once mpv is observed to actually be on the requested track.
     }
 
     public void PlayIndex(int index)
@@ -186,13 +219,21 @@ public sealed class Player : IDisposable
         lock (_gate)
             if (index < 0 || index >= _queue.Count) return;
 
-        Mpv.mpv_set_property_string(_ctx, "playlist-pos", index.ToString());
-        SetPaused(false);
+        _pending = index;
+        _pendingTries = 0;
+        _pendingStarted = false;
+        _pendingUntil = DateTime.UtcNow.AddSeconds(3);
+        Mpv.Command(_ctx, "playlist-play-index", index.ToString());
     }
 
     /// `weak` means "do nothing at the end of the playlist" rather than wrapping
     /// or erroring — the album ending is handled by idle-active instead.
-    public void Next() => Mpv.Command(_ctx, "playlist-next", "weak");
+    public void Next()
+    {
+        _pending = -1;
+        _pendingUntil = DateTime.MinValue;
+        Mpv.Command(_ctx, "playlist-next", "weak");
+    }
 
     public void Previous()
     {
@@ -200,6 +241,8 @@ public sealed class Player : IDisposable
         // current one. This is what every physical player does and what the hand
         // expects.
         if (Position > TimeSpan.FromSeconds(3)) { Seek(TimeSpan.Zero); return; }
+        _pending = -1;
+        _pendingUntil = DateTime.MinValue;
         Mpv.Command(_ctx, "playlist-prev", "weak");
     }
 
@@ -242,6 +285,20 @@ public sealed class Player : IDisposable
     {
         while (_running)
         {
+            // The pump wakes at least every 200 ms, which makes it the right
+            // place to enforce the deadline: if mpv never reaches the requested
+            // track, playback must not sit silently paused forever.
+            if (_pending >= 0 && DateTime.UtcNow >= _pendingUntil)
+            {
+                if (!_pendingStarted)
+                {
+                    Console.WriteLine($"[mpv] never reached {_pending}; playing anyway");
+                    _pendingStarted = true;
+                    SetPaused(false);
+                }
+                _pending = -1;
+            }
+
             var ptr = Mpv.mpv_wait_event(_ctx, 0.2);
             if (ptr == IntPtr.Zero) continue;
 
@@ -275,7 +332,37 @@ public sealed class Player : IDisposable
 
             case 4:     // playlist-pos
                 var pos = (int)Marshal.ReadInt64(prop.Data);
-                if (pos < 0 || pos == _index) return;
+                if (pos < 0) return;
+
+                if (_pending >= 0)
+                {
+                    if (DateTime.UtcNow >= _pendingUntil)
+                    {
+                        _pending = -1;              // window closed; whatever it is now, it is
+                    }
+                    else if (pos != _pending)
+                    {
+                        // Landed somewhere we did not ask for: put it back.
+                        if (_pendingTries++ < 5)
+                        {
+                            Console.WriteLine($"[mpv] drifted to {pos}, reasserting {_pending} "
+                                            + $"(attempt {_pendingTries})");
+                            Mpv.Command(_ctx, "playlist-play-index", _pending.ToString());
+                            return;
+                        }
+                        Console.WriteLine($"[mpv] gave up reasserting {_pending}; sitting at {pos}");
+                        _pending = -1;
+                    }
+                    else if (!_pendingStarted)
+                    {
+                        // On the requested track at last — let it be heard.
+                        _pendingStarted = true;
+                        SetPaused(false);
+                    }
+                    // A match does NOT disarm: it may still drift away afterwards.
+                }
+
+                if (pos == _index) return;
                 _index = pos;
                 lock (_gate)
                     if (pos < _queue.Count)

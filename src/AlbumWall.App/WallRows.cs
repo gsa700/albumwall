@@ -131,6 +131,9 @@ public sealed class PanelRow : WallItem
     public IReadOnlyList<TrackLine> LeftColumn => Split().Left;
     public IReadOnlyList<TrackLine> RightColumn => Split().Right;
 
+    /// Every track line, for marking whichever one is playing.
+    public IEnumerable<TrackLine> AllLines => LeftColumn.Concat(RightColumn);
+
     /// Offset of the arrow, as a margin. Half the arrow's 22 px width is taken
     /// off so its POINT lands on the cover's centre, not its left corner.
     public Avalonia.Thickness ArrowMargin => new(ArrowOffset - 11, 0, 0, 0);
@@ -171,8 +174,29 @@ public sealed class PanelRow : WallItem
 }
 
 /// One row of the panel's track list: either a disc header or a track.
-public sealed class TrackLine
+public sealed class TrackLine : System.ComponentModel.INotifyPropertyChanged
 {
+    private bool _playing;
+
+    /// Marks the track currently coming out of the speakers. Notifying, because
+    /// this changes underneath an open panel as an album plays through.
+    public bool IsPlaying
+    {
+        get => _playing;
+        set
+        {
+            if (_playing == value) return;
+            _playing = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsPlaying)));
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(NotPlaying)));
+        }
+    }
+
+    /// The track list shows a number OR a playing marker, never both.
+    public bool NotPlaying => !_playing && !IsHeader;
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
     public bool IsHeader { get; private init; }
     public string Text { get; private init; } = "";
     public string Number { get; private init; } = "";

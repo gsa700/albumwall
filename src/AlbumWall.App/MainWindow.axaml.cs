@@ -649,6 +649,8 @@ public partial class MainWindow : Window
             Unfold = unfold,
             PlayFrom = Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null
         });
+
+        MarkPlayingTrack();
     }
 
     /// Queues the whole album and starts at the chosen track.
@@ -693,6 +695,7 @@ public partial class MainWindow : Window
             _playingAlbum = album;
             _playingPaths = paths;
             _player.Play(paths, from);
+            MarkPlayingTrack();
 
             Console.WriteLine($"[wall] requested track {from + 1}: "
                             + $"{(from < album.Album.Tracks.Count ? album.Album.Tracks[from].Title : "?")}");
@@ -723,7 +726,7 @@ public partial class MainWindow : Window
     private List<string> _playingPaths = [];
 
     private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
-        Dispatcher.UIThread.Post(UpdateNowPlaying);
+        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(UpdateNowPlaying);
@@ -803,6 +806,28 @@ public partial class MainWindow : Window
 
         if (_playingAlbum is not null)
             Recolour(Palette.For(_playingAlbum.Album).OnLight);
+    }
+
+    /// Flags the playing track in the open panel, if the open panel happens to be
+    /// the album that is playing.
+    ///
+    /// Matched by PATH rather than by index: shuffle reorders the queue, so the
+    /// player's position is an index into the SHUFFLED list and means nothing to
+    /// a track list shown in album order.
+    private void MarkPlayingTrack()
+    {
+        if (_panelAt < 0 || _panelAt >= _rows.Count || _rows[_panelAt] is not PanelRow panel)
+            return;
+
+        string? playing = null;
+        if (_player is not null && _playingAlbum is not null)
+        {
+            var i = _player.Index;
+            if (i >= 0 && i < _playingPaths.Count) playing = _playingPaths[i];
+        }
+
+        foreach (var line in panel.AllLines)
+            line.IsPlaying = playing is not null && line.Source?.Path == playing;
     }
 
     private void UpdateNowPlaying()
@@ -978,6 +1003,25 @@ public partial class MainWindow : Window
                                     TimeSpan.FromMilliseconds(AnchorMs + UnfoldMs + 200));
     }
 
+    /// Brings the opened album to a consistent place near the top of the view.
+    ///
+    /// This ALWAYS moves the wall, which was tried the other way and rejected: a
+    /// minimum-movement version left the album wherever it happened to be, and the
+    /// unfold then felt like something appearing rather than the wall turning to
+    /// show you the record you picked. His words — "I liked the scrolling the old
+    /// way where the window moved to show the selected album when it unfolded".
+    ///
+    /// The mis-clicks this used to cause are handled by freezing the wall while it
+    /// is in motion, rather than by refusing to move it.
+    private double TargetOffsetFor(Control element)
+    {
+        // One album row of context above the opened one, so it does not sit jammed
+        // against the top edge.
+        var lead = CoverPx + LabelHeight + RowSpacing;
+        var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+        return Math.Clamp(element.Bounds.Y - lead, 0, max);
+    }
+
     private void AnchorOn(AlbumVm album)
     {
         var index = _visible.IndexOf(album);
@@ -998,10 +1042,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // One album row of context above the opened one.
-            var lead = CoverPx + LabelHeight + RowSpacing;
-            var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
-            var target = Math.Clamp(element.Bounds.Y - lead, 0, max);
+            var target = TargetOffsetFor(element);
 
             var y = WallScroller.Offset.Y;
             if (Math.Abs(target - y) < 0.5)

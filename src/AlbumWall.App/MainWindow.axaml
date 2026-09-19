@@ -142,13 +142,33 @@
                 <TextBlock Text="{Binding Text}" IsVisible="{Binding IsHeader}"
                            FontSize="11" FontWeight="Bold" Margin="0,14,0,5"
                            Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Accent}"/>
-                <Button Classes="track" IsVisible="{Binding !IsHeader}"
+                <Button Classes="track" Classes.playing="{Binding IsPlaying}"
+                        IsVisible="{Binding !IsHeader}"
                         Command="{Binding PlayCommand}">
                 <Grid ColumnDefinitions="30,*,Auto" Height="28">
                     <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="12"
+                               IsVisible="{Binding NotPlaying}"
                                VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
                                Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
+
+                    <!-- The playing track shows a marker in place of its number,
+                         so the list does not change width as playback moves. The
+                         pulse is slow on purpose: it should read as "this one is
+                         live", not demand attention. -->
+                    <Path Grid.Column="0" Classes="pulse" Data="M 0 0 L 8 5 L 0 10 Z"
+                          IsVisible="{Binding IsPlaying}"
+                          Fill="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"
+                          HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"/>
+
+                    <!-- Two blocks rather than a converter: the "playing" colour
+                         is the PANEL's accent, which differs per album, so there
+                         is no single brush a converter could return. -->
                     <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="14"
+                               IsVisible="{Binding !IsPlaying}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="14"
+                               IsVisible="{Binding IsPlaying}" FontWeight="SemiBold"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"/>
                     <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="12"
@@ -310,6 +330,17 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
         </Style>
+        <!-- A slow breath on the playing marker. Long and shallow deliberately:
+             it should read as "this one is live", not compete with the music. -->
+        <Style Selector="Path.pulse">
+            <Style.Animations>
+                <Animation Duration="0:0:2.2" IterationCount="INFINITE" Easing="SineEaseInOut">
+                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>
+                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.35"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
         <Style Selector="Button.track">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -324,6 +355,17 @@
         </Style>
         <Style Selector="Button.track:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#1FFFFFFF"/>
+        </Style>
+
+        <!-- The playing track wears the hover highlight permanently. A translucent
+             white wash rather than a colour, so it works against every album
+             palette by construction — which a fixed blue did not, and which the
+             album's own accent could not, since the disc headers use that. -->
+        <Style Selector="Button.track.playing /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1FFFFFFF"/>
+        </Style>
+        <Style Selector="Button.track.playing:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF"/>
         </Style>
         <Style Selector="Button.panel">
             <Setter Property="Background" Value="#26FFFFFF"/>
