@@ -151,22 +151,23 @@ public sealed class Player : IDisposable
             _index = -1;
         }
 
-        // PAUSE FIRST. `loadfile ... replace` starts playing immediately, so
-        // building the playlist and then moving to the requested track let track
-        // one sound for a moment on every single click — clearly visible in the
-        // log as `playlist-pos -> 0` followed by `-> N`. Loading while paused
-        // makes the whole set-up silent, and the position is already right by the
-        // time anything is audible.
+        // NEVER USE `loadfile ... replace` HERE. It returns immediately but starts
+        // playing entry 0 asynchronously, and that deferred start RESETS
+        // playlist-pos — clobbering the position set straight after it. The log
+        // shows it exactly: `playlist-pos -> 15` (ours) followed by
+        // `playlist-pos -> 0` (mpv's). That is why clicking a track sometimes
+        // played the first one, and why clicking again always worked: by then the
+        // playlist was loaded and there was no pending start to override us.
+        //
+        // `stop` clears the playlist outright, and `append` onto an idle player
+        // starts nothing. Setting playlist-pos is then the ONLY thing that begins
+        // playback, so there is no race to lose.
         var hold = 1;
         Mpv.mpv_set_property(_ctx, "pause", Mpv.Format.Flag, ref hold);
 
-        // Build the playlist, then position ALWAYS — including to zero. Relying
-        // on `replace` to have left the position at zero is an assumption about
-        // mpv's internal state after a previous album, and being explicit costs
-        // nothing.
-        Mpv.Command(_ctx, "loadfile", list[0], "replace");
-        for (var i = 1; i < list.Count; i++)
-            Mpv.Command(_ctx, "loadfile", list[i], "append");
+        Mpv.Command(_ctx, "stop");
+        foreach (var path in list)
+            Mpv.Command(_ctx, "loadfile", path, "append");
 
         var wanted = Math.Clamp(start, 0, list.Count - 1);
         var rc = Mpv.mpv_set_property_string(_ctx, "playlist-pos", wanted.ToString());
