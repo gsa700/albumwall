@@ -139,8 +139,11 @@
                         <Button Grid.Column="1" Classes="coverplay"
                                 Command="{Binding PlayCommand}"
                                 IsEnabled="{Binding CanPlay}"
-                                VerticalAlignment="Top"
-                                ToolTip.Tip="Play this album">
+                                VerticalAlignment="Top">
+                            <!-- No tooltip. The glyph that fades in under the
+                                 pointer already says "play", and a label arriving
+                                 beside it to say so again is the same instruction
+                                 twice. -->
                             <Border Width="260" Height="260" CornerRadius="3"
                                     ClipToBounds="True"
                                     Background="{Binding Album.Placeholder}">
