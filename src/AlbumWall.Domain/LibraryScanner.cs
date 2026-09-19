@@ -135,7 +135,12 @@ public sealed partial class LibraryScanner
             if (pics is { Length: > 0 })
             {
                 var front = pics.FirstOrDefault(p => p.Type == TagLib.PictureType.FrontCover) ?? pics[0];
-                if (front.Data.Count > 0) { album.ArtEmbeddedIn = filePath; return; }
+                if (front.Data.Count > 0)
+                {
+                    album.ArtEmbeddedIn = filePath;
+                    Measure(album, front.Data.Data);
+                    return;
+                }
             }
         }
         catch { /* malformed picture block shouldn't kill the scan */ }
@@ -143,8 +148,29 @@ public sealed partial class LibraryScanner
         foreach (var name in ArtNames)
         {
             var candidate = Path.Combine(dir, name);
-            if (File.Exists(candidate)) { album.ArtPath = candidate; return; }
+            if (!File.Exists(candidate)) continue;
+
+            album.ArtPath = candidate;
+            try
+            {
+                // The head of the file, not all of it. A sidecar can be several
+                // megabytes and a FLAC library has one per album; the frame
+                // header is past the EXIF block but well inside this.
+                using var fs = File.OpenRead(candidate);
+                var head = new byte[(int)Math.Min(fs.Length, 256 * 1024)];
+                fs.ReadExactly(head);
+                Measure(album, head);
+            }
+            catch { /* art we cannot measure is still art */ }
+            return;
         }
+    }
+
+    private static void Measure(Album album, ReadOnlySpan<byte> data)
+    {
+        if (ImageSize.Read(data) is not var (w, h)) return;
+        album.ArtWidth = w;
+        album.ArtHeight = h;
     }
 
     private static string? First(string[]? xs) =>

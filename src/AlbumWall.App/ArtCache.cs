@@ -120,10 +120,7 @@ public static class ArtCache
             // A sidecar is a plain image file; anything else is a track we must
             // pull the embedded picture out of.
             if (IsImageFile(key))
-            {
-                using var fs = File.OpenRead(key);
-                return Bitmap.DecodeToWidth(fs, bucket);
-            }
+                return DecodeNoLarger(File.ReadAllBytes(key), bucket);
 
             using var tf = TagLib.File.Create(key);
             var pics = tf.Tag.Pictures;
@@ -131,8 +128,7 @@ public static class ArtCache
             var front = pics.FirstOrDefault(p => p.Type == TagLib.PictureType.FrontCover) ?? pics[0];
             if (front.Data.Count == 0) return null;
 
-            using var ms = new MemoryStream(front.Data.Data);
-            return Bitmap.DecodeToWidth(ms, bucket);
+            return DecodeNoLarger(front.Data.Data, bucket);
         }
         catch
         {
@@ -140,6 +136,25 @@ public static class ArtCache
             // its placeholder.
             return null;
         }
+    }
+
+    /// Decodes DOWN to the bucket and never up.
+    ///
+    /// DecodeToWidth does exactly what it says in both directions: handed a
+    /// 150 px thumbnail and asked for 256 it returns 256 px of interpolation,
+    /// and from then on nothing downstream can tell that cover from a real one.
+    /// It looked soft on the wall and there was no way to do anything about it,
+    /// because the evidence had been destroyed at the door. A cover smaller
+    /// than the bucket is now kept at its own size — which is also less memory —
+    /// and the view decides how far it is prepared to stretch it.
+    ///
+    /// An unrecognised header falls through to the old behaviour.
+    private static Bitmap DecodeNoLarger(byte[] data, int bucket)
+    {
+        using var ms = new MemoryStream(data);
+        return Domain.ImageSize.Read(data) is var (w, _) && w <= bucket
+            ? new Bitmap(ms)
+            : Bitmap.DecodeToWidth(ms, bucket);
     }
 
     /// A one-off tiny decode that deliberately BYPASSES the cache: it is used to

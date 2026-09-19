@@ -318,6 +318,10 @@ public partial class MainWindow : Window
                         + $"extended={IsExtendedIntoWindowDecorations} "
                         + $"decorationMargin={WindowDecorationMargin}");
 
+        // Before the first tile is built: how far a cover may be enlarged is
+        // counted in its own pixels, so the tiles need to know what a pixel is.
+        AlbumVm.Scaling = RenderScaling;
+
         SetUpMenu();
         ScanLibrary();
 
@@ -548,7 +552,7 @@ public partial class MainWindow : Window
         foreach (var a in albums)
         {
             h.Add(a.AlbumArtist); h.Add(a.Title); h.Add(a.Year);
-            h.Add(a.ArtPath); h.Add(a.ArtEmbeddedIn);
+            h.Add(a.ArtPath); h.Add(a.ArtEmbeddedIn); h.Add(a.ArtWidth); h.Add(a.ArtHeight);
             foreach (var t in a.Tracks) h.Add(t);      // a record: every field counts
         }
         return h.ToHashCode();
@@ -973,7 +977,9 @@ public partial class MainWindow : Window
 
         _visible = _filter.Length == 0
             ? _all.ToList()
-            : _all.Where(v => v.Album.SearchText.Contains(_filter)).ToList();
+            : ArtQuery(_filter) is { } wanted
+                ? _all.Where(v => wanted(v.Album)).ToList()
+                : _all.Where(v => v.Album.SearchText.Contains(_filter)).ToList();
 
         // A filter that hides the open album has to close it: a panel pointing at
         // a cover that is no longer on the wall is worse than no panel.
@@ -990,6 +996,30 @@ public partial class MainWindow : Window
             RestoreViewAfterSearch();
         }
     }
+
+    /// A cover shorter than this on its shorter side is "small". It is the
+    /// panel's sleeve at 100% scaling, near enough: below it a cover cannot fill
+    /// the biggest place the app shows it without being enlarged.
+    private const int SmallArtPx = 300;
+
+    /// art:missing, art:small, art:nonsquare — the albums whose artwork wants
+    /// attention, typed into the search box.
+    ///
+    /// The app does the best it can with the art it is given and will not fetch
+    /// any: the files are the truth, and better art belongs IN them, put there
+    /// once with a tagger. What the app can do is say which albums those are,
+    /// which no tagger shows as a wall. Deliberately not in the menu — it is a
+    /// maintenance query, not something a listener needs to see.
+    ///
+    /// An unmeasured cover (size 0) matches none of them: unknown is not small.
+    private static Func<Domain.Album, bool>? ArtQuery(string filter) => filter switch
+    {
+        "art:missing" => a => !a.HasArt,
+        "art:small" => a => a.ArtWidth > 0 && Math.Min(a.ArtWidth, a.ArtHeight) < SmallArtPx,
+        "art:nonsquare" => a => a.ArtWidth > 0
+                             && Math.Abs(a.ArtWidth - a.ArtHeight) > 0.05 * Math.Max(a.ArtWidth, a.ArtHeight),
+        _ => null
+    };
 
     /// Puts the wall back where the search interrupted it.
     ///

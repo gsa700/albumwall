@@ -44,6 +44,14 @@ public sealed class Album
     public string? ArtPath { get; set; }
     public string? ArtEmbeddedIn { get; set; }
 
+    /// The cover's real size in pixels, read from its header at scan time, or
+    /// zero when there is no art or the format was not recognised. Zero means
+    /// UNKNOWN and must never be read as "small".
+    public int ArtWidth { get; set; }
+    public int ArtHeight { get; set; }
+
+    public bool HasArt => ArtPath is not null || ArtEmbeddedIn is not null;
+
     /// Every directory this album's tracks live in. A multi-disc set spans
     /// several, which is why art lookup has to consider more than one.
     public HashSet<string> Directories { get; } = [];

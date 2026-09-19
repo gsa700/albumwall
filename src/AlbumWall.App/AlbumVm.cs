@@ -39,7 +39,13 @@ public sealed class AlbumVm : INotifyPropertyChanged
     public Bitmap? Cover
     {
         get => _cover;
-        private set { _cover = value; OnPropertyChanged(); OnPropertyChanged(nameof(CoverOpacity)); }
+        private set
+        {
+            _cover = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CoverOpacity));
+            OnPropertyChanged(nameof(GroundOpacity));
+        }
     }
 
     /// The ring takes the album's OWN accent colour, so the selected tile is
@@ -54,6 +60,59 @@ public sealed class AlbumVm : INotifyPropertyChanged
         get => _selected;
         set { if (_selected == value) return; _selected = value; OnPropertyChanged(); }
     }
+
+    /// How far a cover may be enlarged before it is shown smaller instead.
+    ///
+    /// Do the best with what is available — his phrase, and the whole policy. A
+    /// 150 px thumbnail stretched across a 278 px tile is a blur; the same image
+    /// at up to one and a half times its size, centred on the album's own
+    /// ground, is a small print on a mat, and reads as deliberate. 1.5 is where
+    /// enlargement stops being invisible; most covers never get near it.
+    private const double MaxEnlarge = 1.5;
+
+    /// Physical pixels per logical one, set by the window once it knows. The cap
+    /// below is in pixels of the IMAGE, so it has to be converted: on a 2x
+    /// display a 300 px cover fills a 185-unit tile at 1.23x and is fine.
+    public static double Scaling { get; set; } = 1;
+
+    /// The most room the cover may take, in layout units, on its longer side.
+    /// Infinite when the size is unknown: unknown must never be read as small.
+    public double CoverMax =>
+        Album.ArtWidth > 0 && Album.ArtHeight > 0
+            ? Math.Max(Album.ArtWidth, Album.ArtHeight) * MaxEnlarge / Math.Max(1, Scaling)
+            : double.PositiveInfinity;
+
+    /// Whole, or filled. A cover that is properly oblong is shown whole, with
+    /// the ground either side, because cropping it cuts the lettering off the
+    /// edge. One that is square to within a few percent — 600x595 is everywhere —
+    /// is filled and loses a hair, because shown whole it grows a one-pixel
+    /// stripe of ground down each side that reads as a rendering fault.
+    public Avalonia.Media.Stretch CoverStretch =>
+        Album.ArtWidth > 0 && Album.ArtHeight > 0
+        && Math.Abs(Album.ArtWidth - Album.ArtHeight) > 0.06 * Math.Max(Album.ArtWidth, Album.ArtHeight)
+            ? Avalonia.Media.Stretch.Uniform
+            : Avalonia.Media.Stretch.UniformToFill;
+
+    /// The coloured ground is a stand-in for a cover, so it leaves when the cover
+    /// arrives.
+    ///
+    /// It used to stay underneath, which nobody could see while every cover
+    /// filled its tile. Once small and oblong covers were shown at their own
+    /// size it became a coloured border round them, in a hue hashed from the
+    /// album's name and so unrelated to the artwork. His suggestion on seeing
+    /// it: "how about transparency instead of the colored borders". A small
+    /// cover now sits directly on the wall, and the only tiles that keep a
+    /// ground are the ones with nothing else to show.
+    public double GroundOpacity => _cover is null ? 1 : 0;
+
+    private bool _artFailed;
+
+    /// No picture to show: none in the files, or one that would not decode. The
+    /// tile then carries the title and artist itself, so it reads as a plain
+    /// sleeve rather than a coloured hole. Known from the scan, not from the
+    /// cover having failed to arrive yet — that would flash text under every
+    /// cover on the wall while it loaded.
+    public bool HasNoArt => !Album.HasArt || _artFailed;
 
     /// Drives the fade-in. Art loads asynchronously, so a cover would otherwise
     /// appear abruptly the moment it finished decoding.
@@ -76,7 +135,16 @@ public sealed class AlbumVm : INotifyPropertyChanged
         _loadedBucket = bucket;
 
         var bmp = await ArtCache.GetAsync(Album, displayPx).ConfigureAwait(false);
-        if (bmp is null) return;
+        if (bmp is null)
+        {
+            if (Album.HasArt)
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _artFailed = true;
+                    OnPropertyChanged(nameof(HasNoArt));
+                });
+            return;
+        }
         await Dispatcher.UIThread.InvokeAsync(() => Cover = bmp);
     }
 
@@ -115,6 +183,29 @@ public sealed class AlbumVm : INotifyPropertyChanged
             (byte)Math.Round((r + m) * 255),
             (byte)Math.Round((g + m) * 255),
             (byte)Math.Round((b + m) * 255));
+    }
+
+    /// Turns CoverMax into the cap for one particular slot: the cover's own
+    /// limit, unless that limit nearly fills the slot anyway, in which case no
+    /// cap at all.
+    ///
+    /// Without this a 180 px cover in a 185-unit tile sat inside a 2 px frame of
+    /// its ground colour — the same stripe-as-fault problem as CoverStretch, met
+    /// from the other direction. A mat has to be wide enough to look meant. The
+    /// view model cannot decide this alone because it does not know the slot:
+    /// the same cover is shown in a tile and in the panel's sleeve.
+    public sealed class FitConverter : Avalonia.Data.Converters.IMultiValueConverter
+    {
+        public static readonly FitConverter Instance = new();
+
+        /// Below this share of the slot the cover is matted; above, it fills.
+        private const double Fills = 0.86;
+
+        public object Convert(IList<object?> values, Type targetType, object? parameter,
+                              System.Globalization.CultureInfo culture) =>
+            values is [double max, double slot, ..] && slot > 0 && max < slot * Fills
+                ? max
+                : double.PositiveInfinity;
     }
 
     /// A one-line command. An MVVM framework would supply this; the spec's rule

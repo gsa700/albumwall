@@ -77,6 +77,30 @@ like a browser. Details in that commit.
 - The extra NTFS-flush scan described above was NOT seen after the real first
   scan, only in the small test library. Not understood; not chased.
 
+### The library here is not the library this was written against
+
+Techbench's is FLAC with a `cover.jpg` beside every album. Hambench's is 8,654
+MP3 and 6,876 M4A, no FLAC, art embedded in 1,011 of 1,034 albums — and the art
+is what a collection ripped over twenty years looks like: 18 covers under
+200 px on the shorter side (the smallest is 70x70), 70 more under 300, and 56
+that are not square. One album has no art at all.
+
+That is where the cover handling in `AlbumVm`/`ArtCache` came from. The thing
+worth knowing from the other side: **the art cache used to enlarge small covers
+at decode**, so nothing downstream could tell a thumbnail from a scan. It no
+longer does. `art:small`, `art:missing` and `art:nonsquare` in the search box
+list the albums whose files want better art. He does not want art fetched from
+the internet, "at least not yet": the files are the truth.
+
+**A black tile is not a bug.** "Resolution" by Andy Timmons showed as a black
+square. The file is a genuine 200x200 black JPEG, 1,305 bytes — one of about 31
+byte-identical `Folder.jpg` placeholders some tool wrote across the library in
+a single batch on 2026-06-23. Only four albums showed it, because the scanner
+prefers embedded art and the rest have some. Detecting "blank" covers in the
+app was considered and rejected: ranked by bytes per pixel, the two blankest
+REAL covers in the library are Spinal Tap's black album and the White Album.
+The placeholders were removed from the files instead.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched

@@ -42,10 +42,38 @@
                             <StackPanel Spacing="5" Width="{DynamicResource CoverPx}">
                                 <Panel Width="{DynamicResource CoverPx}"
                                        Height="{DynamicResource CoverPx}">
-                                    <Border Background="{Binding Placeholder}" CornerRadius="2"/>
+                                    <Border Classes="ground" Background="{Binding Placeholder}" CornerRadius="2"
+                                            Opacity="{Binding GroundOpacity}"/>
+                                    <!-- The WHOLE cover, never cropped and never
+                                         enlarged past CoverMax: a small or oblong
+                                         one sits centred on the ground above. -->
                                     <Image Classes="cover" Source="{Binding Cover}"
                                            Opacity="{Binding CoverOpacity}"
-                                           Stretch="UniformToFill"/>
+                                           Stretch="{Binding CoverStretch}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Image.MaxWidth>
+                                            <MultiBinding Converter="{x:Static app:AlbumVm+FitConverter.Instance}">
+                                                <Binding Path="CoverMax"/>
+                                                <Binding Path="$parent[Panel].Bounds.Width"/>
+                                            </MultiBinding>
+                                        </Image.MaxWidth>
+                                        <Image.MaxHeight>
+                                            <MultiBinding Converter="{x:Static app:AlbumVm+FitConverter.Instance}">
+                                                <Binding Path="CoverMax"/>
+                                                <Binding Path="$parent[Panel].Bounds.Width"/>
+                                            </MultiBinding>
+                                        </Image.MaxHeight>
+                                    </Image>
+                                    <!-- No art at all: the tile is its own sleeve. -->
+                                    <StackPanel IsVisible="{Binding HasNoArt}" Margin="14,0,14,14"
+                                                VerticalAlignment="Bottom" Spacing="3">
+                                        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold"
+                                                   Foreground="#F2FFFFFF" TextWrapping="Wrap" MaxLines="4"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Artist}" FontSize="11"
+                                                   Foreground="#B3FFFFFF" TextWrapping="Wrap" MaxLines="2"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                     <!-- Selection ring, drawn over the art rather
                                          than around it, so turning it on does not
                                          change the tile's size or the grid. -->
@@ -145,10 +173,35 @@
                                  beside it to say so again is the same instruction
                                  twice. -->
                             <Border Width="260" Height="260" CornerRadius="3"
-                                    ClipToBounds="True"
-                                    Background="{Binding Album.Placeholder}">
+                                    ClipToBounds="True" Background="Transparent">
                                 <Panel>
-                                    <Image Source="{Binding Album.Cover}" Stretch="UniformToFill"/>
+                                    <Border Classes="ground" Background="{Binding Album.Placeholder}"
+                                            Opacity="{Binding Album.GroundOpacity}"/>
+                                    <Image Source="{Binding Album.Cover}"
+                                           Stretch="{Binding Album.CoverStretch}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Image.MaxWidth>
+                                            <MultiBinding Converter="{x:Static app:AlbumVm+FitConverter.Instance}">
+                                                <Binding Path="Album.CoverMax"/>
+                                                <Binding Path="$parent[Panel].Bounds.Width"/>
+                                            </MultiBinding>
+                                        </Image.MaxWidth>
+                                        <Image.MaxHeight>
+                                            <MultiBinding Converter="{x:Static app:AlbumVm+FitConverter.Instance}">
+                                                <Binding Path="Album.CoverMax"/>
+                                                <Binding Path="$parent[Panel].Bounds.Width"/>
+                                            </MultiBinding>
+                                        </Image.MaxHeight>
+                                    </Image>
+                                    <StackPanel IsVisible="{Binding Album.HasNoArt}" Margin="20,0,20,20"
+                                                VerticalAlignment="Bottom" Spacing="4">
+                                        <TextBlock Text="{Binding Album.Title}" FontSize="19" FontWeight="Bold"
+                                                   Foreground="#F2FFFFFF" TextWrapping="Wrap" MaxLines="4"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Album.Artist}" FontSize="13"
+                                                   Foreground="#B3FFFFFF" TextWrapping="Wrap" MaxLines="2"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                     <Panel x:Name="PlayOverlay">
                                         <Border Background="#2E000000"/>
                                         <Ellipse Width="88" Height="88" Fill="#59000000"
@@ -289,6 +342,16 @@
             <Setter Property="Transitions">
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.22"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- The ground leaves AFTER the cover has faded in over it, not while:
+             a cover that fills its tile then looks exactly as it always did, and
+             only a small one is ever seen to lose its ground. -->
+        <Style Selector="Border.ground">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" Delay="0:0:0.22"/>
                 </Transitions>
             </Setter>
         </Style>
