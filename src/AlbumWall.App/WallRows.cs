@@ -90,10 +90,41 @@ public sealed class PanelRow : WallItem
             parts.Add(a.Tracks.Count == 1 ? "1 track" : $"{a.Tracks.Count} tracks");
             if (a.DiscCount > 1) parts.Add($"{a.DiscCount} discs");
             parts.Add(Duration(a.TotalTime));
+            var type = TypeLine(a);
+            if (type.Length > 0) parts.Add(type);
             var fmt = FormatLine(a);
             if (fmt.Length > 0) parts.Add(fmt);
             return string.Join("   ·   ", parts);
         }
+    }
+
+    /// The file type, from the extension: FLAC, MP3, M4A.
+    ///
+    /// The line already said "44.1 kHz" with no bit depth for a lossy album,
+    /// which tells someone who knows the convention that it is lossy and tells
+    /// nobody whether it is an MP3 or an AAC. His request, from the Windows box
+    /// where the library is a mix of both.
+    ///
+    /// The extension and not the codec, deliberately. It is what he asked for
+    /// ("the file type"), it is what he would see in a file manager, and it is
+    /// the one answer that cannot be wrong: .m4a is AAC or ALAC and .ogg is
+    /// Vorbis or Opus, and a guess printed as a fact is worse than the container
+    /// stated plainly. Same "mixed" rule as the line beside it.
+    private static string TypeLine(Domain.Album a)
+    {
+        var types = a.Tracks
+            .Select(t => System.IO.Path.GetExtension(t.Path).TrimStart('.').ToUpperInvariant())
+            .Where(x => x.Length > 0)
+            .Distinct()
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+
+        return types.Count switch
+        {
+            0 => "",
+            1 => types[0],
+            _ => "mixed " + string.Join(", ", types)
+        };
     }
 
     /// Reports what the files ACTUALLY are, per track, rather than assuming the
