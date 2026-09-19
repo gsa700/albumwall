@@ -272,6 +272,19 @@
             <Setter Property="Opacity" Value="1"/>
         </Style>
 
+        <Style Selector="Button.coverplay Panel#RevealOverlay">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"
+                                      Easing="SineEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.coverplay:pointerover Panel#RevealOverlay">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
         <Style Selector="Image.cover">
             <Setter Property="Transitions">
                 <Transitions>
@@ -565,10 +578,30 @@
                  do not. -->
             <Grid ColumnDefinitions="Auto,*,Auto,1.6*,Auto" Margin="26,0">
 
-                <Border Grid.Column="0" Width="58" Height="58" CornerRadius="3"
-                        VerticalAlignment="Center" ClipToBounds="True">
-                    <Image x:Name="TransportArt" Stretch="UniformToFill"/>
-                </Border>
+                <!-- THE WAY BACK TO WHAT IS PLAYING.
+                     Nothing else in the app takes you there, and in a wall of a
+                     few hundred records you would otherwise go and look for it.
+                     The cover of the playing album is the obvious thing to
+                     press, for the same reason the panel's sleeve is: it is
+                     already a picture of where you want to go.
+
+                     The hover mark is an arrow, not a triangle — pressing this
+                     takes you somewhere, it does not start anything. -->
+                <Button Grid.Column="0" Classes="coverplay" VerticalAlignment="Center"
+                        Click="OnRevealPlaying">
+                    <Border Width="58" Height="58" CornerRadius="3" ClipToBounds="True">
+                        <Panel>
+                            <Image x:Name="TransportArt" Stretch="UniformToFill"/>
+                            <Panel x:Name="RevealOverlay">
+                                <Border Background="#3C000000"/>
+                                <Path Data="M 9 5 L 3 11 L 9 17 M 3 11 L 15 11 A 5 5 0 0 1 15 21"
+                                      Stroke="#F2FFFFFF" StrokeThickness="2.1"
+                                      StrokeLineCap="Round" StrokeJoin="Round"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Panel>
+                        </Panel>
+                    </Border>
+                </Button>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,20,0"
                             MinWidth="230" Spacing="2">

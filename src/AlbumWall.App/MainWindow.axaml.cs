@@ -819,11 +819,18 @@ public partial class MainWindow : Window
         // and says nothing about whether hovering ever reaches it, which is
         // exactly how a broken one shipped: Opacity="0" in the markup is a LOCAL
         // value, it outranks every style setter, and :pointerover could never win.
-        if (text.Equals("hover", StringComparison.OrdinalIgnoreCase))
+        if (text.StartsWith("hover", StringComparison.OrdinalIgnoreCase))
         {
-            var btn = this.GetVisualDescendants()
-                          .OfType<Button>()
-                          .FirstOrDefault(b => b.Classes.Contains("coverplay"));
+            // Two buttons wear this class now — the panel's sleeve and the
+            // transport's cover — so "hover transport" picks the second.
+            var wantTransport = text.Contains("transport", StringComparison.OrdinalIgnoreCase);
+            var buttons = this.GetVisualDescendants()
+                              .OfType<Button>()
+                              .Where(b => b.Classes.Contains("coverplay"))
+                              .ToList();
+            var btn = wantTransport
+                ? buttons.FirstOrDefault(b => b.GetVisualDescendants().OfType<Panel>().Any(x => x.Name == "RevealOverlay"))
+                : buttons.FirstOrDefault(b => b.GetVisualDescendants().OfType<Panel>().Any(x => x.Name == "PlayOverlay"));
             if (btn is null) { Console.WriteLine("[wall] hover: no coverplay button"); return; }
 
             var on = !btn.Classes.Contains(":pointerover");
@@ -902,6 +909,13 @@ public partial class MainWindow : Window
                 Console.WriteLine($"[trace]   row {i} {(_rows[i] is PanelRow ? "PANEL" : "album")} "
                     + $"{(el is null ? "UNREALISED" : $"y={y:F0} h={el.Bounds.Height:F0} vis={el.IsVisible} op={el.Opacity:F2} " + $"el={el.GetType().Name} dc={el.DataContext?.GetType().Name ?? "null"} " + $"items={(el as ItemsControl)?.ItemCount.ToString() ?? "-"}")}");
             }
+            return;
+        }
+
+        if (text.Equals("reveal", StringComparison.OrdinalIgnoreCase))
+        {
+            OnRevealPlaying(this, new Avalonia.Interactivity.RoutedEventArgs());
+            Console.WriteLine("[wall] reveal playing");
             return;
         }
 
@@ -1409,6 +1423,39 @@ public partial class MainWindow : Window
     }
 
     private DispatcherTimer? _panelHold;
+
+    /// Takes the wall to the album that is playing, and opens it.
+    ///
+    /// The one navigation the app was missing: everything else moves you away
+    /// from what is playing and nothing brought you back. Opening it rather than
+    /// merely scrolling to it is deliberate — you press this when you want to
+    /// see the record, which means the track list, not just the cover.
+    private void OnRevealPlaying(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_playingAlbum is null) return;
+
+        // A search may be hiding it, and showing it is the whole point. Clearing
+        // the box runs the filter and its own restore first, so the reveal is
+        // queued behind that rather than fighting it.
+        if (_filter.Length > 0)
+        {
+            SearchBox.Text = "";
+            Dispatcher.UIThread.Post(Reveal, DispatcherPriority.Background);
+            return;
+        }
+
+        Reveal();
+
+        void Reveal()
+        {
+            if (_playingAlbum is null || !_visible.Contains(_playingAlbum)) return;
+
+            // Already open: this is "take me there", not a toggle, so it must
+            // never close the panel the person is asking to look at.
+            if (ReferenceEquals(_open, _playingAlbum)) AnchorOn(_playingAlbum);
+            else SetOpen(_playingAlbum);
+        }
+    }
 
     private void UpdateNowPlaying()
     {
