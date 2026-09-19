@@ -102,7 +102,9 @@ public sealed partial class LibraryScanner
                     SampleRate: props?.AudioSampleRate ?? 0,
                     BitDepth: props?.BitsPerSample ?? 0));
 
-                if (album.ArtPath is null && album.ArtEmbeddedIn is null)
+                // Until a track with a picture turns up, keep looking: a sidecar
+                // found on the way is only a fallback. See ResolveArt.
+                if (album.ArtEmbeddedIn is null)
                     ResolveArt(album, dir, tf, path);
 
                 if (files % 25 == 0)
@@ -123,6 +125,17 @@ public sealed partial class LibraryScanner
         return albums.Values.OrderBy(a => a.SortKey, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// EMBEDDED IN ANY TRACK beats a sidecar, not just embedded in the first.
+    ///
+    /// This used to stop at the first thing it found, track by track — so an
+    /// album whose first track had no picture took the folder's sidecar and
+    /// never looked at track two. On Hambench that sidecar was a 1,305-byte
+    /// black Folder.jpg some tool had scattered through the library, and four
+    /// albums with perfectly good embedded covers showed as black squares. It
+    /// only came to light when the placeholders were deleted and the real
+    /// covers appeared. A sidecar is now remembered and the search goes on; the
+    /// first embedded picture found replaces it.
+    ///
     /// Art resolution order: EMBEDDED first, then a sidecar beside the file.
     /// Both paths exist because real libraries use both — this FLAC library has
     /// zero embedded art and only cover.jpg, while the mp3/aac collection has
@@ -131,19 +144,18 @@ public sealed partial class LibraryScanner
     {
         try
         {
-            var pics = tf.Tag.Pictures;
-            if (pics is { Length: > 0 })
+            if (ImageSize.Cover(tf.Tag.Pictures) is { } cover)
             {
-                var front = pics.FirstOrDefault(p => p.Type == TagLib.PictureType.FrontCover) ?? pics[0];
-                if (front.Data.Count > 0)
-                {
-                    album.ArtEmbeddedIn = filePath;
-                    Measure(album, front.Data.Data);
-                    return;
-                }
+                album.ArtEmbeddedIn = filePath;
+                album.ArtPath = null;
+                album.ArtWidth = album.ArtHeight = 0;     // not the sidecar's
+                Measure(album, cover);
+                return;
             }
         }
         catch { /* malformed picture block shouldn't kill the scan */ }
+
+        if (album.ArtPath is not null) return;          // already have a fallback
 
         foreach (var name in ArtNames)
         {

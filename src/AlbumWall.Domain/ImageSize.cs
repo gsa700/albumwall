@@ -18,6 +18,74 @@ namespace AlbumWall.Domain;
 
 public static class ImageSize
 {
+    /// The cover among a file's picture frames, repaired if need be, or null.
+    ///
+    /// ONE rule, used by the scanner to decide an album has art and by the art
+    /// cache to show it, so the two cannot disagree. The front cover if there
+    /// is one that reads as an image; otherwise the first frame that does;
+    /// otherwise the first frame with anything in it, on the chance it is a
+    /// format this file does not know and the decoder does.
+    ///
+    /// "The first frame" was not good enough: A Momentary Lapse Of Reason opens
+    /// with a 1,272-byte RealJukebox metadata blob typed NotAPicture, with the
+    /// real 500 KB cover behind it, and showed as an album with no art.
+    public static byte[]? Cover(TagLib.IPicture[]? pictures)
+    {
+        if (pictures is not { Length: > 0 }) return null;
+
+        byte[]? readable = null, anything = null;
+        foreach (var p in pictures)
+        {
+            if (p.Data is not { Count: > 0 }) continue;
+
+            var data = Repair(p.Data.Data);
+            var isImage = Read(data) is not null;
+
+            if (isImage && p.Type == TagLib.PictureType.FrontCover) return data;
+            if (isImage) readable ??= data;
+            if (p.Type != TagLib.PictureType.NotAPicture) anything ??= data;
+        }
+        return readable ?? anything;
+    }
+
+    /// Puts back the front of an image that a malformed tag has eaten.
+    ///
+    /// Found in the Hambench library, in 13 albums: an ID3 picture frame with no
+    /// MIME type and no description field at all. The reader still expects a
+    /// description, reads up to the first zero byte as one, and hands over the
+    /// picture from the byte after — so the image arrives missing everything up
+    /// to and including its own first 00. Nothing will decode that, yet every
+    /// byte that matters is still there, and what was lost is fixed text:
+    ///
+    ///   PNG   89 'PNG' 0D 0A 1A 0A 00 | 00 00 0D 'IHDR' ...   loses 9 bytes
+    ///   JPEG  FF D8 FF E0 00          | 10 'JFIF' 00 ...      loses 5 bytes
+    ///   JPEG  FF D8 FF DB 00          | 43 00 <64 values> FF  loses 5 bytes
+    ///
+    /// The third is a JPEG with no JFIF header, which opens straight into a
+    /// quantisation table: length 0x43, table 0, 64 values, then the next
+    /// marker — checked, since "43 00" alone proves nothing.
+    ///
+    /// Only these shapes are repaired, because only these can be restored with
+    /// certainty. A JPEG that opens with EXIF rather than JFIF loses its
+    /// segment length as well, and guessing that is not a repair. Anything else
+    /// is returned untouched.
+    public static byte[] Repair(byte[] d)
+    {
+        if (d.Length < 16) return d;
+
+        if (d[0] == 0x00 && d[1] == 0x00 && d[2] == 0x0D
+            && d[3] == 0x49 && d[4] == 0x48 && d[5] == 0x44 && d[6] == 0x52)
+            return [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, .. d];
+
+        if (d[0] == 0x10 && d[1] == 0x4A && d[2] == 0x46 && d[3] == 0x49 && d[4] == 0x46 && d[5] == 0x00)
+            return [0xFF, 0xD8, 0xFF, 0xE0, 0x00, .. d];
+
+        if (d.Length > 68 && d[0] == 0x43 && d[1] == 0x00 && d[66] == 0xFF)
+            return [0xFF, 0xD8, 0xFF, 0xDB, 0x00, .. d];
+
+        return d;
+    }
+
     public static (int Width, int Height)? Read(ReadOnlySpan<byte> d)
     {
         // PNG: signature, then IHDR with big-endian width and height.

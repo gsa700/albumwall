@@ -123,12 +123,9 @@ public static class ArtCache
                 return DecodeNoLarger(File.ReadAllBytes(key), bucket);
 
             using var tf = TagLib.File.Create(key);
-            var pics = tf.Tag.Pictures;
-            if (pics is not { Length: > 0 }) return null;
-            var front = pics.FirstOrDefault(p => p.Type == TagLib.PictureType.FrontCover) ?? pics[0];
-            if (front.Data.Count == 0) return null;
-
-            return DecodeNoLarger(front.Data.Data, bucket);
+            return Domain.ImageSize.Cover(tf.Tag.Pictures) is { } cover
+                ? DecodeNoLarger(cover, bucket)
+                : null;
         }
         catch
         {

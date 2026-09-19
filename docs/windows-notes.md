@@ -99,7 +99,28 @@ a single batch on 2026-06-23. Only four albums showed it, because the scanner
 prefers embedded art and the rest have some. Detecting "blank" covers in the
 app was considered and rejected: ranked by bytes per pixel, the two blankest
 REAL covers in the library are Spinal Tap's black album and the White Album.
-The placeholders were removed from the files instead.
+The placeholders were removed from the files instead (32 of them, to the
+Recycle Bin, matched by SHA-256).
+
+**Removing them uncovered three real bugs**, all in how a cover is found, and
+all invisible on a library of clean rips. This one has been carried along since
+the RealJukebox days and its tags show it:
+
+- Art was resolved track by track and stopped at the first hit, so an album
+  whose FIRST track had no picture took the folder's sidecar and never looked
+  at track two. That is the only reason the black placeholders were ever seen.
+  Embedded art in any track now wins.
+- 13 albums have ID3 picture frames with no description field. TagLib reads up
+  to the image's first zero byte as the description, so the picture arrives
+  missing its first 5-9 bytes and will not decode. What is lost is fixed text
+  (PNG signature, JPEG SOI+APP0 or SOI+DQT), so `ImageSize.Repair` puts it back.
+- A Momentary Lapse Of Reason opens with a 1,272-byte `RealJukebox:Metadata`
+  frame typed NotAPicture, with the real cover second. "First frame" is now
+  "front cover, else the first frame that is actually an image"
+  (`ImageSize.Cover`, shared by the scanner and the art cache).
+
+After all three: 1,034 albums, 1,020 embedded, 13 sidecar, 1 with no art, and
+every cover's size readable.
 
 ## Test runs use a scratch config
 
