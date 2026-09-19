@@ -6,5 +6,97 @@
 
     <Application.Styles>
         <FluentTheme />
+
+        <!-- SHARED BY EVERY WINDOW. These lived in MainWindow while it was the
+             only window there was. Preferences is a window of its own now and
+             the file-properties window will be another, in the same format, so
+             what they have in common is here. -->
+        <Style Selector="TextBlock.dim">
+            <Setter Property="Foreground" Value="#A2978A"/>
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+        </Style>
+        <Style Selector="Button.panel">
+            <Setter Property="Background" Value="#26FFFFFF"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="15,6"/>
+        </Style>
+
+        <!-- PREFERENCES TABS: the family's tab chrome, from LP-100A by way of
+             FlexPad, so his tools look like they came from the same bench.
+
+             Fluent draws tabs as large underlined text, which against a dark
+             palette reads as a row of labels rather than tabs. Both templates
+             are replaced to get real tab chrome: outlined, rounded on top, the
+             selected one filled with the panel's colour and pulled down 1px so
+             tab and panel merge into one shape.
+
+             The differences from the original are the colours, which here are
+             not fixed brushes: the sheet is furniture and moves with the ground
+             he chose, so everything is a DynamicResource fed by ApplyGround.
+             And there is no accent colour to mark the selected tab with — this
+             app's only accents belong to the albums — so it is marked by weight
+             and by being the one joined to the panel.
+
+             Application-wide, as it is in those tools: every window built in
+             the Preferences format gets it without asking. -->
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="TabControl">
+                    <DockPanel>
+                        <ItemsPresenter DockPanel.Dock="Top" Margin="2,0,0,0"
+                                        ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                        <Border Background="{DynamicResource SheetField}"
+                                BorderBrush="{DynamicResource SheetEdge}"
+                                BorderThickness="1" CornerRadius="0,6,6,6"
+                                Padding="22,20" ZIndex="-1">
+                            <ContentPresenter Content="{TemplateBinding SelectedContent}"
+                                              ContentTemplate="{TemplateBinding SelectedContentTemplate}"/>
+                        </Border>
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="Margin" Value="0,0,3,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#99F3EEE6"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="TabItem">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{DynamicResource SheetEdge}"
+                            BorderThickness="1,1,1,0" CornerRadius="6,6,0,0"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Header}"
+                                          ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          FontSize="{TemplateBinding FontSize}"
+                                          FontWeight="{TemplateBinding FontWeight}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SheetField}"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <!-- Overlap the panel border by 1px so the active tab and the panel
+                 read as one shape. -->
+            <Setter Property="Margin" Value="0,0,3,-1"/>
+        </Style>
     </Application.Styles>
 </Application>

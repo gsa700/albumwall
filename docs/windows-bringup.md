@@ -123,6 +123,11 @@ Set `ALBUMWALL_SNAP` to a path before launching. Then:
   `reveal`, `prefs`, `prefs startup`, `about`, `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
   `hover` / `hover transport`, `trace`.
 
+`prefs`, `prefs startup` and `about` open the Preferences window at that tab and
+`sheetoff` closes it. It is a separate window, so while it is open a snapshot
+also writes `<path>.prefs.png` — its content only; the title bar is the
+system's and cannot be drawn from inside the app.
+
 `trace` prints the wall's geometry — panel height, scroll offset, extent,
 viewport, and every row's realisation state. Every scroll bug in this project
 was found by reading that and finding two numbers that disagreed.

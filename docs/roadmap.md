@@ -13,13 +13,24 @@ is ahead, the history is for what is behind.
   manager, copy path, and — once tag editing exists — edit tags.
 
 - **A fully tabbed Preferences dialog**, "with options built out as we go".
-  Started 2026-09-19 with two tabs, Library and Startup. Still to come as tabs:
+  Started 2026-09-19: Library, Startup, About. It is a proper decorated window
+  in the format of the family's Setup windows (FlexPad, LP-100A, W2, Shack
+  Power) — system title bar, fixed size, one instance, position remembered, the
+  family's tab chrome from `App.axaml`. **About is always the last tab**, and
+  the last item in the menu, by convention; new tabs go before it. Still to
+  come:
   - **Colours** — the Light / Tint / chrome levers that used to live in the top
     bar. They were hidden once the values settled (21 / 2 / ink), but he
     expects the right numbers to differ per screen and wants them back here.
     Until then `ALBUMWALL_BENCH=1` shows the old controls.
   - whatever else turns out to need a setting. Add the tab when the second
     option for it arrives, not before.
+
+- **A file-properties window**, in the SAME FORMAT as Preferences — "we'll use
+  the same format with the file properties window when we get to it". The
+  format is written down at the top of `PrefsWindow.axaml`; the shared styles
+  are already application-wide for this reason. Presumably reached from the
+  right-click menu above.
 
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.

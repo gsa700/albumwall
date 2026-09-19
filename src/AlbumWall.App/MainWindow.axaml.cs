@@ -462,6 +462,7 @@ public partial class MainWindow : Window
                 Adopt(vms);
                 ApplyGround();
                 ShowEmptyState(albums.Count == 0, root);
+                _prefs?.Fill();
 
                 // Once, and only after the first scan: there is nothing to
                 // resume INTO until the library exists.
@@ -763,99 +764,65 @@ public partial class MainWindow : Window
     private void SetUpMenu()
     {
         var prefs = new MenuItem { Header = "Preferences\u2026" };
-        prefs.Click += (_, _) => ShowSheet(about: false);
-
-        var about = new MenuItem { Header = "About" };
-        about.Click += (_, _) => ShowSheet(about: true);
+        prefs.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
 
         var rescan = new MenuItem { Header = "Rescan library" };
         rescan.Click += (_, _) => ScanLibrary();
 
-        var quit = new MenuItem { Header = "Quit" };
-        quit.Click += (_, _) => Close();
+        var about = new MenuItem { Header = "About" };
+        about.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.About);
 
+        // ABOUT IS LAST, by convention, here and as a tab in the sheet it
+        // opens. Anything new goes above the separator.
+        //
+        // No Quit. The window has a close button, which he put there himself,
+        // and a second way to do the same thing at the bottom of a three-item
+        // menu was only ever in the way: "lets get rid of quit, no need".
         var flyout = new MenuFlyout
         {
             Placement = PlacementMode.BottomEdgeAlignedRight,
             ItemsSource = new object[]
             {
-                prefs, about, rescan, new Separator(), quit
+                prefs, rescan, new Separator(), about
             }
         };
 
         MenuButton.Click += (_, _) => flyout.ShowAt(MenuButton);
 
-        SheetClose.Click += (_, _) => Sheet.IsVisible = false;
-        SheetScrim.PointerPressed += (_, _) => Sheet.IsVisible = false;
-
-        PrefsChoose.Click += async (_, _) => await ChooseLibraryFolder();
-        EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder();
-
-        PrefsDefault.Click += (_, _) =>
-        {
-            _settings.LibraryPath = null;
-            _settings.Save();
-            PrefsPath.Text = LibraryRoot;
-            ScanLibrary();
-        };
-
-        PrefsRescan.Click += (_, _) => ScanLibrary();
-
-        TabLibrary.Click += (_, _) => ShowPrefsTab(startup: false);
-        TabStartup.Click += (_, _) => ShowPrefsTab(startup: true);
-
-        // Written straight through, like everything else in the sheet: there is
-        // no OK button to forget, and a setting that only takes effect at the
-        // next launch has nothing to apply in the meantime.
-        PrefsResume.IsCheckedChanged += (_, _) =>
-        {
-            if (_fillingPrefs) return;
-            _settings.ResumeSession = PrefsResume.IsChecked == true;
-            PrefsAutoPlay.IsEnabled = PrefsResume.IsChecked == true;
-            _settings.Save();
-        };
-        PrefsAutoPlay.IsCheckedChanged += (_, _) =>
-        {
-            if (_fillingPrefs) return;
-            _settings.AutoPlay = PrefsAutoPlay.IsChecked == true;
-            _settings.Save();
-        };
+        EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder(this);
     }
 
-    private bool _fillingPrefs;
+    private PrefsWindow? _prefs;
 
-    private void ShowPrefsTab(bool startup)
+    /// Opens Preferences at a tab, or brings it forward if it is already open.
+    /// One instance, like the family's Setup windows: a second Preferences
+    /// window would be two views of the same settings disagreeing.
+    private void ShowPrefs(PrefsWindow.Tab tab)
     {
-        PrefsSection.IsVisible = !startup;
-        StartupSection.IsVisible = startup;
-        TabLibrary.Classes.Set("selected", !startup);
-        TabStartup.Classes.Set("selected", startup);
+        if (_prefs is null)
+        {
+            _prefs = new PrefsWindow(this);
+            _prefs.Closed += (_, _) => _prefs = null;
+            _prefs.Place(this);
+            _prefs.Show(this);      // owned: stays above the wall, goes when it goes
+        }
+        _prefs.Select(tab);
+        _prefs.Activate();
     }
 
-    private void ShowSheet(bool about)
+    // What the Preferences window needs from here. It reads and writes the
+    // settings itself; anything that touches the LIBRARY comes back through
+    // these, because only this window knows how to scan.
+    internal Settings AppSettings => _settings;
+    internal string LibraryRootPath => LibraryRoot;
+    internal string LibraryCounts => _counts;
+    internal void Rescan() => ScanLibrary();
+
+    internal void UseDefaultLibrary()
     {
-        SheetTitle.Text = about ? "About" : "Preferences";
-        PrefsTabs.IsVisible = !about;
-        AboutSection.IsVisible = about;
-        if (about) PrefsSection.IsVisible = StartupSection.IsVisible = false;
-        else ShowPrefsTab(startup: false);
-
-        // Resume is on unless turned off; auto-play is off unless turned on.
-        // Filling the boxes is not him ticking them: without the guard, merely
-        // opening Preferences would write the defaults into his settings file.
-        _fillingPrefs = true;
-        PrefsResume.IsChecked = _settings.ResumeSession != false;
-        PrefsAutoPlay.IsChecked = _settings.AutoPlay == true;
-        PrefsAutoPlay.IsEnabled = PrefsResume.IsChecked == true;
-        _fillingPrefs = false;
-
-        PrefsPath.Text = LibraryRoot;
-
-        var v = typeof(MainWindow).Assembly.GetName().Version;
-        AboutVersion.Text = $"AlbumWall {v?.Major}.{v?.Minor}.{v?.Build}";
-        AboutLibrary.Text = $"{_counts}\n{LibraryRoot}";
-
-        Sheet.IsVisible = true;
+        _settings.LibraryPath = null;
+        _settings.Save();
+        ScanLibrary();
     }
 
     private void ShowEmptyState(bool empty, string root)
@@ -874,9 +841,11 @@ public partial class MainWindow : Window
     }
 
     /// Asks for a folder and rescans if it changed.
-    private async Task ChooseLibraryFolder()
+    /// `from` is the window the picker belongs to, so it opens over whichever
+    /// one asked — Preferences, or this one from the empty state.
+    internal async Task ChooseLibraryFolder(Window from)
     {
-        var picked = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var picked = await from.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Choose your music folder",
             AllowMultiple = false
@@ -890,8 +859,6 @@ public partial class MainWindow : Window
 
         _settings.LibraryPath = path;
         _settings.Save();
-        PrefsPath.Text = path;
-        Sheet.IsVisible = false;
         ScanLibrary();
     }
 
@@ -989,9 +956,12 @@ public partial class MainWindow : Window
         SearchBox.BorderBrush = fieldEdge;
 
         // The sheet is furniture too, and has to move with the rest of it.
-        Resources["SheetBg"] = SolidColorBrush.Parse(_ramp.BarHex);
-        Resources["SheetEdge"] = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
-        Resources["SheetField"] = field;
+        // On the APPLICATION, not this window: Preferences is a window of its
+        // own and a DynamicResource only looks up its own tree and then here.
+        var shared = Application.Current!.Resources;
+        shared["SheetBg"] = SolidColorBrush.Parse(_ramp.BarHex);
+        shared["SheetEdge"] = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
+        shared["SheetField"] = field;
 
         // The progress line has to read on a ground he can slide from near
         // black to near white, so it takes the opposite end rather than a hue.
@@ -1282,15 +1252,10 @@ public partial class MainWindow : Window
         // over in seconds, so catching its progress display means starting one
         // on demand and photographing it straight away.
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(); return; }
-        if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase))
-        {
-            ShowSheet(about: false);
-            ShowPrefsTab(startup: true);
-            return;
-        }
-        if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: false); return; }
-        if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: true); return; }
-        if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { Sheet.IsVisible = false; return; }
+        if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
+        if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
+        if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.About); return; }
+        if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }
 
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {
@@ -1366,6 +1331,21 @@ public partial class MainWindow : Window
             var png = Path.ChangeExtension(trigger, null) + ".png";
             rtb.Save(png);
             Console.WriteLine($"[wall] snapshot {w}x{h} -> {png}");
+
+            // Preferences is a window of its own and is not part of this one's
+            // visual tree, so it gets a picture of its own. Its CONTENT only:
+            // the title bar belongs to the system and cannot be drawn from here.
+            if (_prefs is { } prefs)
+            {
+                var pw = (int)Math.Ceiling(prefs.ClientSize.Width * prefs.RenderScaling);
+                var ph = (int)Math.Ceiling(prefs.ClientSize.Height * prefs.RenderScaling);
+                var pdpi = 96 * prefs.RenderScaling;
+                using var shot = new Avalonia.Media.Imaging.RenderTargetBitmap(
+                    new PixelSize(pw, ph), new Vector(pdpi, pdpi));
+                shot.Render(prefs);
+                shot.Save(Path.ChangeExtension(trigger, null) + ".prefs.png");
+                Console.WriteLine($"[wall] snapshot of preferences {pw}x{ph} at {prefs.Position}");
+            }
         }
         catch (Exception ex)
         {

@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AlbumWall.App.PrefsWindow"
+        Title="AlbumWall — Preferences"
+        Width="580" Height="340" CanResize="False"
+        RequestedThemeVariant="Dark"
+        Background="{DynamicResource SheetBg}"
+        Foreground="#F3EEE6"
+        ShowInTaskbar="False">
+
+    <!-- A PROPER WINDOW, in the format of the family's Setup windows (FlexPad,
+         LP-100A, W2, Shack Power): the system's own title bar, a fixed size so it
+         does not jump between tabs, one instance that is brought forward rather
+         than opened twice, its position remembered, and no Close button because
+         the title bar has one. His words: "let's make the prefs a proper
+         decorated window same as Flexpad etc. we'll use the same format with the
+         file properties window when we get to it".
+
+         It began as a sheet drawn inside the main window, on the reasoning that
+         an OS dialog would look like it belonged to a different program. That
+         was tidy and wrong: it could not be moved off the thing it was changing,
+         and it was one more piece of hand-made chrome to keep working.
+
+         THE FORMAT, for the next window built like this: fixed size sized to
+         the longest tab, TabControl filling it with a 12 px margin, tab chrome
+         from App.axaml, SheetBg behind and SheetField in the panel so it moves
+         with the ground he chose, settings written straight through with no OK
+         button. About is the last tab, by convention; new tabs go before it. -->
+    <TabControl x:Name="Tabs" Margin="12">
+        <TabItem Header="Library">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Music folder" FontSize="14" FontWeight="SemiBold"/>
+                <Border CornerRadius="4" Padding="13,11" Background="{DynamicResource SheetBg}">
+                    <TextBlock x:Name="LibraryPath" FontSize="13" Classes="mono" TextWrapping="Wrap"/>
+                </Border>
+                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                           Text="Everything under this folder is scanned. Album art is taken from the tags, or from a cover file beside the tracks if there is none."/>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <Button x:Name="ChooseFolder" Classes="panel" Content="Choose folder…"/>
+                    <Button x:Name="UseDefault" Classes="panel" Content="Use my Music folder"/>
+                    <Button x:Name="Rescan" Classes="panel" Content="Rescan"/>
+                </StackPanel>
+            </StackPanel>
+        </TabItem>
+
+        <TabItem Header="Startup">
+            <StackPanel Spacing="14">
+                <TextBlock Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="Resume" Content="Pick up where I left off"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="Brings back the album you had open, the track, and how far into it you were."/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="AutoPlay" Content="…and start playing straight away"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
+                </StackPanel>
+            </StackPanel>
+        </TabItem>
+
+        <TabItem Header="About">
+            <StackPanel Spacing="12">
+                <TextBlock x:Name="AboutVersion" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                           Text="A player for a music library you own, built around seeing the whole collection at once."/>
+                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                           Text="Licensed under the GNU General Public License v3 or later. Audio by libmpv (GPLv2 or later). Tags by TagLib#."/>
+                <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </TabItem>
+    </TabControl>
+</Window>

@@ -275,12 +275,6 @@
         <Style Selector="TextBlock">
             <Setter Property="Foreground" Value="#F3EEE6"/>
         </Style>
-        <Style Selector="TextBlock.dim">
-            <Setter Property="Foreground" Value="#A2978A"/>
-        </Style>
-        <Style Selector="TextBlock.mono">
-            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
-        </Style>
         <!-- Art arrives asynchronously, so without this a cover pops into place
              the instant it decodes. A short fade makes loading read as the wall
              filling in rather than as flicker. -->
@@ -514,28 +508,6 @@
         </Style>
         <Style Selector="Button.track.playing:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#33FFFFFF"/>
-        </Style>
-        <Style Selector="Button.panel">
-            <Setter Property="Background" Value="#26FFFFFF"/>
-            <Setter Property="Foreground" Value="#F3EEE6"/>
-            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="15,6"/>
-        </Style>
-        <!-- Preferences tabs. The selected one is the filled one. -->
-        <Style Selector="Button.tab">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#99F3EEE6"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="14,6"/>
-        </Style>
-        <Style Selector="Button.tab.selected">
-            <Setter Property="Background" Value="#26FFFFFF"/>
-            <Setter Property="Foreground" Value="#F3EEE6"/>
         </Style>
         <Style Selector="TextBox.search">
             <Setter Property="Background" Value="#241F1A"/>
@@ -811,81 +783,6 @@
         </StackPanel>
     </Border>
 
-    <!-- Preferences and About. An in-window sheet rather than a second window:
-         this app owns its chrome, and an OS dialog with a system title bar would
-         arrive looking like it belonged to a different program. -->
-    <Panel x:Name="Sheet" IsVisible="False">
-        <Border x:Name="SheetScrim" Background="#99000000"/>
-        <Border HorizontalAlignment="Center" VerticalAlignment="Center"
-                Width="560" CornerRadius="10" Padding="34,30"
-                Background="{DynamicResource SheetBg}" BorderThickness="1"
-                BorderBrush="{DynamicResource SheetEdge}">
-            <StackPanel Spacing="22">
-                <TextBlock x:Name="SheetTitle" FontSize="21" FontWeight="Bold"/>
-
-                <!-- TABBED, and meant to grow: "fully tabbed prefs dialog with
-                     options build out as we go". Two tabs today. A tab is added
-                     when a second option for it turns up, not in anticipation —
-                     see docs/roadmap.md for what is expected (Colours next).
-
-                     Hand-rolled rather than a TabControl: the stock one arrives
-                     with its own header typography, underline and padding, all
-                     of which would have to be beaten back into this sheet's
-                     style, and what is needed is two buttons and a visibility
-                     switch. -->
-                <StackPanel x:Name="PrefsTabs" Orientation="Horizontal" Spacing="6">
-                    <Button x:Name="TabLibrary" Classes="tab" Content="Library"/>
-                    <Button x:Name="TabStartup" Classes="tab" Content="Startup"/>
-                </StackPanel>
-
-                <StackPanel x:Name="StartupSection" Spacing="14" IsVisible="False" MinHeight="196">
-                    <TextBlock Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
-                    <StackPanel Spacing="4">
-                        <CheckBox x:Name="PrefsResume" Content="Pick up where I left off"/>
-                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                                   Margin="28,0,0,0"
-                                   Text="Brings back the album, the track and how far into it you were."/>
-                    </StackPanel>
-                    <StackPanel Spacing="4">
-                        <CheckBox x:Name="PrefsAutoPlay" Content="…and start playing straight away"/>
-                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                                   Margin="28,0,0,0"
-                                   Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel x:Name="PrefsSection" Spacing="12" MinHeight="196">
-                    <TextBlock Text="Music folder" FontSize="14" FontWeight="SemiBold"/>
-                    <Border CornerRadius="4" Padding="13,11"
-                            Background="{DynamicResource SheetField}">
-                        <TextBlock x:Name="PrefsPath" FontSize="13" Classes="mono"
-                                   TextWrapping="Wrap"/>
-                    </Border>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Text="Everything under this folder is scanned. Album art is taken from a cover file beside the tracks, or from the tags if there is none."/>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Button x:Name="PrefsChoose" Classes="panel" Content="Choose folder…"/>
-                        <Button x:Name="PrefsDefault" Classes="panel" Content="Use my Music folder"/>
-                        <Button x:Name="PrefsRescan" Classes="panel" Content="Rescan"/>
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel x:Name="AboutSection" Spacing="12" IsVisible="False">
-                    <TextBlock x:Name="AboutVersion" FontSize="15" FontWeight="SemiBold"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Text="A player for a music library you own, built around seeing the whole collection at once."/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Text="Licensed under the GNU General Public License v3 or later. Audio by libmpv (GPLv2 or later). Tags by TagLib#."/>
-                    <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
-                               TextWrapping="Wrap"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Spacing="9" HorizontalAlignment="Right">
-                    <Button x:Name="SheetClose" Classes="panel" Content="Close"/>
-                </StackPanel>
-            </StackPanel>
-        </Border>
-    </Panel>
 
     </Panel>
     </Border>

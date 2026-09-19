@@ -25,6 +25,10 @@ public sealed class Settings
 
     public bool Maximized { get; set; }
 
+    /// Where the Preferences window was, in screen pixels.
+    public int? PrefsX { get; set; }
+    public int? PrefsY { get; set; }
+
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 
