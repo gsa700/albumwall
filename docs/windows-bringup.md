@@ -97,10 +97,10 @@ likely they are to be wrong on a new platform:
 
 ## Expect these, they are not bugs
 
-- **No media keys.** Media keys go through MPRIS, which is D-Bus, which is
-  Linux. Windows would need SystemMediaTransportControls and nobody has written
-  it. `Mpris.StartAsync` swallows its own failure by design — a line in the log
-  saying it is unavailable is correct behaviour.
+- ~~No media keys.~~ Written since: `Smtc.cs` registers with the System Media
+  Transport Controls on Windows. `Mpris.StartAsync` still fails there, by
+  design and silently apart from one log line — that is correct behaviour, and
+  `[smtc] registered…` is the line to look for instead.
 - **No rounded window corners**, as above.
 - Tag editing is not built; the button is disabled on purpose.
 
@@ -123,7 +123,7 @@ Set `ALBUMWALL_SNAP` to a path before launching. Then:
   `reveal`, `prefs`, `prefs startup`, `about`, `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
   `hover` / `hover transport`, `trace`.
 
-`prefs`, `prefs startup` and `about` open the Preferences window at that tab and
+`prefs`, `prefs startup`, `prefs colors` and `about` open the Preferences window at that tab and
 `sheetoff` closes it. It is a separate window, so while it is open a snapshot
 also writes `<path>.prefs.png` — its content only; the title bar is the
 system's and cannot be drawn from inside the app.

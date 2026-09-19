@@ -342,6 +342,13 @@ public partial class MainWindow : Window
         // name, logs that it did, and then quietly vanishes off the bus.
         _ = Mpris.StartAsync(MprisState, MprisCommand)
                  .ContinueWith(t => _mpris = t.Result, TaskScheduler.Default);
+
+#if WINDOWS
+        // The same thing for Windows, which has no D-Bus. It needs this window's
+        // handle, which exists by now, and hands its keys to the same
+        // MprisCommand the Linux side uses.
+        _smtc = Smtc.Start(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, MprisCommand);
+#endif
     }
 
     /// Where the music lives: his setting, or the platform's Music folder.
@@ -1700,6 +1707,9 @@ public partial class MainWindow : Window
     /// how a music player earns an intermittent crash. Position is the one field
     /// read live, because it moves continuously and mpv is happy to be asked.
     private Mpris? _mpris;
+#if WINDOWS
+    private Smtc? _smtc;
+#endif
 
     private volatile Mpris.State _mprisState =
         new(false, false, "", "", "", "", 0, 0, 1.0);
@@ -1716,6 +1726,7 @@ public partial class MainWindow : Window
         if (_player is null || _playingAlbum is null)
         {
             _mprisState = new Mpris.State(false, false, "", "", "", "", 0, 0, _volume / 100.0);
+            PushToSystem();
             return;
         }
 
@@ -1740,6 +1751,15 @@ public partial class MainWindow : Window
             LengthMicros: (long)(_player.Duration.TotalMicroseconds),
             PositionMicros: 0,
             Volume: _volume / 100.0);
+        PushToSystem();
+    }
+
+    /// MPRIS is asked; the Windows transport controls have to be told.
+    private void PushToSystem()
+    {
+#if WINDOWS
+        _smtc?.Update(_mprisState, _playingAlbum?.Album);
+#endif
     }
 
     /// A media key, or a click in the shell's own media controls.

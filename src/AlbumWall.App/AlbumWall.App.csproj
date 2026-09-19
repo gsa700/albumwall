@@ -1,7 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- One target per machine, chosen by where it is being BUILT. On Windows
+         the app targets the Windows SDK so that Smtc.cs can reach the System
+         Media Transport Controls (media keys, headset buttons, the card in the
+         volume flyout); that target also defines WINDOWS, which is what Smtc.cs
+         is wrapped in. Everywhere else it is plain net10.0, as it always was,
+         and Linux gets its media keys from Mpris.cs.
+
+         Deliberately not multi-targeting: that would build both on every
+         machine, and the Windows one cannot be built on Fedora without the
+         Windows targeting pack being pulled in for no reason.
+
+         It does mean the output folder differs by platform:
+         bin/Debug/net10.0-windows10.0.19041.0/ here, bin/Debug/net10.0/ there. -->
+    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0</TargetFramework>
     <Version>0.1.0</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

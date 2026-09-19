@@ -17,14 +17,9 @@ is ahead, the history is for what is behind.
   in the format of the family's Setup windows (FlexPad, LP-100A, W2, Shack
   Power) — system title bar, fixed size, one instance, position remembered, the
   family's tab chrome from `App.axaml`. **About is always the last tab**, and
-  the last item in the menu, by convention; new tabs go before it. Still to
-  come:
-  - **Colours** — the Light / Tint / chrome levers that used to live in the top
-    bar. They were hidden once the values settled (21 / 2 / ink), but he
-    expects the right numbers to differ per screen and wants them back here.
-    Until then `ALBUMWALL_BENCH=1` shows the old controls.
-  - whatever else turns out to need a setting. Add the tab when the second
-    option for it arrives, not before.
+  the last item in the menu, by convention; new tabs go before it. Library,
+  Startup and Colors exist. Add a tab when the second option for it arrives,
+  not before.
 
 - **A file-properties window**, in the SAME FORMAT as Preferences — "we'll use
   the same format with the file properties window when we get to it". The
@@ -35,8 +30,9 @@ is ahead, the history is for what is behind.
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.
 
-- **Media keys on Windows.** They go through MPRIS on Linux; Windows needs
-  SystemMediaTransportControls and nobody has written it.
+- **A seek bar in the Windows media flyout.** `Smtc.cs` tells Windows what is
+  playing and takes its buttons, but does not send timeline properties, so the
+  flyout shows the track without a position. Nobody has asked.
 
 ## Decided against, for now
 

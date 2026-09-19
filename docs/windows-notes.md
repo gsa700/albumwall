@@ -156,6 +156,18 @@ So, on Hambench:
   task** that copies them somewhere unsandboxed, then unregister it.
 - Test runs were never affected: they set `ALBUMWALL_CONFIG_DIR`.
 
+### The build output moved
+
+Since media keys, the app targets the Windows SDK when built on Windows, so
+the exe is at `src/AlbumWall.App/bin/Debug/net10.0-windows10.0.19041.0/`, not
+`bin/Debug/net10.0/`. The old folder is stale and can be deleted. `dotnet run`
+finds the right one by itself; anything that names the path has to be told.
+
+Media keys can be tested without touching the keyboard: PowerShell can ask
+`GlobalSystemMediaTransportControlsSessionManager` for the AlbumWall session,
+read back the title, artist and thumbnail Windows holds for it, and call
+`TrySkipNextAsync()` / `TryPauseAsync()` — the same path a key press takes.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched
