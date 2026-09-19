@@ -20,5 +20,6 @@ class Program
             .WithDeveloperTools()
 #endif
             .WithInterFont()
-            .LogToTrace();
+            .AfterSetup(_ => Avalonia.Logging.Logger.Sink =
+                new ConsoleLogSink(Avalonia.Logging.LogEventLevel.Warning));
 }

@@ -12,6 +12,135 @@
         WindowDecorations="None">
 
     <Window.Resources>
+
+        <!-- One row of covers. The row is exactly as wide as its albums, so the
+             arrow offsets computed for the panel below it stay correct. -->
+        <DataTemplate x:Key="AlbumRowTemplate" DataType="app:AlbumRow">
+            <ItemsControl ItemsSource="{Binding Albums}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="15"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="app:AlbumVm">
+                        <Button Classes="tile" Command="{Binding OpenCommand}">
+                            <StackPanel Spacing="5" Width="{DynamicResource CoverPx}">
+                                <Panel Width="{DynamicResource CoverPx}"
+                                       Height="{DynamicResource CoverPx}">
+                                    <Border Background="{Binding Placeholder}" CornerRadius="2"/>
+                                    <Image Classes="cover" Source="{Binding Cover}"
+                                           Opacity="{Binding CoverOpacity}"
+                                           Stretch="UniformToFill"/>
+                                    <!-- Selection ring, drawn over the art rather
+                                         than around it, so turning it on does not
+                                         change the tile's size or the grid. -->
+                                    <Border CornerRadius="2" BorderThickness="3"
+                                            BorderBrush="{Binding RingBrush}"
+                                            IsVisible="{Binding IsSelected}"/>
+                                </Panel>
+                                <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Medium"
+                                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                                <TextBlock Text="{Binding Artist}" Classes="dim" FontSize="10"
+                                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
+
+        <!-- The open album. Full wall width, coloured by its own artwork. -->
+        <DataTemplate x:Key="PanelRowTemplate" DataType="app:PanelRow">
+            <!-- ClipToBounds is load-bearing, not tidiness. The unfold animates
+                 this element's HEIGHT, and without clipping the panel's contents
+                 keep painting over the rows below while the height collapses, so
+                 a roll-up looks like nothing happening. -->
+            <Panel ClipToBounds="True">
+                <!-- The arrow points at the cover that was clicked. It is part of
+                     the panel, not the row above, so it can never be clipped by
+                     the row's bounds. -->
+                <Path Data="M 0 11 L 11 0 L 22 11 Z"
+                      Fill="{Binding Palette.Panel}"
+                      HorizontalAlignment="Left" VerticalAlignment="Top"
+                      Margin="{Binding ArrowMargin}"/>
+
+                <Border Background="{Binding Palette.Panel}" CornerRadius="6"
+                        Margin="0,10,0,0" Padding="22">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+
+                        <DockPanel Grid.Column="0">
+                            <StackPanel DockPanel.Dock="Top" Spacing="3">
+                                <TextBlock Text="{Binding Album.Title}" FontSize="21"
+                                           FontWeight="Bold"
+                                           Foreground="{Binding Palette.Text}"/>
+                                <TextBlock Text="{Binding Album.Artist}" FontSize="14"
+                                           Foreground="{Binding Palette.TextDim}"/>
+                                <TextBlock Text="{Binding HeaderLine}" FontSize="11"
+                                           Margin="0,4,0,0"
+                                           Foreground="{Binding Palette.TextDim}"/>
+                            </StackPanel>
+
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                                        Spacing="9" Margin="0,14,0,0">
+                                <Button Classes="panel" Content="Play"
+                                        Command="{Binding PlayCommand}"
+                                        IsEnabled="{Binding CanPlay}"
+                                        ToolTip.Tip="Play this album"/>
+                                <Button Classes="panel" Content="Shuffle"
+                                        Command="{Binding ShuffleCommand}"
+                                        IsEnabled="{Binding CanPlay}"
+                                        ToolTip.Tip="Shuffle this album"/>
+                                <Button Classes="panel" Content="Edit tags" IsEnabled="False"
+                                        ToolTip.Tip="Tag editing is not built yet"/>
+                            </StackPanel>
+
+                            <!-- NO internal scroll region. An album panel sizes to
+                                 its own track list and the wall scrolls, because
+                                 a scrollable area inside an already-scrolling page
+                                 means two scrollbars competing for one wheel. Even
+                                 the 46-track box set is only about 26 rows per
+                                 column, which the wall carries without complaint. -->
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="26" Margin="0,16,0,0">
+                                <ItemsControl Grid.Column="0" ItemsSource="{Binding LeftColumn}"
+                                              ItemTemplate="{StaticResource TrackLineTemplate}"/>
+                                <ItemsControl Grid.Column="1" ItemsSource="{Binding RightColumn}"
+                                              ItemTemplate="{StaticResource TrackLineTemplate}"/>
+                            </Grid>
+                        </DockPanel>
+
+                        <Border Grid.Column="1" Width="260" Height="260" CornerRadius="3"
+                                Background="{Binding Album.Placeholder}" VerticalAlignment="Top">
+                            <Image Source="{Binding Album.Cover}" Stretch="UniformToFill"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Panel>
+        </DataTemplate>
+
+        <!-- One line of the track list: a disc header or a track. -->
+        <DataTemplate x:Key="TrackLineTemplate" DataType="app:TrackLine">
+            <Panel>
+                <TextBlock Text="{Binding Text}" IsVisible="{Binding IsHeader}"
+                           FontSize="10" FontWeight="Bold" Margin="0,12,0,4"
+                           Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Accent}"/>
+                <Button Classes="track" IsVisible="{Binding !IsHeader}"
+                        Command="{Binding PlayCommand}">
+                <Grid ColumnDefinitions="26,*,Auto" Height="23">
+                    <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="11"
+                               VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,9,0"
+                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="12"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="11"
+                               VerticalAlignment="Center" Margin="10,0,0,0"
+                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
+                </Grid>
+                </Button>
+            </Panel>
+        </DataTemplate>
+
         <!-- The single source of truth for tile geometry. Updating this at
              runtime re-sizes every realised tile without touching bindings. -->
         <sys:Double x:Key="CoverPx">185</sys:Double>
@@ -29,6 +158,16 @@
         </Style>
         <Style Selector="TextBlock.mono">
             <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+        </Style>
+        <!-- Art arrives asynchronously, so without this a cover pops into place
+             the instant it decodes. A short fade makes loading read as the wall
+             filling in rather than as flicker. -->
+        <Style Selector="Image.cover">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Button.tile">
             <Setter Property="Background" Value="Transparent"/>
@@ -79,6 +218,90 @@
             <Setter Property="Foreground" Value="#FFFFFF"/>
         </Style>
 
+        <!-- A track row is a click target across its whole width, but must not
+             look like a button sitting in a list. -->
+        <!-- Click to pause or resume. The transport is one line for now; the
+             spec's full toolbar comes with the rest of the player. -->
+        <Style Selector="Button.nowplaying">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <!-- Fluent's sliders default to the system blue accent, which is the one
+             cold thing in a window whose every other colour comes from the
+             artwork. Warm neutrals sit correctly on both the chrome bar and an
+             album-tinted transport without needing to know which. -->
+        <Style Selector="Slider:horizontal /template/ RepeatButton#PART_DecreaseButton">
+            <Setter Property="Background" Value="#E8E0D4"/>
+        </Style>
+        <Style Selector="Slider:horizontal /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="Background" Value="#38FFFFFF"/>
+        </Style>
+        <Style Selector="Slider /template/ Thumb">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#66000000"/>
+        </Style>
+        <Style Selector="Slider:pointerover /template/ Thumb">
+            <Setter Property="Background" Value="#FFFFFF"/>
+        </Style>
+
+        <Style Selector="Button.transport">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.transport.big">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="CornerRadius" Value="20"/>
+        </Style>
+        <Style Selector="Button.transport /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+        </Style>
+        <Style Selector="Button.transport:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#3DFFFFFF"/>
+        </Style>
+        <Style Selector="Button.chrome">
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+        </Style>
+        <Style Selector="Button.track">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.track /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.track:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1FFFFFFF"/>
+        </Style>
+        <Style Selector="Button.panel">
+            <Setter Property="Background" Value="#26FFFFFF"/>
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="15,6"/>
+        </Style>
         <Style Selector="TextBox.search">
             <Setter Property="Background" Value="#241F1A"/>
             <Setter Property="Foreground" Value="#F3EEE6"/>
@@ -124,42 +347,75 @@
                         Width="220" Margin="14,0" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="2" x:Name="SizeText" Classes="mono" FontSize="12"
                            VerticalAlignment="Center"/>
-                <!-- A visible control, not just the G shortcut: a keyboard-only
-                     affordance is invisible, and it loses to the search box for
-                     focus the moment you type in it. -->
                 <TextBlock Grid.Column="5" x:Name="StatusText" Classes="dim" FontSize="12"
                            VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
-        <!-- Vertical scrolling only: width is fixed by the window. -->
+        <!-- Transport. Declared after the controls bar so it docks ABOVE it, and
+             hidden entirely until something is playing: an empty transport is a
+             row of dead controls taking up wall. -->
+        <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="66"
+                BorderThickness="0,1,0,0" IsVisible="False">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="26,0">
+
+                <Border Grid.Column="0" Width="46" Height="46" CornerRadius="2"
+                        VerticalAlignment="Center" ClipToBounds="True">
+                    <Image x:Name="TransportArt" Stretch="UniformToFill"/>
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0"
+                            Width="230" Spacing="2">
+                    <TextBlock x:Name="TransportTitle" FontSize="13" FontWeight="Medium"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                    <TextBlock x:Name="TransportArtist" Classes="dim" FontSize="11"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                            VerticalAlignment="Center" Margin="16,0,16,0">
+                    <Button x:Name="PrevButton" Classes="transport" ToolTip.Tip="Previous"/>
+                    <Button x:Name="PlayPauseButton" Classes="transport big" ToolTip.Tip="Play / pause"/>
+                    <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"/>
+                </StackPanel>
+
+                <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+                      VerticalAlignment="Center">
+                    <TextBlock Grid.Column="0" x:Name="ElapsedText" Classes="mono dim"
+                               FontSize="11" VerticalAlignment="Center" Width="46"
+                               TextAlignment="Right"/>
+                    <Slider Grid.Column="1" x:Name="PositionSlider" Minimum="0" Maximum="1"
+                            VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="2" x:Name="RemainingText" Classes="mono dim"
+                               FontSize="11" VerticalAlignment="Center" Width="52"/>
+                </Grid>
+
+                <!-- ReplayGain must be VISIBLE, never silently applied. Click to
+                     cycle: album gain keeps a record's own dynamics, track gain
+                     levels everything, off is off. -->
+                <Button Grid.Column="4" x:Name="GainButton" Classes="chrome"
+                        Margin="20,0,0,0" VerticalAlignment="Center"
+                        FontSize="10" Padding="10,5"
+                        ToolTip.Tip="ReplayGain — click to change"/>
+            </Grid>
+        </Border>
+
+        <!-- Vertical scrolling only: width is fixed by the window.
+
+             The wall is a list of ROWS, not a grid. A uniform grid has no row to
+             insert between, and the expansion panel has to push the rows after it
+             down. StackLayout still virtualises, by row instead of by tile. -->
         <ScrollViewer x:Name="WallScroller"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"
                       Padding="26,20,26,0">
             <ItemsRepeater x:Name="Wall">
                 <ItemsRepeater.Layout>
-                    <UniformGridLayout MinItemWidth="185" MinItemHeight="225"
-                                       MinColumnSpacing="15" MinRowSpacing="15"
-                                       ItemsStretch="None"/>
+                    <StackLayout Orientation="Vertical" Spacing="15"/>
                 </ItemsRepeater.Layout>
                 <ItemsRepeater.ItemTemplate>
-                    <DataTemplate DataType="app:AlbumVm">
-                        <Button Classes="tile">
-                            <StackPanel Spacing="5"
-                                        Width="{DynamicResource CoverPx}">
-                                <Panel Width="{DynamicResource CoverPx}"
-                                       Height="{DynamicResource CoverPx}">
-                                    <Border Background="{Binding Placeholder}" CornerRadius="2"/>
-                                    <Image Source="{Binding Cover}" Stretch="UniformToFill"/>
-                                </Panel>
-                                <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Medium"
-                                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
-                                <TextBlock Text="{Binding Artist}" Classes="dim" FontSize="10"
-                                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
-                            </StackPanel>
-                        </Button>
-                    </DataTemplate>
+                    <app:WallItemTemplate Rows="{StaticResource AlbumRowTemplate}"
+                                          Panel="{StaticResource PanelRowTemplate}"/>
                 </ItemsRepeater.ItemTemplate>
             </ItemsRepeater>
         </ScrollViewer>

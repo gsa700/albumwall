@@ -1,13 +1,23 @@
 // AlbumWall — cover art loading.
 //
-// Art is decoded ONCE per size bucket and cached. This matters more than it
-// looks: 194 covers at 1000x1000 RGBA would be ~780 MB resident if decoded at
-// full size, and the library is heading for 1100+ albums. DecodeToWidth does
-// the downscale during decode, so the full-size bitmap never exists in memory.
+// Art is decoded ONCE per size bucket and cached, downscaled during decode so the
+// full-size bitmap never exists in memory. DecodeToWidth does that work.
 //
 // Two source paths, because real libraries use both: a sidecar file beside the
 // tracks (this FLAC library, cover.jpg only) or a picture block embedded in the
 // file itself (the mp3/aac collection).
+//
+// THE CACHE IS BOUNDED. It was not, originally, and that was fine for as long as
+// the numbers stayed small: 194 albums, one bucket each. It stopped being fine the
+// moment the expansion panel arrived and started asking for a bigger bucket than
+// the tiles, because every opened album then held TWO bitmaps and the count went
+// past the album count — 206 entries for 194 albums — with resident memory
+// climbing as fast as albums were opened. At the ~1,100 albums this library is
+// heading for, unbounded meant over a gigabyte of retained bitmaps.
+//
+// Eviction drops the cache's reference and does NOT dispose. A bitmap may still be
+// on screen, and disposing one out from under a live Image is a crash; letting the
+// GC collect it once nothing refers to it is both safe and sufficient.
 
 using System.Collections.Concurrent;
 using Avalonia.Media.Imaging;
@@ -16,17 +26,33 @@ namespace AlbumWall.App;
 
 public static class ArtCache
 {
-    private static readonly ConcurrentDictionary<(string Key, int Bucket), Task<Bitmap?>> Cache = new();
+    /// Roughly how much decoded art to keep. Chosen to hold a comfortable working
+    /// set — a few screens of tiles plus the open album — without tracking the
+    /// library's size, which is the property that made the old cache unbounded.
+    private const long Budget = 160L * 1024 * 1024;
 
-    /// How many covers have actually been decoded. Surfaced in the status bar
-    /// because it is the only honest way to see whether the wall is really
-    /// virtualising: on a 194-album library this should read well under 100
-    /// after a cold open, not 194.
-    public static int Decoded => Cache.Count;
+    private sealed class Entry
+    {
+        public required Task<Bitmap?> Task { get; init; }
+        public long Bytes;
+    }
 
-    /// Decoding at exactly the display size would re-decode every album on each
-    /// slider nudge. Two buckets cover 48-320 px with at most one re-decode,
-    /// and the GPU scales the rest.
+    private static readonly object Gate = new();
+    private static readonly Dictionary<(string Key, int Bucket), Entry> Cache = [];
+    private static readonly LinkedList<(string Key, int Bucket)> Lru = [];
+    private static readonly Dictionary<(string Key, int Bucket), LinkedListNode<(string, int)>> Nodes = [];
+    private static long _bytes;
+
+    /// How many covers are currently decoded and held. Surfaced in the status bar:
+    /// it is the honest way to see both that the wall is virtualising and that the
+    /// cache is staying inside its budget.
+    public static int Decoded { get { lock (Gate) return Cache.Count; } }
+
+    public static long HeldBytes { get { lock (Gate) return _bytes; } }
+
+    /// Decoding at exactly the display size would re-decode on every slider nudge.
+    /// Two buckets cover the whole range with at most one re-decode, and the GPU
+    /// scales the rest.
     public static int BucketFor(int displayPx) => displayPx <= 256 ? 256 : 512;
 
     public static Task<Bitmap?> GetAsync(Domain.Album album, int displayPx)
@@ -34,8 +60,57 @@ public static class ArtCache
         var key = album.ArtPath ?? album.ArtEmbeddedIn;
         if (key is null) return Task.FromResult<Bitmap?>(null);
 
-        var bucket = BucketFor(displayPx);
-        return Cache.GetOrAdd((key, bucket), static k => Task.Run(() => Decode(k.Key, k.Bucket)));
+        var id = (key, BucketFor(displayPx));
+
+        lock (Gate)
+        {
+            if (Cache.TryGetValue(id, out var hit))
+            {
+                Touch(id);
+                return hit.Task;
+            }
+
+            var entry = new Entry { Task = Task.Run(() => Decode(id.Item1, id.Item2)) };
+            Cache[id] = entry;
+            Nodes[id] = Lru.AddLast(id);
+
+            // Charge the cache once the decode lands, then evict down to budget.
+            _ = entry.Task.ContinueWith(t =>
+            {
+                lock (Gate)
+                {
+                    if (t.Result is { } bmp)
+                    {
+                        entry.Bytes = (long)bmp.PixelSize.Width * bmp.PixelSize.Height * 4;
+                        _bytes += entry.Bytes;
+                    }
+                    Trim();
+                }
+            }, TaskScheduler.Default);
+
+            return entry.Task;
+        }
+    }
+
+    /// Marks an entry as most recently used. Caller holds the lock.
+    private static void Touch((string, int) id)
+    {
+        if (!Nodes.TryGetValue(id, out var node)) return;
+        Lru.Remove(node);
+        Nodes[id] = Lru.AddLast(id);
+    }
+
+    /// Drops least-recently-used entries until the budget is met. Caller holds the
+    /// lock. Never disposes: see the note at the top of this file.
+    private static void Trim()
+    {
+        while (_bytes > Budget && Lru.First is { } oldest)
+        {
+            var id = oldest.Value;
+            if (Cache.Remove(id, out var gone)) _bytes -= gone.Bytes;
+            Nodes.Remove(id);
+            Lru.RemoveFirst();
+        }
     }
 
     private static Bitmap? Decode(string key, int bucket)
