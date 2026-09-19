@@ -83,6 +83,7 @@ public partial class MainWindow : Window
         if (_settings.WindowWidth is > 320) Width = _settings.WindowWidth.Value;
         if (_settings.WindowHeight is > 240) Height = _settings.WindowHeight.Value;
 
+        Wall.RowHeight = CoverPx + LabelHeight;
         Wall.ItemsSource = _rows;
         Wall.ElementPrepared += OnElementPrepared;
         WallScroller.SizeChanged += OnWallResized;
@@ -1006,6 +1007,7 @@ public partial class MainWindow : Window
         {
             CoverPx = cover;
             Resources["CoverPx"] = (double)cover;
+            Wall.RowHeight = CoverPx + LabelHeight;
         }
 
         if (columns != _columns) Rebuild();
@@ -1065,15 +1067,11 @@ public partial class MainWindow : Window
     /// changes, and holds the wall still while it happens.
     private void SyncPanel(bool unfold)
     {
-        // ItemsRepeater does not know how tall the rows it has not realised are.
-        // It ESTIMATES the total extent from the average height of the rows it
-        // has, and every row is one cover tall until a panel several times taller
-        // appears. That changes the estimate, so the ScrollViewer's absolute pixel
-        // offset suddenly points somewhere else in the list.
-        //
-        // The error is proportional to distance from the top, which is why it
-        // showed up past the halfway mark and looked like nothing near the start.
-        // Anchoring happens after the rows have been mutated — see SetOpen.
+        // The wall computes its own extent exactly (see WallView), so inserting a
+        // panel no longer moves the meaning of the scroll offset. This used to be
+        // guarded against an estimate that shifted the moment a panel several
+        // times taller than a cover row appeared; the anchoring below is now
+        // about showing the right thing, not about correcting for a guess.
         if (_panelAt >= 0 && _panelAt < _rows.Count && _rows[_panelAt] is PanelRow)
         {
             _rows.RemoveAt(_panelAt);
@@ -1630,57 +1628,39 @@ public partial class MainWindow : Window
     /// short panel still gets) and never tighter than `MinLead` (the tile just
     /// clear of the top bar, which is what a tall one needs). The clamp IS the
     /// fix; the short-album case falls out of it unchanged.
-    private double TargetOffsetFor(Control row, Control? panel)
+    /// Where the wall should sit to show the album at `rowIndex`.
+    ///
+    /// ARITHMETIC NOW, NOT MEASUREMENT. The wall states the exact offset of any
+    /// row whether or not it has been built, so this needs no realised element,
+    /// no TranslatePoint, and no walking towards a row hoping it appears. All of
+    /// that existed to work around an estimated extent, and there is no estimate
+    /// any more. See WallView.
+    ///
+    /// The two cases are his: a panel too tall to fit takes the whole window and
+    /// the album's own row goes off the top — "hide the row the album is in and
+    /// maximize what we can see of the selected album" — and one that fits is
+    /// centred, because the thing you asked to look at belongs in the middle of
+    /// the view rather than at one end of it.
+    private double TargetOffset(int rowIndex)
     {
-        // WORK IN VIEWPORT-RELATIVE TERMS, NEVER IN ABSOLUTE Bounds.Y.
-        //
-        // An element's Bounds live in the ItemsRepeater's coordinate space, and
-        // the repeater ESTIMATES that space from the average height of the rows
-        // it has realised. The ScrollViewer's Offset is in its own. The two agree
-        // near the top of the list and drift apart further down — measured 20 px
-        // on the Chicago row — so a Bounds-derived offset lands a few pixels out,
-        // which shows as a band of the row above's labels along the top edge.
-        // Asking the visual tree where things actually ARE relative to the
-        // viewport cancels the error whatever it happens to be.
-        var y = WallScroller.Offset.Y;
         var view = WallScroller.Viewport.Height;
         var max = Math.Max(0, WallScroller.Extent.Height - view);
 
-        var rowTop = row.TranslatePoint(default, WallScroller)?.Y;
-        if (rowTop is null) return y;
-
-        // Closing: there is no panel, so keep a row of context above the album
-        // that was just folded away and leave the eye where it was.
-        if (panel is null)
+        // Closing: no panel, so keep a row of context above the album that was
+        // folded away and leave the eye where it was.
+        if (_panelAt <= 0 || _panelAt >= _rows.Count)
         {
             var lead = CoverPx + LabelHeight + RowSpacing;
-            return Math.Clamp(y + rowTop.Value - lead, 0, max);
+            return Math.Clamp(Wall.OffsetOf(rowIndex) - lead, 0, max);
         }
 
-        var panelTop = panel.TranslatePoint(default, WallScroller)?.Y;
-        if (panelTop is null) return y;
+        var panelTop = Wall.OffsetOf(_panelAt);
+        var panelHeight = Wall.HeightOf(_panelAt);
 
-        var panelHeight = panel.Bounds.Height;
-
-        // THE PANEL IS THE SUBJECT, AND THE WALL IS WHAT IT WAS PULLED OUT OF.
-        //
-        // His framing, and it decides both cases below: the albums are CDs in a
-        // storage bin and this is flipping through them. What you are looking at
-        // belongs in the middle of your view, and the moment you pick one up it
-        // is the only thing you are looking at.
-        //
-        // TOO TALL TO SHOW: give it everything. The album's own row goes off the
-        // top — Peek is what, if anything, is left of it. His call: "we should
-        // hide the row the album is in and maximize what we can see of the
-        // selected album." Nothing is gained by keeping a strip of the row when
-        // the panel cannot fit anyway, and a strip of a row is a band of half-cut
-        // labels, so Peek is 0 until it proves to need otherwise.
         if (panelHeight > view - Peek)
-            return Math.Clamp(y + panelTop.Value - Peek, 0, max);
+            return Math.Clamp(panelTop - Peek, 0, max);
 
-        // IT FITS: centre it. Anything else leaves the thing you asked to look at
-        // sitting off to one end of the window with dead space opposite.
-        return Math.Clamp(y + panelTop.Value - (view - panelHeight) / 2, 0, max);
+        return Math.Clamp(panelTop - (view - panelHeight) / 2, 0, max);
     }
 
     private void AnchorOn(AlbumVm album)
@@ -1696,42 +1676,7 @@ public partial class MainWindow : Window
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
         {
-            // WALK TO THE ROW, do not conjure it.
-            //
-            // The row being anchored on is often not realised: folding a box-set
-            // panel away slides the wall by thousands of pixels, and clearing a
-            // search rebuilds every row. Bailing here let an album open
-            // completely offscreen.
-            //
-            // The obvious answer, GetOrCreateElement, is a trap. It realises the
-            // element OUTSIDE the virtualisation flow and pins it, and the
-            // repeater then stops extending its realised window past that point:
-            // measured, rows 13 onward stayed UNREALISED with 279 px of empty
-            // viewport below the open panel, and scrolling would not shake it
-            // loose. It fixed the symptom it was written for and broke the wall
-            // somewhere else.
-            //
-            // So jump to roughly where the row should be, by the repeater's own
-            // estimate, and let it realise the row itself on a later tick. Rough
-            // is fine: each jump improves the estimate, and once the element is
-            // real the exact target below takes over.
-            var element = rowIndex < _rows.Count ? Wall.TryGetElement(rowIndex) : null;
-            if (element is null)
-            {
-                if (DateTime.UtcNow > until) { Settle(); return; }
-
-                var approx = WallScroller.Extent.Height
-                           * rowIndex / Math.Max(1, _rows.Count)
-                           - (CoverPx + LabelHeight + RowSpacing);
-                var limit = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
-                WallScroller.Offset = WallScroller.Offset.WithY(Math.Clamp(approx, 0, limit));
-                return;
-            }
-
-            var panel = _panelAt > 0 && _panelAt < _rows.Count
-                ? Wall.TryGetElement(_panelAt)
-                : null;
-            var target = TargetOffsetFor(element, panel);
+            var target = TargetOffset(rowIndex);
 
             // Out of time. Land exactly on the target rather than wherever the
             // easing had got to: an exponential approach crawls the last few
@@ -1773,16 +1718,7 @@ public partial class MainWindow : Window
             // against where things ended up, while the wall is still frozen.
             DispatcherTimer.RunOnce(() =>
             {
-                var row = Wall.TryGetElement(rowIndex);
-                if (row is not null)
-                {
-                    var panel = _panelAt > 0 && _panelAt < _rows.Count
-                        ? Wall.TryGetElement(_panelAt)
-                        : null;
-                    WallScroller.Offset =
-                        WallScroller.Offset.WithY(TargetOffsetFor(row, panel));
-                }
-
+                WallScroller.Offset = WallScroller.Offset.WithY(TargetOffset(rowIndex));
                 FreezeWall(false);
             }, TimeSpan.FromMilliseconds(UnfoldMs + 60));
         }
@@ -1855,7 +1791,7 @@ public partial class MainWindow : Window
 
     /// Fired as the layout realises a container. This — not item creation — is
     /// the moment we know a cover is about to be visible.
-    private void OnElementPrepared(object? sender, ItemsRepeaterElementPreparedEventArgs e)
+    private void OnElementPrepared(object? sender, WallElementEventArgs e)
     {
         var px = CoverPx;
         switch (e.Element.DataContext)

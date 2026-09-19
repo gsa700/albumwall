@@ -618,15 +618,12 @@
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"
                       Padding="26,20,26,0">
-            <ItemsRepeater x:Name="Wall">
-                <ItemsRepeater.Layout>
-                    <StackLayout Orientation="Vertical" Spacing="15"/>
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                    <app:WallItemTemplate Rows="{StaticResource AlbumRowTemplate}"
-                                          Panel="{StaticResource PanelRowTemplate}"/>
-                </ItemsRepeater.ItemTemplate>
-            </ItemsRepeater>
+            <!-- The wall's own layout, not ItemsRepeater. See WallView: the
+                 extent here is arithmetic, not an estimate, which is what every
+                 scroll bug in this app came out of. -->
+            <app:WallView x:Name="Wall" Spacing="15"
+                          Rows="{StaticResource AlbumRowTemplate}"
+                          PanelTemplate="{StaticResource PanelRowTemplate}"/>
         </ScrollViewer>
 
     </DockPanel>
