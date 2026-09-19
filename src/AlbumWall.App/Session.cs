@@ -25,6 +25,15 @@ public sealed class Session
     public int Index { get; set; }
     public double PositionSeconds { get; set; }
 
+    /// The album whose panel was unfolded, which is NOT necessarily the one
+    /// playing: he can be listening to one record and reading the track list of
+    /// another. Null when the wall was closed up, and then it comes back closed.
+    ///
+    /// Added the first time he used the restore: "it did come back, but the
+    /// album was not expanded." Where he was includes what he was looking at.
+    public string? OpenAlbumArtist { get; set; }
+    public string? OpenAlbum { get; set; }
+
     [JsonIgnore]
     public static string Path { get; } = System.IO.Path.Combine(
         System.IO.Path.GetDirectoryName(Settings.Path)!, "session.json");

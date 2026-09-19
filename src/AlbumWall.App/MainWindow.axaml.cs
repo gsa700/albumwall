@@ -1571,7 +1571,7 @@ public partial class MainWindow : Window
     private void EndSession()
     {
         _sessionOver = true;
-        Session.Clear();
+        SaveSession();      // nothing playing any more; an open panel still counts
     }
 
     private bool _resumeTried;
@@ -1583,23 +1583,32 @@ public partial class MainWindow : Window
     /// Records what is playing and where, for the next run.
     private void SaveSession()
     {
-        if (_player is null || _playingAlbum is null || _sessionOver) return;
+        // Nothing is written until the restore has had its turn. The first thing
+        // a restore does is unfold a panel, unfolding a panel saves, and a save
+        // before the playing half has been put back would record "nothing
+        // playing" over the very session being restored.
+        if (!_resumeTried) return;
 
-        // Index is -1 until mpv has actually arrived on a track. Saving then
-        // would replace a good record with "track -1 at zero" — and the moment
-        // that happens is just after launch, mid-restore, which is exactly when
-        // the record matters.
-        var i = _player.Index;
-        if (i < 0 || i >= _playingPaths.Count) return;
+        var session = new Session { OpenAlbumArtist = _open?.Artist, OpenAlbum = _open?.Title };
 
-        new Session
+        if (_player is not null && _playingAlbum is not null && !_sessionOver)
         {
-            AlbumArtist = _playingAlbum.Artist,
-            Album = _playingAlbum.Title,
-            Queue = _playingPaths,
-            Index = i,
-            PositionSeconds = _player.Position.TotalSeconds
-        }.Save();
+            // Index is -1 until mpv has actually arrived on a track. Saving then
+            // would replace a good record with "track -1 at zero" — and the
+            // moment that happens is just after launch, mid-restore, which is
+            // exactly when the record matters. So: leave the file alone.
+            var i = _player.Index;
+            if (i < 0 || i >= _playingPaths.Count) return;
+
+            session.AlbumArtist = _playingAlbum.Artist;
+            session.Album = _playingAlbum.Title;
+            session.Queue = _playingPaths;
+            session.Index = i;
+            session.PositionSeconds = _player.Position.TotalSeconds;
+        }
+
+        if (session.Queue.Count == 0 && session.OpenAlbum is null) Session.Clear();
+        else session.Save();
     }
 
     /// Picks up the album, track and position from the last run — paused.
@@ -1617,7 +1626,17 @@ public partial class MainWindow : Window
     private void ResumeSession()
     {
         if (_settings.ResumeSession == false) return;
-        if (Session.Load() is not { Queue.Count: > 0 } last) return;
+        if (Session.Load() is not { } last) return;
+
+        // What he was looking at, first, and whatever becomes of the playback:
+        // a machine without libmpv still has a wall to put back. Not animated,
+        // and after layout, for the reasons RestoreViewAfterSearch gives — a
+        // restore is not an action and should not look like one.
+        if (_all.FirstOrDefault(v => v.Artist == last.OpenAlbumArtist && v.Title == last.OpenAlbum)
+            is { } wasOpen)
+            Dispatcher.UIThread.Post(() => SetOpen(wasOpen, animate: false), DispatcherPriority.Background);
+
+        if (last.Queue.Count == 0) return;
         if (!Playback.Player.IsAvailable || _playerFailed) return;
 
         var album = _all.FirstOrDefault(v => v.Artist == last.AlbumArtist && v.Title == last.Album);
@@ -2061,6 +2080,8 @@ public partial class MainWindow : Window
         // rather than wherever the removed panel's height dropped you.
         if (_open is not null) AnchorOn(_open);
         else if (album is not null) AnchorOn(album);
+
+        SaveSession();      // what is unfolded is part of where he was
     }
 
     /// Collapses the realised panel element to nothing, then returns so the
