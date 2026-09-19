@@ -26,4 +26,14 @@
     <ProjectReference Include="..\AlbumWall.Domain\AlbumWall.Domain.csproj" />
     <ProjectReference Include="..\AlbumWall.Playback\AlbumWall.Playback.csproj" />
   </ItemGroup>
+
+  <!-- libmpv on Windows, fetched by scripts/get-libmpv.ps1 rather than
+       committed: it is a large binary from another GPL project. Absent on
+       Linux, where libmpv comes from the distribution, so the whole group is
+       conditional on the folder existing. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/../../native/win-x64')">
+    <None Include="../../native/win-x64/*.dll" Link="%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

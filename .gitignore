@@ -6,3 +6,6 @@ obj/
 *.db
 *.db-shm
 *.db-wal
+
+# libmpv, fetched per-platform by scripts/get-libmpv.ps1
+native/

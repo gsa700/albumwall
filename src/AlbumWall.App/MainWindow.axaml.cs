@@ -783,7 +783,7 @@ public partial class MainWindow : Window
     ///
     /// The snapshot trigger made the app VISIBLE to whoever is building it; this
     /// makes it DRIVABLE. There is no input path to this window otherwise —
-    /// Techbench has no xdotool, wtype, ydotool, xte, wmctrl or python-Xlib, and
+    /// This machine has no xdotool, wtype, ydotool, xte, wmctrl or python-Xlib, and
     /// GNOME will not synthesise events for an unsandboxed caller — so every UI
     /// change had to be verified by asking him to click something. Now a UI
     /// change can be opened, photographed and checked without taking his hands
