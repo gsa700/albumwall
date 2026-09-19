@@ -636,10 +636,10 @@
          where it looked and offers the one action that fixes it. -->
     <Border x:Name="EmptyState" IsVisible="False" Background="Transparent">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Spacing="14" MaxWidth="460">
-            <TextBlock Text="No music here yet" FontSize="20" FontWeight="Bold"
+                    Spacing="20" MaxWidth="520">
+            <TextBlock Text="No music here yet" FontSize="25" FontWeight="Bold"
                        HorizontalAlignment="Center"/>
-            <TextBlock x:Name="EmptyWhere" Classes="dim" FontSize="12"
+            <TextBlock x:Name="EmptyWhere" Classes="dim" FontSize="14" LineHeight="21"
                        TextWrapping="Wrap" TextAlignment="Center"/>
             <Button x:Name="EmptyChoose" Classes="panel" Content="Choose your music folder…"
                     HorizontalAlignment="Center"/>
@@ -652,20 +652,20 @@
     <Panel x:Name="Sheet" IsVisible="False">
         <Border x:Name="SheetScrim" Background="#99000000"/>
         <Border HorizontalAlignment="Center" VerticalAlignment="Center"
-                Width="520" CornerRadius="10" Padding="26"
+                Width="560" CornerRadius="10" Padding="34,30"
                 Background="{DynamicResource SheetBg}" BorderThickness="1"
                 BorderBrush="{DynamicResource SheetEdge}">
-            <StackPanel Spacing="18">
-                <TextBlock x:Name="SheetTitle" FontSize="18" FontWeight="Bold"/>
+            <StackPanel Spacing="22">
+                <TextBlock x:Name="SheetTitle" FontSize="21" FontWeight="Bold"/>
 
-                <StackPanel x:Name="PrefsSection" Spacing="10">
-                    <TextBlock Text="Music folder" FontSize="12" FontWeight="SemiBold"/>
-                    <Border CornerRadius="4" Padding="10,8"
+                <StackPanel x:Name="PrefsSection" Spacing="12">
+                    <TextBlock Text="Music folder" FontSize="14" FontWeight="SemiBold"/>
+                    <Border CornerRadius="4" Padding="13,11"
                             Background="{DynamicResource SheetField}">
-                        <TextBlock x:Name="PrefsPath" FontSize="11" Classes="mono"
+                        <TextBlock x:Name="PrefsPath" FontSize="13" Classes="mono"
                                    TextWrapping="Wrap"/>
                     </Border>
-                    <TextBlock Classes="dim" FontSize="11" TextWrapping="Wrap"
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                Text="Everything under this folder is scanned. Album art is taken from a cover file beside the tracks, or from the tags if there is none."/>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Button x:Name="PrefsChoose" Classes="panel" Content="Choose folder…"/>
@@ -674,13 +674,13 @@
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel x:Name="AboutSection" Spacing="8" IsVisible="False">
-                    <TextBlock x:Name="AboutVersion" FontSize="12"/>
-                    <TextBlock Classes="dim" FontSize="11" TextWrapping="Wrap"
+                <StackPanel x:Name="AboutSection" Spacing="12" IsVisible="False">
+                    <TextBlock x:Name="AboutVersion" FontSize="15" FontWeight="SemiBold"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                Text="A player for a music library you own, built around seeing the whole collection at once."/>
-                    <TextBlock Classes="dim" FontSize="11" TextWrapping="Wrap"
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                Text="Licensed under the GNU General Public License v3 or later. Audio by libmpv (GPLv2 or later). Tags by TagLib#."/>
-                    <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="10"
+                    <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
                                TextWrapping="Wrap"/>
                 </StackPanel>
 

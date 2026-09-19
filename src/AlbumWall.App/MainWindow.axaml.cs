@@ -357,7 +357,7 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.Post(() =>
             {
                 _all = vms;
-                foreach (var vm in vms) vm.OnOpen = SetOpen;
+                foreach (var vm in vms) vm.OnOpen = a => SetOpen(a);
                 _counts = $"{albums.Count} albums · {tracks} tracks · {artists} artists";
                 ApplyGround();
                 _scanMs = sw.ElapsedMilliseconds;
@@ -677,8 +677,29 @@ public partial class MainWindow : Window
 
     /// One resource drives every tile's geometry, so a slider drag re-lays out
     /// the wall without rebuilding items or touching per-tile bindings.
+    /// Where the wall was before a search started, so backing out of the search
+    /// can put it back.
+    private AlbumVm? _beforeSearchOpen;
+    private AlbumVm? _beforeSearchTop;
+    private bool _searching;
+
     private void ApplyFilter()
     {
+        var filtering = _filter.Length > 0;
+
+        // SEARCHING IS A DETOUR, NOT A DESTINATION. Typing into the box replaces
+        // the whole wall, and clearing it used to dump you at the top of the
+        // library with the album you were listening to closed — so the cost of
+        // looking something up was losing your place. Remember where we were on
+        // the way in, on the way in ONLY: every keystroke re-runs this, and
+        // capturing on each one would remember the search instead of the wall.
+        if (filtering && !_searching)
+        {
+            _beforeSearchOpen = _open;
+            _beforeSearchTop = TopAlbumInView();
+            _searching = true;
+        }
+
         _visible = _filter.Length == 0
             ? _all.ToList()
             : _all.Where(v => v.Album.SearchText.Contains(_filter)).ToList();
@@ -687,10 +708,61 @@ public partial class MainWindow : Window
         // a cover that is no longer on the wall is worse than no panel.
         if (_open is not null && !_visible.Contains(_open)) SetOpen(null);
 
-        if (_filter.Length > 0)
+        if (filtering)
             StatusText.Text = $"{_visible.Count} of {_all.Count} albums";
 
         Rebuild();
+
+        if (!filtering && _searching)
+        {
+            _searching = false;
+            RestoreViewAfterSearch();
+        }
+    }
+
+    /// Puts the wall back where the search interrupted it.
+    ///
+    /// Re-opening the album is what matters most — it is almost always the one
+    /// playing, and it carries its own scroll position with it because opening
+    /// anchors. Failing that, the album that was at the top of the view is a
+    /// good enough landmark; an absolute offset is not, because the rows have
+    /// been rebuilt underneath it and the repeater's extent estimate has moved.
+    private void RestoreViewAfterSearch()
+    {
+        var open = _beforeSearchOpen;
+        var top = _beforeSearchTop;
+        _beforeSearchOpen = null;
+        _beforeSearchTop = null;
+
+        if (open is not null && _visible.Contains(open))
+        {
+            // After the rebuild has been laid out, not during it: the rows have
+            // just been replaced wholesale and the anchor needs something real to
+            // measure against.
+            Dispatcher.UIThread.Post(() => SetOpen(open, animate: false), DispatcherPriority.Background);
+            return;
+        }
+
+        if (top is not null && _visible.Contains(top))
+            Dispatcher.UIThread.Post(() => AnchorOn(top), DispatcherPriority.Background);
+    }
+
+    /// The first album still showing at the top of the viewport — the landmark a
+    /// person would say they were "at".
+    private AlbumVm? TopAlbumInView()
+    {
+        for (var i = 0; i < _rows.Count; i++)
+        {
+            if (_rows[i] is not AlbumRow row || row.Albums.Count == 0) continue;
+
+            var el = Wall.TryGetElement(i);
+            if (el?.TranslatePoint(default, WallScroller)?.Y is not { } y) continue;
+
+            // The first row whose bottom edge has not yet passed the top of the
+            // viewport: the topmost row you can actually still see.
+            if (y + el.Bounds.Height > 0) return row.Albums[0];
+        }
+        return null;
     }
 
     /// A resize only matters if it changes how many covers fit. Dragging a window
@@ -796,6 +868,30 @@ public partial class MainWindow : Window
             Trace("before play");
             line.PlayCommand.Execute(null);
             DispatcherTimer.RunOnce(() => Trace("after play"), TimeSpan.FromMilliseconds(400));
+            return;
+        }
+
+        // "search foo" types into the box; a bare "search" clears it.
+        if (text.Equals("search", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("search ", StringComparison.OrdinalIgnoreCase))
+        {
+            SearchBox.Text = text.Length > 6 ? text[7..].Trim() : "";
+            Console.WriteLine($"[wall] search -> '{SearchBox.Text}'");
+            return;
+        }
+
+        if (text.Equals("trace", StringComparison.OrdinalIgnoreCase))
+        {
+            Trace("manual");
+            Console.WriteLine($"[trace] rows={_rows.Count} visible={_visible.Count} all={_all.Count} "
+                            + $"columns={_columns} panelAt={_panelAt} chunkKey={_chunkKey}");
+            for (var i = Math.Max(0, _panelAt - 2); i < Math.Min(_rows.Count, _panelAt + 6); i++)
+            {
+                var el = Wall.TryGetElement(i);
+                var y = el?.TranslatePoint(default, WallScroller)?.Y;
+                Console.WriteLine($"[trace]   row {i} {(_rows[i] is PanelRow ? "PANEL" : "album")} "
+                    + $"{(el is null ? "UNREALISED" : $"y={y:F0} h={el.Bounds.Height:F0} vis={el.IsVisible} op={el.Opacity:F2} " + $"el={el.GetType().Name} dc={el.DataContext?.GetType().Name ?? "null"} " + $"items={(el as ItemsControl)?.ItemCount.ToString() ?? "-"}")}");
+            }
             return;
         }
 
@@ -1312,7 +1408,14 @@ public partial class MainWindow : Window
             : $"{t.Minutes}:{t.Seconds:00}";
     }
 
-    private async void SetOpen(AlbumVm? album)
+    /// <param name="animate">
+    /// False when RESTORING a panel that was already open rather than opening one
+    /// in response to a click. A restore is not an action and should not look
+    /// like one — and an unfold starts the panel at zero height, which right
+    /// after a full row rebuild leaves the repeater unable to place the rows
+    /// below it, blanking the wall under the panel.
+    /// </param>
+    private async void SetOpen(AlbumVm? album, bool animate = true)
     {
         var closing = ReferenceEquals(_open, album) || album is null;
 
@@ -1326,7 +1429,7 @@ public partial class MainWindow : Window
         _open = closing ? null : album;
         if (_open is not null) _open.IsSelected = true;
 
-        Rebuild(unfold: _open is not null);
+        Rebuild(unfold: animate && _open is not null);
 
         // Anchor on whichever album the action was about: the one just opened, or
         // the one just closed, so closing leaves you looking at where you were
@@ -1512,21 +1615,35 @@ public partial class MainWindow : Window
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
         {
-            // FORCE the row into existence rather than giving up on it.
+            // WALK TO THE ROW, do not conjure it.
             //
-            // Opening a second album folds the first panel away, and if that
-            // panel was above the viewport the wall slides up by its whole
-            // height — a box set is thousands of pixels — landing the view
-            // somewhere else entirely and leaving the row we are anchoring on
-            // unrealised. Bailing here is what let an album open completely
-            // offscreen: "it opens but offscreen. then I had to scroll up to
-            // find it."
-            var element = rowIndex < _rows.Count
-                ? Wall.TryGetElement(rowIndex) ?? Wall.GetOrCreateElement(rowIndex)
-                : null;
+            // The row being anchored on is often not realised: folding a box-set
+            // panel away slides the wall by thousands of pixels, and clearing a
+            // search rebuilds every row. Bailing here let an album open
+            // completely offscreen.
+            //
+            // The obvious answer, GetOrCreateElement, is a trap. It realises the
+            // element OUTSIDE the virtualisation flow and pins it, and the
+            // repeater then stops extending its realised window past that point:
+            // measured, rows 13 onward stayed UNREALISED with 279 px of empty
+            // viewport below the open panel, and scrolling would not shake it
+            // loose. It fixed the symptom it was written for and broke the wall
+            // somewhere else.
+            //
+            // So jump to roughly where the row should be, by the repeater's own
+            // estimate, and let it realise the row itself on a later tick. Rough
+            // is fine: each jump improves the estimate, and once the element is
+            // real the exact target below takes over.
+            var element = rowIndex < _rows.Count ? Wall.TryGetElement(rowIndex) : null;
             if (element is null)
             {
-                Settle();
+                if (DateTime.UtcNow > until) { Settle(); return; }
+
+                var approx = WallScroller.Extent.Height
+                           * rowIndex / Math.Max(1, _rows.Count)
+                           - (CoverPx + LabelHeight + RowSpacing);
+                var limit = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+                WallScroller.Offset = WallScroller.Offset.WithY(Math.Clamp(approx, 0, limit));
                 return;
             }
 
