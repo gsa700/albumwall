@@ -23,10 +23,16 @@ What the bring-up list asked about:
   window opened at 1444x1080 at 304,304. Text and covers are sensibly sized.
 - **Fonts: fine.** Inter renders; Consolas is present for the mono bits.
 - **Panel opens**, in place, tinted, track list in two columns.
-- **Playback starts** through the fetched libmpv: the transport appears and the
-  position advances. That was a test run at volume 0, so nobody has yet HEARD
-  it, and **gapless across a track boundary has not been listened to** — still
-  the open hard requirement.
+- **Playback works** through the fetched libmpv (mpv-dev-x86_64-20260830).
+- **GAPLESS WORKS ON WINDOWS.** The hard requirement, by ear, on the album that
+  exists to test it. His words: "gapless works, no gap between tracks on Dark
+  Side" — specifically Speak to Me/Breathe (one track on this 9-track edition)
+  into On the Run, On the Run into Time, "and so on": consecutive joins where
+  the sound is continuous across the boundary, not one lucky transition.
+  Worth noting what that was tested on: M4A (AAC), not FLAC — lossy
+  formats are the harder case, because the encoder pads each track and a
+  player has to honour the gapless metadata to trim it. So this passing says
+  more than the FLAC result on Linux did.
 - **Volume slider: correct, by ear.** His words: "volume slider only changes the
   app". The system volume is left alone.
 
