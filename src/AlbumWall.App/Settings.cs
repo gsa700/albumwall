@@ -28,6 +28,14 @@ public sealed class Settings
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 
+    /// Where the music lives. Null means the platform's own Music folder, which
+    /// is the right default everywhere and the only one that needs no setup.
+    ///
+    /// This is the one setting the app CANNOT derive: a fresh machine has an
+    /// empty Music folder and the records are on a NAS. It is why there is a
+    /// preferences window at all.
+    public string? LibraryPath { get; set; }
+
     /// Ground lightness in percent. How light the room is.
     public int? Lightness { get; set; }
 

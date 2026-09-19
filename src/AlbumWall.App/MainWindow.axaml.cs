@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Animation;
+using Avalonia.Platform.Storage;
 using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
 using Avalonia.Animation.Easings;
@@ -313,7 +314,24 @@ public partial class MainWindow : Window
                         + $"extended={IsExtendedIntoWindowDecorations} "
                         + $"decorationMargin={WindowDecorationMargin}");
 
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music");
+        SetUpMenu();
+        ScanLibrary();
+    }
+
+    /// Where the music lives: his setting, or the platform's Music folder.
+    ///
+    /// The default is right on a machine that keeps its music where the OS
+    /// suggests, and wrong on every machine where the records are on a NAS —
+    /// which is why it is settable and why an empty result explains itself.
+    private string LibraryRoot =>
+        string.IsNullOrWhiteSpace(_settings.LibraryPath)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music")
+            : _settings.LibraryPath;
+
+    private void ScanLibrary()
+    {
+        var root = LibraryRoot;
+        EmptyState.IsVisible = false;
 
         // Scan on a worker thread: a cold scan of this library is ~0.1 s but it
         // is bounded by tag reads, and a NAS-backed root will be far slower.
@@ -344,6 +362,7 @@ public partial class MainWindow : Window
                 ApplyGround();
                 _scanMs = sw.ElapsedMilliseconds;
                 ApplyFilter();
+                ShowEmptyState(albums.Count == 0, root);
             });
 
             // Ground hue comes from the art, so it can only be derived after the
@@ -465,6 +484,102 @@ public partial class MainWindow : Window
             ? WindowState.Normal
             : WindowState.Maximized;
 
+    /// The menu, the preferences sheet and the empty state — all one concern,
+    /// because they exist for one reason: the app cannot know where the music is.
+    private void SetUpMenu()
+    {
+        var prefs = new MenuItem { Header = "Preferences\u2026" };
+        prefs.Click += (_, _) => ShowSheet(about: false);
+
+        var about = new MenuItem { Header = "About" };
+        about.Click += (_, _) => ShowSheet(about: true);
+
+        var rescan = new MenuItem { Header = "Rescan library" };
+        rescan.Click += (_, _) => ScanLibrary();
+
+        var quit = new MenuItem { Header = "Quit" };
+        quit.Click += (_, _) => Close();
+
+        var flyout = new MenuFlyout
+        {
+            Placement = PlacementMode.BottomEdgeAlignedRight,
+            ItemsSource = new object[]
+            {
+                prefs, about, rescan, new Separator(), quit
+            }
+        };
+
+        MenuButton.Click += (_, _) => flyout.ShowAt(MenuButton);
+
+        SheetClose.Click += (_, _) => Sheet.IsVisible = false;
+        SheetScrim.PointerPressed += (_, _) => Sheet.IsVisible = false;
+
+        PrefsChoose.Click += async (_, _) => await ChooseLibraryFolder();
+        EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder();
+
+        PrefsDefault.Click += (_, _) =>
+        {
+            _settings.LibraryPath = null;
+            _settings.Save();
+            PrefsPath.Text = LibraryRoot;
+            ScanLibrary();
+        };
+
+        PrefsRescan.Click += (_, _) => ScanLibrary();
+    }
+
+    private void ShowSheet(bool about)
+    {
+        SheetTitle.Text = about ? "About" : "Preferences";
+        PrefsSection.IsVisible = !about;
+        AboutSection.IsVisible = about;
+
+        PrefsPath.Text = LibraryRoot;
+
+        var v = typeof(MainWindow).Assembly.GetName().Version;
+        AboutVersion.Text = $"AlbumWall {v?.Major}.{v?.Minor}.{v?.Build}";
+        AboutLibrary.Text = $"{_counts}\n{LibraryRoot}";
+
+        Sheet.IsVisible = true;
+    }
+
+    private void ShowEmptyState(bool empty, string root)
+    {
+        EmptyState.IsVisible = empty;
+        if (!empty) return;
+
+        // The status line is driven by a timer that gives up when there is
+        // nothing to count, so without this it sits on "scanning…" forever —
+        // which on a fresh machine reads as a hang rather than an empty folder.
+        StatusText.Text = "";
+
+        EmptyWhere.Text = Directory.Exists(root)
+            ? $"Nothing playable was found in {root}. If your records live somewhere else — another drive, or a share on the network — point the app at them."
+            : $"{root} does not exist. Point the app at wherever your records live.";
+    }
+
+    /// Asks for a folder and rescans if it changed.
+    private async Task ChooseLibraryFolder()
+    {
+        var picked = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose your music folder",
+            AllowMultiple = false
+        });
+
+        var path = picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
+
+        // A folder the app cannot reach by path is no use to a scanner that
+        // walks the filesystem — a phone over MTP, for instance.
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        _settings.LibraryPath = path;
+        _settings.Save();
+        PrefsPath.Text = path;
+        Sheet.IsVisible = false;
+        ScanLibrary();
+    }
+
     /// The tuning bench: three levers over the palette the library derived.
     ///
     /// None of them touches the HUE — that is the collection's own colour and is
@@ -541,6 +656,11 @@ public partial class MainWindow : Window
         var fieldEdge = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
         SearchBox.Background = field;
         SearchBox.BorderBrush = fieldEdge;
+
+        // The sheet is furniture too, and has to move with the rest of it.
+        Resources["SheetBg"] = SolidColorBrush.Parse(_ramp.BarHex);
+        Resources["SheetEdge"] = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
+        Resources["SheetField"] = field;
 
         CountsText.Text = _counts;
         Console.WriteLine($"[wall] ground {_ramp.GroundHex} L{_ramp.Lightness}% "
@@ -678,6 +798,10 @@ public partial class MainWindow : Window
             DispatcherTimer.RunOnce(() => Trace("after play"), TimeSpan.FromMilliseconds(400));
             return;
         }
+
+        if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: false); return; }
+        if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: true); return; }
+        if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { Sheet.IsVisible = false; return; }
 
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {

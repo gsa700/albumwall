@@ -461,6 +461,7 @@
          on it leaves the old corners showing through. Matches GNOME and Windows
          11, where every other window is rounded. -->
     <Border x:Name="Surface" CornerRadius="12" ClipToBounds="True" Background="#14120F">
+    <Panel>
     <DockPanel>
 
         <Border x:Name="TopBar" DockPanel.Dock="Top" Background="#1C1915" BorderBrush="#2B2620"
@@ -512,6 +513,17 @@
                     <Button x:Name="ChromeButton" Classes="chrome" VerticalAlignment="Center"
                             FontSize="10" Padding="10,5"
                             ToolTip.Tip="How the bars separate from the wall — click to change"/>
+
+                    <!-- Menu. Placed at the INNER end of the bench rather than a
+                         fixed side: the window buttons move between left and
+                         right depending on the desktop, and this must not land
+                         on top of them. -->
+                    <Button x:Name="MenuButton" Classes="chrome" VerticalAlignment="Center"
+                            Padding="9,5" ToolTip.Tip="Menu">
+                        <Path Data="M 0 0 H 14 M 0 5 H 14 M 0 10 H 14"
+                              Stroke="#F3EEE6" StrokeThickness="1.6"
+                              Width="14" Height="10"/>
+                    </Button>
                 </StackPanel>
 
                 <!-- Filled in code from the window manager's own button-layout
@@ -618,5 +630,67 @@
         </ScrollViewer>
 
     </DockPanel>
+
+    <!-- FIRST RUN ON A FRESH MACHINE IS AN EMPTY MUSIC FOLDER, and an empty wall
+         with no explanation is indistinguishable from a broken app. This says
+         where it looked and offers the one action that fixes it. -->
+    <Border x:Name="EmptyState" IsVisible="False" Background="Transparent">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Spacing="14" MaxWidth="460">
+            <TextBlock Text="No music here yet" FontSize="20" FontWeight="Bold"
+                       HorizontalAlignment="Center"/>
+            <TextBlock x:Name="EmptyWhere" Classes="dim" FontSize="12"
+                       TextWrapping="Wrap" TextAlignment="Center"/>
+            <Button x:Name="EmptyChoose" Classes="panel" Content="Choose your music folder…"
+                    HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Border>
+
+    <!-- Preferences and About. An in-window sheet rather than a second window:
+         this app owns its chrome, and an OS dialog with a system title bar would
+         arrive looking like it belonged to a different program. -->
+    <Panel x:Name="Sheet" IsVisible="False">
+        <Border x:Name="SheetScrim" Background="#99000000"/>
+        <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                Width="520" CornerRadius="10" Padding="26"
+                Background="{DynamicResource SheetBg}" BorderThickness="1"
+                BorderBrush="{DynamicResource SheetEdge}">
+            <StackPanel Spacing="18">
+                <TextBlock x:Name="SheetTitle" FontSize="18" FontWeight="Bold"/>
+
+                <StackPanel x:Name="PrefsSection" Spacing="10">
+                    <TextBlock Text="Music folder" FontSize="12" FontWeight="SemiBold"/>
+                    <Border CornerRadius="4" Padding="10,8"
+                            Background="{DynamicResource SheetField}">
+                        <TextBlock x:Name="PrefsPath" FontSize="11" Classes="mono"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+                    <TextBlock Classes="dim" FontSize="11" TextWrapping="Wrap"
+                               Text="Everything under this folder is scanned. Album art is taken from a cover file beside the tracks, or from the tags if there is none."/>
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Button x:Name="PrefsChoose" Classes="panel" Content="Choose folder…"/>
+                        <Button x:Name="PrefsDefault" Classes="panel" Content="Use my Music folder"/>
+                        <Button x:Name="PrefsRescan" Classes="panel" Content="Rescan"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel x:Name="AboutSection" Spacing="8" IsVisible="False">
+                    <TextBlock x:Name="AboutVersion" FontSize="12"/>
+                    <TextBlock Classes="dim" FontSize="11" TextWrapping="Wrap"
+                               Text="A player for a music library you own, built around seeing the whole collection at once."/>
+                    <TextBlock Classes="dim" FontSize="11" TextWrapping="Wrap"
+                               Text="Licensed under the GNU General Public License v3 or later. Audio by libmpv (GPLv2 or later). Tags by TagLib#."/>
+                    <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="10"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="9" HorizontalAlignment="Right">
+                    <Button x:Name="SheetClose" Classes="panel" Content="Close"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Panel>
+
+    </Panel>
     </Border>
 </Window>
