@@ -1634,7 +1634,12 @@ public partial class MainWindow : Window
         // restore is not an action and should not look like one.
         if (_all.FirstOrDefault(v => v.Artist == last.OpenAlbumArtist && v.Title == last.OpenAlbum)
             is { } wasOpen)
+        {
+            Console.WriteLine($"[session] unfolding {wasOpen.Artist} - {wasOpen.Title}");
             Dispatcher.UIThread.Post(() => SetOpen(wasOpen, animate: false), DispatcherPriority.Background);
+        }
+        else if (last.OpenAlbum is not null)
+            Console.WriteLine($"[session] was open but is not in the library: {last.OpenAlbumArtist} - {last.OpenAlbum}");
 
         if (last.Queue.Count == 0) return;
         if (!Playback.Player.IsAvailable || _playerFailed) return;
@@ -2062,6 +2067,9 @@ public partial class MainWindow : Window
     private async void SetOpen(AlbumVm? album, bool animate = true)
     {
         var closing = ReferenceEquals(_open, album) || album is null;
+        Console.WriteLine($"[wall] SetOpen({album?.Title ?? "null"}) was={_open?.Title ?? "none"} "
+                        + $"{(closing ? "CLOSING" : "opening")} animate={animate} "
+                        + $"inVisible={(album is null ? "-" : _visible.Contains(album).ToString())}");
 
         // Fold the old panel away before the rows move, so closing is the reverse
         // of opening rather than a row vanishing from under the cursor.

@@ -128,6 +128,34 @@ the RealJukebox days and its tags show it:
 After all three: 1,034 albums, 1,020 embedded, 13 sidecar, 1 with no art, and
 every cover's size readable.
 
+### Two copies of %AppData%, and the hour it cost
+
+The Claude desktop app sandboxes its tool shell: anything launched from there
+gets a PRIVATE copy of `%AppData%lbumwall`. His own terminal, and anything
+started through Explorer, use the real one. They are different files with the
+same path.
+
+It looked exactly like a bug. The unfolded-album restore worked on every launch
+made from the tool shell and not on his, with his exact settings and session
+copied into a scratch config, on his monitor, at his window size. The session
+with the album open had been saved by a tool-shell launch into the private
+copy; his launch read the real file, last written by his own earlier run on a
+build that predated the feature. The app restored precisely what that file
+said. Worse, it had been "ruled out" earlier on evidence that was one sandboxed
+launch reading what another sandboxed launch wrote.
+
+What settled it was listing the real folder from a one-off scheduled task,
+which runs outside the sandbox, and comparing timestamps.
+
+So, on Hambench:
+
+- **Launch the live app through Explorer**, never from the tool shell:
+  `explorer.exe <path>\AlbumWall.App.exe`. The parent becomes `explorer` and
+  the real settings are used.
+- **Read the real `albumwall.log` and `session.json` with a one-off scheduled
+  task** that copies them somewhere unsandboxed, then unregister it.
+- Test runs were never affected: they set `ALBUMWALL_CONFIG_DIR`.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched
