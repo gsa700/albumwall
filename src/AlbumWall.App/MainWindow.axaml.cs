@@ -316,6 +316,15 @@ public partial class MainWindow : Window
 
         SetUpMenu();
         ScanLibrary();
+
+        // The shell wants a media player on the bus whether or not anything is
+        // playing yet, so this starts with the app rather than with playback.
+        //
+        // THE RESULT MUST BE HELD. Nothing else refers to the connection, so
+        // discarding it lets the GC take the whole thing — the app claims the
+        // name, logs that it did, and then quietly vanishes off the bus.
+        _ = Mpris.StartAsync(MprisState, MprisCommand)
+                 .ContinueWith(t => _mpris = t.Result, TaskScheduler.Default);
     }
 
     /// Where the music lives: his setting, or the platform's Music folder.
@@ -1163,6 +1172,77 @@ public partial class MainWindow : Window
     private AlbumVm? _playingAlbum;
     private List<string> _playingPaths = [];
 
+    /// What MPRIS reports, refreshed on the UI thread whenever the now-playing
+    /// line changes.
+    ///
+    /// A snapshot rather than a live read: D-Bus calls arrive on their own
+    /// thread, and reaching into view models from there to assemble an answer is
+    /// how a music player earns an intermittent crash. Position is the one field
+    /// read live, because it moves continuously and mpv is happy to be asked.
+    private Mpris? _mpris;
+
+    private volatile Mpris.State _mprisState =
+        new(false, false, "", "", "", "", 0, 0);
+
+    private Mpris.State MprisState()
+    {
+        var s = _mprisState;
+        var position = _player?.Position ?? TimeSpan.Zero;
+        return s with { PositionMicros = (long)position.TotalMicroseconds };
+    }
+
+    private void RefreshMprisState()
+    {
+        if (_player is null || _playingAlbum is null)
+        {
+            _mprisState = new Mpris.State(false, false, "", "", "", "", 0, 0);
+            return;
+        }
+
+        var i = _player.Index;
+        var path = i >= 0 && i < _playingPaths.Count ? _playingPaths[i] : null;
+        var track = path is null
+            ? null
+            : _playingAlbum.Album.Tracks.FirstOrDefault(t => t.Path == path);
+
+        var art = _playingAlbum.Album.ArtPath;
+
+        _mprisState = new Mpris.State(
+            Playing: _player.IsPlaying,
+            HasTrack: path is not null,
+            Title: track?.Title ?? (path is null ? "" : Path.GetFileNameWithoutExtension(path)),
+            Artist: _playingAlbum.Artist,
+            Album: _playingAlbum.Title,
+            // Only a real file on disk becomes a URL. Embedded art would have to
+            // be extracted to a temporary file to have one, which is more than a
+            // panel caption is worth.
+            ArtUrl: art is not null && File.Exists(art) ? new Uri(art).AbsoluteUri : "",
+            LengthMicros: (long)(_player.Duration.TotalMicroseconds),
+            PositionMicros: 0);
+    }
+
+    /// A media key, or a click in the shell's own media controls.
+    private void MprisCommand(string command) => Dispatcher.UIThread.Post(() =>
+    {
+        switch (command)
+        {
+            case "Raise": Activate(); return;
+            case "Quit": Close(); return;
+        }
+
+        if (_player is null) return;
+
+        switch (command)
+        {
+            case "PlayPause": _player.TogglePause(); break;
+            case "Play": _player.SetPaused(false); break;
+            case "Pause": _player.SetPaused(true); break;
+            case "Next": _player.Next(); break;
+            case "Previous": _player.Previous(); break;
+            case "Stop": _player.Stop(); break;
+        }
+    });
+
     private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
         Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); });
 
@@ -1334,7 +1414,7 @@ public partial class MainWindow : Window
 
     private void UpdateNowPlaying()
     {
-        if (_player is null || _playingAlbum is null) { ShowTransport(false); return; }
+        if (_player is null || _playingAlbum is null) { ShowTransport(false); RefreshMprisState(); return; }
 
         var i = _player.Index;
         if (i < 0 || i >= _playingPaths.Count) { ShowTransport(false); return; }
@@ -1343,6 +1423,7 @@ public partial class MainWindow : Window
         var track = _playingAlbum.Album.Tracks.FirstOrDefault(t => t.Path == path);
 
         ShowTransport(true);
+        RefreshMprisState();
         TransportTitle.Text = track?.Title ?? Path.GetFileNameWithoutExtension(path);
         TransportArtist.Text = $"{_playingAlbum.Artist}  \u00b7  {_playingAlbum.Title}";
         TransportArt.Source = _playingAlbum.Cover;

@@ -13,6 +13,9 @@
     <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <!-- Already present transitively via Avalonia.FreeDesktop; referenced
+         explicitly because MPRIS uses it directly. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
     <!-- ItemsRepeater + UniformGridLayout ship separately from core Avalonia.
          This is the virtualising surface the whole wall depends on. -->
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
