@@ -1016,18 +1016,23 @@ public partial class MainWindow : Window
     private const int UnfoldMs = 330;
 
     /// How long the anchoring scroll is allowed to keep converging.
-    private const int AnchorMs = 750;
+    ///
+    /// DELIBERATELY EQUAL TO THE UNFOLD. They are two halves of one gesture — the
+    /// panel opening and the wall turning to show it — and running the scroll more
+    /// than twice as long as the unfold meant the panel finished, and then the
+    /// wall carried on sliding for another 420 ms underneath it. Two motions where
+    /// the eye expects one is most of what "clunky" was.
+    private const int AnchorMs = UnfoldMs;
 
-    /// The least room left above an opened tile when the panel is tall enough to
-    /// want the rest of the window. ZERO on purpose: any other value leaves a
-    /// sliver of the row above, and a sliver of an album row is a band of
-    /// half-cut labels along the top edge. Flush means nothing is clipped.
-    private const double MinLead = 0;
+    /// How much of the album's own row survives when its panel is too tall to
+    /// fit. Zero hides the row completely and gives the panel the whole window.
+    /// One number to change if that ever reads as too abrupt.
+    private const double Peek = 0;
 
     /// Fraction of the remaining distance the anchor covers each 16 ms tick.
     /// Lower is slower and smoother; this is the shape of the ease, and it is
     /// self-correcting because the target is recomputed every tick.
-    private const double AnchorEase = 0.17;
+    private const double AnchorEase = 0.24;
 
     private DispatcherTimer? _anchor;
 
@@ -1102,34 +1107,50 @@ public partial class MainWindow : Window
         // An element's Bounds live in the ItemsRepeater's coordinate space, and
         // the repeater ESTIMATES that space from the average height of the rows
         // it has realised. The ScrollViewer's Offset is in its own. The two agree
-        // near the top of the list and drift apart further down — the same
-        // estimation problem that made panels open at the wrong scroll position.
-        // Setting Offset to a Bounds-derived number therefore lands a few pixels
-        // out, which shows up as a band of the row above's labels along the top
-        // edge. Asking the visual tree where the row actually IS relative to the
-        // viewport, and correcting by that delta, cancels the error whatever it is.
+        // near the top of the list and drift apart further down — measured 20 px
+        // on the Chicago row — so a Bounds-derived offset lands a few pixels out,
+        // which shows as a band of the row above's labels along the top edge.
+        // Asking the visual tree where things actually ARE relative to the
+        // viewport cancels the error whatever it happens to be.
         var y = WallScroller.Offset.Y;
-        var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+        var view = WallScroller.Viewport.Height;
+        var max = Math.Max(0, WallScroller.Extent.Height - view);
 
         var rowTop = row.TranslatePoint(default, WallScroller)?.Y;
         if (rowTop is null) return y;
 
-        // One album row of context above the opened one, so it does not sit jammed
-        // against the top edge.
-        var lead = CoverPx + LabelHeight + RowSpacing;
-        var relaxed = y + rowTop.Value - lead;
+        // Closing: there is no panel, so keep a row of context above the album
+        // that was just folded away and leave the eye where it was.
+        if (panel is null)
+        {
+            var lead = CoverPx + LabelHeight + RowSpacing;
+            return Math.Clamp(y + rowTop.Value - lead, 0, max);
+        }
 
-        // Closing: there is no panel, so this is the old behaviour verbatim.
-        if (panel is null) return Math.Clamp(relaxed, 0, max);
+        var panelTop = panel.TranslatePoint(default, WallScroller)?.Y;
+        if (panelTop is null) return y;
 
-        var tight = y + rowTop.Value - MinLead;
+        var panelHeight = panel.Bounds.Height;
 
-        var panelFoot = panel.TranslatePoint(new Point(0, panel.Bounds.Height), WallScroller)?.Y;
-        if (panelFoot is null) return Math.Clamp(relaxed, 0, max);
+        // THE PANEL IS THE SUBJECT, AND THE WALL IS WHAT IT WAS PULLED OUT OF.
+        //
+        // His framing, and it decides both cases below: the albums are CDs in a
+        // storage bin and this is flipping through them. What you are looking at
+        // belongs in the middle of your view, and the moment you pick one up it
+        // is the only thing you are looking at.
+        //
+        // TOO TALL TO SHOW: give it everything. The album's own row goes off the
+        // top — Peek is what, if anything, is left of it. His call: "we should
+        // hide the row the album is in and maximize what we can see of the
+        // selected album." Nothing is gained by keeping a strip of the row when
+        // the panel cannot fit anyway, and a strip of a row is a band of half-cut
+        // labels, so Peek is 0 until it proves to need otherwise.
+        if (panelHeight > view - Peek)
+            return Math.Clamp(y + panelTop.Value - Peek, 0, max);
 
-        var foot = y + panelFoot.Value + RowSpacing - WallScroller.Viewport.Height;
-
-        return Math.Clamp(Math.Clamp(foot, relaxed, tight), 0, max);
+        // IT FITS: centre it. Anything else leaves the thing you asked to look at
+        // sitting off to one end of the window with dead space opposite.
+        return Math.Clamp(y + panelTop.Value - (view - panelHeight) / 2, 0, max);
     }
 
     private void AnchorOn(AlbumVm album)
@@ -1141,10 +1162,6 @@ public partial class MainWindow : Window
         _anchor?.Stop();
         FreezeWall(true);
         var until = DateTime.UtcNow.AddMilliseconds(AnchorMs);
-
-        // The panel's height animates from nothing, so the target keeps moving
-        // until the unfold is done. Reaching it early means nothing yet.
-        var growing = DateTime.UtcNow.AddMilliseconds(UnfoldMs + 40);
 
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
@@ -1173,14 +1190,10 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // No early exit. The panel is still growing for the whole of this
+            // window, so the target is still moving, and "I have arrived" on an
+            // early tick only means the panel had not finished becoming tall yet.
             var y = WallScroller.Offset.Y;
-            if (Math.Abs(target - y) < 0.5 && DateTime.UtcNow > growing)
-            {
-                // Settled early, but the unfold may still be growing the panel,
-                // so hold the freeze until that is done too.
-                Settle();
-                return;
-            }
 
             // Exponential approach: smooth, and self-correcting when the target
             // moves under it.
