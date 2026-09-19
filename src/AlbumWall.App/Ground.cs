@@ -31,9 +31,16 @@ public static class Ground
     /// empty library, or art that is entirely greyscale.
     public const double FallbackHue = 30.0;
 
-    /// Held constant across the ramp. Low enough to read as "not grey" without
-    /// tinting the art sitting on it.
-    private const double Saturation = 0.14;
+    /// Held constant across the ramp.
+    ///
+    /// SATURATION IS THE LEVER THAT DECIDES WHETHER THIS READS AS BROWN. A dark,
+    /// saturated orange simply IS brown, so at 0.14 the wall came out mud
+    /// regardless of what the lightness did.
+    ///
+    /// At 0.02 the hue is barely present — a warm cast on a neutral rather than a
+    /// colour in its own right. The library still chooses it, and on a wall of
+    /// album art that is the point: anything more competes with the covers.
+    private const double Saturation = 0.02;
 
     /// Lightness rungs, in percent. The wall picks one; the rest exist so the
     /// choice can be made against real covers instead of guessed from a swatch.

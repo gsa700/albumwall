@@ -48,6 +48,12 @@ public partial class MainWindow : Window
 
     /// Created lazily and only if libmpv is present. A machine without it gets a
     /// wall that works and a transport that explains itself, not a crash.
+    private readonly Settings _settings = Settings.Load();
+
+    /// Set once the ReplayGain button is used. After that the app stops choosing
+    /// the mode by context: the spec says the setting is user-overridable, and an
+    /// override that the next Play silently undoes is not an override.
+    private bool _gainChosen;
     private Playback.Player? _player;
     private bool _playerFailed;
     private AlbumVm? _open;
@@ -68,12 +74,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // Size before the window is shown; position after, once the screens are
+        // known. Both come back from last time — see RestorePosition.
+        if (_settings.WindowWidth is > 320) Width = _settings.WindowWidth.Value;
+        if (_settings.WindowHeight is > 240) Height = _settings.WindowHeight.Value;
+
         Wall.ItemsSource = _rows;
         Wall.ElementPrepared += OnElementPrepared;
         SizeSlider.PropertyChanged += OnSliderChanged;
         WallScroller.SizeChanged += OnWallResized;
         SearchBox.PropertyChanged += OnSearchChanged;
 
+        if (_settings.CoverSize is >= 48 and <= 320) SizeSlider.Value = _settings.CoverSize.Value;
         ApplyCoverSize(CoverPx);
         StatusText.Text = "scanning…";
 
@@ -101,6 +113,15 @@ public partial class MainWindow : Window
             return true;
         }, TimeSpan.FromMilliseconds(250));
         ApplyGround();
+
+        Opened += (_, _) => { _restored = true; RestorePosition(); };
+        Closing += (_, _) => SaveSettings();
+
+        // Saving ONLY on close loses the window setup to anything that is not a
+        // clean exit — a crash, a logout, or a SIGTERM. Geometry is cheap to
+        // write, so it is persisted shortly after it settles instead.
+        PositionChanged += (_, _) => ScheduleSave();
+        SizeChanged += (_, _) => ScheduleSave();
 
         Loaded += OnLoaded;
 
@@ -132,6 +153,82 @@ public partial class MainWindow : Window
     }
 
     private int CoverPx => (int)Math.Round(SizeSlider.Value);
+
+    /// Puts the window back where it was, unless where it was no longer exists.
+    ///
+    /// A saved position is only good while the screen it referred to is still
+    /// there. Unplug a monitor, or take a laptop somewhere, and restoring
+    /// faithfully means opening the window somewhere the user cannot see or
+    /// reach it — so the rectangle is checked against the CURRENT screens and a
+    /// position that is not substantially visible is discarded rather than
+    /// honoured.
+    private void RestorePosition()
+    {
+        if (_settings.Maximized) { WindowState = WindowState.Maximized; return; }
+        if (_settings.WindowX is not { } x || _settings.WindowY is not { } y) return;
+
+        var w = (int)(Width * RenderScaling);
+        var h = (int)(Height * RenderScaling);
+        var wanted = new PixelRect(x, y, w, h);
+
+        foreach (var screen in Screens.All)
+        {
+            var overlap = screen.Bounds.Intersect(wanted);
+            // Enough of the title bar and a corner to grab hold of.
+            if (overlap.Width >= 200 && overlap.Height >= 100)
+            {
+                Position = new PixelPoint(x, y);
+                return;
+            }
+        }
+
+        Console.WriteLine($"[wall] saved position {x},{y} is off every current screen; centring");
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+    }
+
+    private bool _restored;
+    private DispatcherTimer? _saveDebounce;
+
+    /// Coalesces a drag or resize into one write once it stops. Both events fire
+    /// continuously while the mouse is down, and writing a file per frame would
+    /// be absurd.
+    private void ScheduleSave()
+    {
+        // Ignore the layout churn that happens before the saved geometry has
+        // been applied, or the app overwrites last session's position with the
+        // default one it briefly had on the way up.
+        if (!_restored) return;
+
+        _saveDebounce?.Stop();
+        _saveDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+        _saveDebounce.Tick += (_, _) =>
+        {
+            _saveDebounce?.Stop();
+            _saveDebounce = null;
+            SaveSettings();
+        };
+        _saveDebounce.Start();
+    }
+
+    private void SaveSettings()
+    {
+        _settings.Maximized = WindowState == WindowState.Maximized;
+
+        // Only record geometry from a normal window. Saving a maximised or
+        // minimised window's bounds means restoring to something that was never
+        // deliberately chosen.
+        if (WindowState == WindowState.Normal)
+        {
+            _settings.WindowWidth = Width;
+            _settings.WindowHeight = Height;
+            _settings.WindowX = Position.X;
+            _settings.WindowY = Position.Y;
+        }
+
+        _settings.CoverSize = SizeSlider.Value;
+        _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
+        _settings.Save();
+    }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
@@ -315,7 +412,9 @@ public partial class MainWindow : Window
 
     private void OnSliderChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == Slider.ValueProperty) ApplyCoverSize(CoverPx);
+        if (e.Property != Slider.ValueProperty) return;
+        ApplyCoverSize(CoverPx);
+        ScheduleSave();
     }
 
     private void OnSearchChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
@@ -491,22 +590,24 @@ public partial class MainWindow : Window
     {
         try
         {
-            _player ??= new Playback.Player();
+            _player ??= new Playback.Player(
+                Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved)
+                    ? saved
+                    : Playback.GainMode.Album);
 
             var paths = album.Album.Tracks.Select(t => t.Path).ToList();
 
-            if (shuffle)
+            // Context picks the mode only while the user has not picked one.
+            if (_gainChosen)
+            {
+                if (shuffle) from = Shuffle(paths);
+            }
+            else if (shuffle)
             {
                 // Shuffle uses TRACK gain: album gain preserves the relative
                 // loudness a record was mastered with, which is exactly what you
                 // do not want once the running order is gone.
-                var rng = Random.Shared;
-                for (var i = paths.Count - 1; i > 0; i--)
-                {
-                    var j = rng.Next(i + 1);
-                    (paths[i], paths[j]) = (paths[j], paths[i]);
-                }
-                from = 0;
+                from = Shuffle(paths);
                 _player.Gain = Playback.GainMode.Track;
             }
             else
@@ -523,6 +624,8 @@ public partial class MainWindow : Window
             _playingPaths = paths;
             _player.Play(paths, from);
 
+            Console.WriteLine($"[wall] requested track {from + 1}: "
+                            + $"{(from < album.Album.Tracks.Count ? album.Album.Tracks[from].Title : "?")}");
             Console.WriteLine($"[wall] play {album.Artist} - {album.Title} "
                             + $"from {from + 1}/{paths.Count}{(shuffle ? " shuffled" : "")}");
         }
@@ -532,6 +635,18 @@ public partial class MainWindow : Window
             StatusText.Text = ex.Message;
             Console.WriteLine($"[wall] playback unavailable: {ex.Message}");
         }
+    }
+
+    /// Fisher-Yates, in place. Returns the index to start from.
+    private static int Shuffle(List<string> paths)
+    {
+        var rng = Random.Shared;
+        for (var i = paths.Count - 1; i > 0; i--)
+        {
+            var j = rng.Next(i + 1);
+            (paths[i], paths[j]) = (paths[j], paths[i]);
+        }
+        return 0;
     }
 
     private AlbumVm? _playingAlbum;
@@ -562,6 +677,7 @@ public partial class MainWindow : Window
         GainButton.Click += (_, _) =>
         {
             if (_player is null) return;
+            _gainChosen = true;
             _player.Gain = _player.Gain switch
             {
                 Playback.GainMode.Album => Playback.GainMode.Track,
@@ -585,6 +701,16 @@ public partial class MainWindow : Window
         }, RoutingStrategies.Tunnel);
     }
 
+    private void Recolour(IBrush on)
+    {
+        foreach (var b in new Button[] { PrevButton, PlayPauseButton, NextButton })
+            if (b.Content is Avalonia.Controls.Shapes.Path path)
+            {
+                path.Fill = on;
+                path.Stroke = on;
+            }
+    }
+
     private static Avalonia.Controls.Shapes.Path Glyph(string data) => new()
     {
         Data = Geometry.Parse(data),
@@ -604,6 +730,9 @@ public partial class MainWindow : Window
         PlayPauseButton.Content = playing
             ? Glyph("M 2 0 L 2 14 M 9 0 L 9 14")           // pause
             : Glyph("M 2 0 L 12 7 L 2 14 Z");              // play
+
+        if (_playingAlbum is not null)
+            Recolour(Palette.For(_playingAlbum.Album).OnLight);
     }
 
     private void UpdateNowPlaying()
@@ -630,11 +759,28 @@ public partial class MainWindow : Window
             _ => "RG OFF"
         };
 
-        // The transport takes the open album's colours so it belongs to what is
-        // playing rather than sitting apart from it.
+        // The transport takes a LIGHT tone from the playing album's art. It both
+        // ties the bar to what is playing and breaks the window out of being one
+        // temperature from top to bottom — the wall is deliberately near-neutral,
+        // so the colour has to live somewhere.
         var palette = Palette.For(_playingAlbum.Album);
-        Transport.Background = palette.Panel;
-        Transport.BorderBrush = palette.Surface;
+        Transport.Background = palette.Light;
+        Transport.BorderBrush = palette.OnLightHover;
+
+        TransportTitle.Foreground = palette.OnLight;
+        TransportArtist.Foreground = palette.OnLightDim;
+        ElapsedText.Foreground = RemainingText.Foreground = palette.OnLightDim;
+
+        foreach (var b in new[] { PrevButton, PlayPauseButton, NextButton })
+            b.Foreground = palette.OnLight;
+
+        GainButton.Foreground = palette.OnLight;
+        GainButton.Background = new SolidColorBrush(Color.Parse("#18000000"));
+        GainButton.BorderBrush = new SolidColorBrush(Color.Parse("#33000000"));
+
+        // The glyphs are Paths whose stroke was fixed at build time; they have to
+        // be recoloured for the light bar.
+        Recolour(palette.OnLight);
 
         UpdatePosition();
     }

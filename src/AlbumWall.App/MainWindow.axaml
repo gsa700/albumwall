@@ -5,6 +5,7 @@
         x:Class="AlbumWall.App.MainWindow"
         Title="Album Wall"
         Width="1444" Height="1080"
+        WindowStartupLocation="Manual"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
         RequestedThemeVariant="Dark"
@@ -65,8 +66,12 @@
                       HorizontalAlignment="Left" VerticalAlignment="Top"
                       Margin="{Binding ArrowMargin}"/>
 
-                <Border Background="{Binding Palette.Panel}" CornerRadius="6"
-                        Margin="0,10,0,0" Padding="22">
+                <!-- Fades out at its foot rather than ending on an edge. The
+                     extra bottom padding keeps the track list clear of the part
+                     that has gone translucent. -->
+                <Border Background="{Binding Palette.PanelFade}"
+                        CornerRadius="6,6,0,0"
+                        Margin="0,10,0,0" Padding="22,22,22,54">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
 
                         <DockPanel Grid.Column="0">
@@ -122,18 +127,18 @@
         <DataTemplate x:Key="TrackLineTemplate" DataType="app:TrackLine">
             <Panel>
                 <TextBlock Text="{Binding Text}" IsVisible="{Binding IsHeader}"
-                           FontSize="10" FontWeight="Bold" Margin="0,12,0,4"
+                           FontSize="11" FontWeight="Bold" Margin="0,14,0,5"
                            Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Accent}"/>
                 <Button Classes="track" IsVisible="{Binding !IsHeader}"
                         Command="{Binding PlayCommand}">
-                <Grid ColumnDefinitions="26,*,Auto" Height="23">
-                    <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="11"
-                               VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,9,0"
+                <Grid ColumnDefinitions="30,*,Auto" Height="28">
+                    <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="12"
+                               VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
                                Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="12"
+                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="14"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"/>
-                    <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="11"
+                    <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="12"
                                VerticalAlignment="Center" Margin="10,0,0,0"
                                Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
                 </Grid>
@@ -265,11 +270,25 @@
             <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="20"/>
         </Style>
+        <!-- Dark overlays, because the transport bar is now a LIGHT colour taken
+             from the album art. White-on-white would be invisible. -->
         <Style Selector="Button.transport /template/ ContentPresenter">
-            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="Background" Value="#18000000"/>
         </Style>
         <Style Selector="Button.transport:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#3DFFFFFF"/>
+            <Setter Property="Background" Value="#33000000"/>
+        </Style>
+
+        <!-- The transport's own slider, dark on light. -->
+        <Style Selector="Slider.onlight:horizontal /template/ RepeatButton#PART_DecreaseButton">
+            <Setter Property="Background" Value="#CC000000"/>
+        </Style>
+        <Style Selector="Slider.onlight:horizontal /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="Background" Value="#33000000"/>
+        </Style>
+        <Style Selector="Slider.onlight /template/ Thumb">
+            <Setter Property="Background" Value="#1A1512"/>
+            <Setter Property="BorderBrush" Value="#55FFFFFF"/>
         </Style>
         <Style Selector="Button.chrome">
             <Setter Property="Foreground" Value="#F3EEE6"/>
@@ -357,16 +376,24 @@
              row of dead controls taking up wall. -->
         <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="66"
                 BorderThickness="0,1,0,0" IsVisible="False">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="26,0">
+            <!-- Title and progress SHARE the slack, weighted 1 : 1.6 in the
+                 progress bar's favour. A fixed width for either is wrong: a
+                 230 px title truncates real information, and a title given all
+                 the slack leaves a progress bar too short to seek in on a wide
+                 window. Proportions also survive resizing, which fixed widths
+                 do not. -->
+            <Grid ColumnDefinitions="Auto,*,Auto,1.6*,Auto" Margin="26,0">
 
                 <Border Grid.Column="0" Width="46" Height="46" CornerRadius="2"
                         VerticalAlignment="Center" ClipToBounds="True">
                     <Image x:Name="TransportArt" Stretch="UniformToFill"/>
                 </Border>
 
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0"
-                            Width="230" Spacing="2">
-                    <TextBlock x:Name="TransportTitle" FontSize="13" FontWeight="Medium"
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,20,0"
+                            MinWidth="230" Spacing="2">
+                    <!-- The song is what you look down at the bar to read; the
+                         artist and album are context and stay quiet. -->
+                    <TextBlock x:Name="TransportTitle" FontSize="16" FontWeight="Medium"
                                TextTrimming="CharacterEllipsis" MaxLines="1"/>
                     <TextBlock x:Name="TransportArtist" Classes="dim" FontSize="11"
                                TextTrimming="CharacterEllipsis" MaxLines="1"/>
@@ -380,11 +407,12 @@
                 </StackPanel>
 
                 <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
-                      VerticalAlignment="Center">
+                      MinWidth="260" VerticalAlignment="Center">
                     <TextBlock Grid.Column="0" x:Name="ElapsedText" Classes="mono dim"
                                FontSize="11" VerticalAlignment="Center" Width="46"
                                TextAlignment="Right"/>
-                    <Slider Grid.Column="1" x:Name="PositionSlider" Minimum="0" Maximum="1"
+                    <Slider Grid.Column="1" x:Name="PositionSlider" Classes="onlight"
+                            Minimum="0" Maximum="1"
                             VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="2" x:Name="RemainingText" Classes="mono dim"
                                FontSize="11" VerticalAlignment="Center" Width="52"/>

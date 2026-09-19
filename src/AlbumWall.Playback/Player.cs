@@ -10,10 +10,17 @@
 //   * REPLAYGAIN from tags: album gain for album playback, track gain for
 //     shuffle, never silently applied without being visible.
 //
-// The queue is OURS, not mpv's playlist. mpv is asked to play one file at a time
-// with the next one preloaded, because the app needs to know precisely which
-// track is playing to drive the UI, and reading that back out of mpv's playlist
-// state is more fragile than simply owning it.
+// THE QUEUE IS MPV'S PLAYLIST, and the app reads its position back rather than
+// tracking one of its own. The first version did the opposite — kept the queue
+// here and fed mpv one file at a time — on the reasoning that owning it was less
+// fragile. That was wrong twice over. mpv cannot decode the next track ahead of
+// time if it does not know what the next track is, so gapless was impossible by
+// construction; and the hand-off between tracks depended on an event that
+// `keep-open=yes` prevents from ever arriving, so an album simply stopped after
+// its first track.
+//
+// Reading `playlist-pos` back means the app's idea of the current track cannot
+// drift from what is actually coming out of the speakers.
 
 using System.Runtime.InteropServices;
 
@@ -70,10 +77,11 @@ public sealed class Player : IDisposable
         Option("audio-samplerate", "0");
         Option("audio-exclusive", "no");     // opt-in later; it can block other apps
 
-        // Keep the last file loaded when it ends, so the end of a track is an
-        // event we handle rather than mpv going idle and tearing down the output.
-        Option("keep-open", "yes");
-        Option("idle", "yes");
+        // keep-open MUST be off. With it on, mpv pauses at the end of a file
+        // instead of unloading it, the playlist never advances, and playback
+        // simply stops after track one — which is exactly what it did.
+        Option("keep-open", "no");
+        Option("idle", "yes");   // do not exit when the album finishes
 
         ApplyGain(gain);
 
@@ -85,9 +93,9 @@ public sealed class Player : IDisposable
             throw new InvalidOperationException($"mpv_initialize: {Mpv.ErrorText(rc)}");
         }
 
-        Mpv.mpv_observe_property(_ctx, 1, "time-pos", Mpv.Format.Double);
         Mpv.mpv_observe_property(_ctx, 2, "pause", Mpv.Format.Flag);
-        Mpv.mpv_observe_property(_ctx, 3, "eof-reached", Mpv.Format.Flag);
+        Mpv.mpv_observe_property(_ctx, 4, "playlist-pos", Mpv.Format.Int64);
+        Mpv.mpv_observe_property(_ctx, 5, "idle-active", Mpv.Format.Flag);
 
         _running = true;
         _pump = new Thread(Pump) { IsBackground = true, Name = "mpv events" };
@@ -120,41 +128,70 @@ public sealed class Player : IDisposable
 
     private void Option(string name, string value) => Mpv.mpv_set_option_string(_ctx, name, value);
 
-    /// Replaces the queue and starts at `start`.
+    /// Loads the whole album as an mpv PLAYLIST and starts at `start`.
+    ///
+    /// The entire album goes to mpv at once, rather than being fed one file at a
+    /// time. That is what makes gapless real: mpv can only decode the next track
+    /// ahead of time if it knows what the next track IS. Driving it with
+    /// `loadfile ... replace` per track meant every boundary was a fresh open,
+    /// which is the opposite of gapless.
+    ///
+    /// Position is then read back from mpv's `playlist-pos` rather than tracked
+    /// here, so the app's idea of the current track cannot drift from what is
+    /// actually coming out of the speakers.
     public void Play(IEnumerable<string> paths, int start = 0)
     {
+        var list = paths.ToList();
+        if (list.Count == 0) return;
+
         lock (_gate)
         {
             _queue.Clear();
-            _queue.AddRange(paths);
+            _queue.AddRange(list);
             _index = -1;
         }
-        PlayIndex(start);
+
+        // PAUSE FIRST. `loadfile ... replace` starts playing immediately, so
+        // building the playlist and then moving to the requested track let track
+        // one sound for a moment on every single click — clearly visible in the
+        // log as `playlist-pos -> 0` followed by `-> N`. Loading while paused
+        // makes the whole set-up silent, and the position is already right by the
+        // time anything is audible.
+        var hold = 1;
+        Mpv.mpv_set_property(_ctx, "pause", Mpv.Format.Flag, ref hold);
+
+        // Build the playlist, then position ALWAYS — including to zero. Relying
+        // on `replace` to have left the position at zero is an assumption about
+        // mpv's internal state after a previous album, and being explicit costs
+        // nothing.
+        Mpv.Command(_ctx, "loadfile", list[0], "replace");
+        for (var i = 1; i < list.Count; i++)
+            Mpv.Command(_ctx, "loadfile", list[i], "append");
+
+        var wanted = Math.Clamp(start, 0, list.Count - 1);
+        var rc = Mpv.mpv_set_property_string(_ctx, "playlist-pos", wanted.ToString());
+
+        Mpv.mpv_get_property(_ctx, "playlist-count", Mpv.Format.Int64, out long count);
+        Console.WriteLine($"[mpv] queued {list.Count} (mpv says {count}), "
+                        + $"asked for index {start} -> {wanted}"
+                        + (rc < 0 ? $"  FAILED: {Mpv.ErrorText(rc)}" : "")
+                        + $"  want: {System.IO.Path.GetFileName(list[wanted])}");
+
+        SetPaused(false);
     }
 
     public void PlayIndex(int index)
     {
-        string path;
         lock (_gate)
-        {
             if (index < 0 || index >= _queue.Count) return;
-            _index = index;
-            path = _queue[index];
-        }
 
-        Mpv.Command(_ctx, "loadfile", path, "replace");
+        Mpv.mpv_set_property_string(_ctx, "playlist-pos", index.ToString());
         SetPaused(false);
-        TrackChanged?.Invoke(this, new TrackChangedEventArgs(index));
     }
 
-    public void Next()
-    {
-        int next;
-        lock (_gate) next = _index + 1 < _queue.Count ? _index + 1 : -1;
-
-        if (next < 0) { Stop(); Finished?.Invoke(this, EventArgs.Empty); return; }
-        PlayIndex(next);
-    }
+    /// `weak` means "do nothing at the end of the playlist" rather than wrapping
+    /// or erroring — the album ending is handled by idle-active instead.
+    public void Next() => Mpv.Command(_ctx, "playlist-next", "weak");
 
     public void Previous()
     {
@@ -162,10 +199,7 @@ public sealed class Player : IDisposable
         // current one. This is what every physical player does and what the hand
         // expects.
         if (Position > TimeSpan.FromSeconds(3)) { Seek(TimeSpan.Zero); return; }
-
-        int prev;
-        lock (_gate) prev = _index > 0 ? _index - 1 : 0;
-        PlayIndex(prev);
+        Mpv.Command(_ctx, "playlist-prev", "weak");
     }
 
     public void TogglePause() => SetPaused(IsPlaying);
@@ -217,17 +251,44 @@ public sealed class Player : IDisposable
                     _running = false;
                     break;
 
-                case Mpv.EventId.EndFile:
-                    // A file ending is how we advance. With gapless the next file
-                    // is already decoded, so this is bookkeeping rather than the
-                    // thing that causes the sound to continue.
-                    if (IsPlaying) Next();
-                    break;
-
                 case Mpv.EventId.PropertyChange:
-                    if (ev.ReplyUserdata == 2) StateChanged?.Invoke(this, EventArgs.Empty);
+                    OnPropertyChanged(ev);
                     break;
             }
+        }
+    }
+
+    /// mpv advances the playlist itself; this is how the app finds out.
+    private void OnPropertyChanged(Mpv.Event ev)
+    {
+        if (ev.Data == IntPtr.Zero) return;
+        var prop = Marshal.PtrToStructure<Mpv.EventProperty>(ev.Data);
+        if (prop.Data == IntPtr.Zero) return;
+
+        switch (ev.ReplyUserdata)
+        {
+            case 2:     // pause
+                IsPlaying = Marshal.ReadInt32(prop.Data) == 0;
+                StateChanged?.Invoke(this, EventArgs.Empty);
+                break;
+
+            case 4:     // playlist-pos
+                var pos = (int)Marshal.ReadInt64(prop.Data);
+                if (pos < 0 || pos == _index) return;
+                _index = pos;
+                lock (_gate)
+                    if (pos < _queue.Count)
+                        Console.WriteLine($"[mpv] playlist-pos -> {pos}  "
+                                        + $"{System.IO.Path.GetFileName(_queue[pos])}");
+                TrackChanged?.Invoke(this, new TrackChangedEventArgs(pos));
+                break;
+
+            case 5:     // idle-active — the playlist ran out
+                if (Marshal.ReadInt32(prop.Data) == 0) return;
+                IsPlaying = false;
+                StateChanged?.Invoke(this, EventArgs.Empty);
+                Finished?.Invoke(this, EventArgs.Empty);
+                break;
         }
     }
 
