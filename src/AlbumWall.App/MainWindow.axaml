@@ -101,10 +101,6 @@
 
                             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
                                         Spacing="9" Margin="0,14,0,0">
-                                <Button Classes="panel" Content="Play"
-                                        Command="{Binding PlayCommand}"
-                                        IsEnabled="{Binding CanPlay}"
-                                        ToolTip.Tip="Play this album"/>
                                 <Button Classes="panel" Content="Shuffle"
                                         Command="{Binding ShuffleCommand}"
                                         IsEnabled="{Binding CanPlay}"
@@ -127,10 +123,42 @@
                             </Grid>
                         </DockPanel>
 
-                        <Border Grid.Column="1" Width="260" Height="260" CornerRadius="3"
-                                Background="{Binding Album.Placeholder}" VerticalAlignment="Top">
-                            <Image Source="{Binding Album.Cover}" Stretch="UniformToFill"/>
-                        </Border>
+                        <!-- THE SLEEVE IS THE PLAY BUTTON.
+                             Opening an album used to end in a choice: hit Play, or
+                             click track one, which do the same thing. Two targets
+                             for one intent is a decision where the gesture wants
+                             none. The art is the biggest, most obvious thing in
+                             the panel and it is what you just picked up, so it is
+                             what you press — and it is a far better target for a
+                             trackpad or a finger than a text button.
+
+                             The overlay is TRANSLUCENT and only appears under the
+                             pointer: his condition, and the right one. The sleeve
+                             is the reason this app exists; chrome does not get to
+                             cover it up. -->
+                        <Button Grid.Column="1" Classes="coverplay"
+                                Command="{Binding PlayCommand}"
+                                IsEnabled="{Binding CanPlay}"
+                                VerticalAlignment="Top"
+                                ToolTip.Tip="Play this album">
+                            <Border Width="260" Height="260" CornerRadius="3"
+                                    ClipToBounds="True"
+                                    Background="{Binding Album.Placeholder}">
+                                <Panel>
+                                    <Image Source="{Binding Album.Cover}" Stretch="UniformToFill"/>
+                                    <Panel x:Name="PlayOverlay" Opacity="0">
+                                        <Border Background="#2E000000"/>
+                                        <Ellipse Width="88" Height="88" Fill="#59000000"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"/>
+                                        <Path Data="M 0 0 L 27 16 L 0 32 Z" Fill="#E8FFFFFF"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="7,0,0,0"/>
+                                    </Panel>
+                                </Panel>
+                            </Border>
+                        </Button>
                     </Grid>
                 </Border>
             </Panel>
@@ -200,6 +228,41 @@
         <!-- Art arrives asynchronously, so without this a cover pops into place
              the instant it decodes. A short fade makes loading read as the wall
              filling in rather than as flicker. -->
+        <!-- The sleeve as a play target. Fluent puts its own background and
+             border on a hovered button, which would draw a grey box around the
+             art, so both are stripped from the content presenter as well. -->
+        <Style Selector="Button.coverplay">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.coverplay /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="Button.coverplay:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.coverplay:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.coverplay Panel#PlayOverlay">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"
+                                      Easing="SineEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.coverplay:pointerover Panel#PlayOverlay">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
         <Style Selector="Image.cover">
             <Setter Property="Transitions">
                 <Transitions>
