@@ -12,8 +12,11 @@ snapshot code), window on the primary display, wall rendered, covers loaded,
 
 What the bring-up list asked about:
 
-- **Empty state: not seen.** The Music folder here was not empty, so the first
-  run went straight to a wall. Still untested on Windows.
+- **Empty state: correct**, checked later against an empty scratch folder since
+  the Music folder here was not empty. Heading, the folder it looked in, and
+  the Choose button, and the new progress display gets out of its way. One
+  cosmetic thing: a long Windows path wraps mid-word ("C:" alone on the first
+  line), because a path has no spaces to break at.
 - **Window chrome: correct.** `[wall] window buttons left=[] right=[Minimize,Maximize,Close]`,
   square, on the right.
 - **DPI: fine.** `scaling=1.5` reported for both screens, `renderScaling=1.5`,
@@ -23,7 +26,9 @@ What the bring-up list asked about:
 - **Playback starts** through the fetched libmpv: the transport appears and the
   position advances. That was a test run at volume 0, so nobody has yet HEARD
   it, and **gapless across a track boundary has not been listened to** — still
-  the open hard requirement. The volume slider is likewise unverified by ear.
+  the open hard requirement.
+- **Volume slider: correct, by ear.** His words: "volume slider only changes the
+  app". The system volume is left alone.
 
 **One thing that disagrees with the bring-up doc.** It says rounded corners and
 window transparency are deliberately Linux-only, but the log here says
@@ -31,6 +36,14 @@ window transparency are deliberately Linux-only, but the log here says
 either the platform gate is not firing on Windows or the doc is ahead of the
 code. The self-rendered snapshot cannot show what the real window edge looks
 like; someone has to look at the corners on the actual screen.
+
+**He looked, and it is fine.** His words: "window corners and the resize arrows
+all look good including prefs and about". So transparency and the 12 px corner
+WORK on Windows 11 — no black fringe, no square backing showing through — the
+resize cursors appear on the 7 px grab band, and the Preferences and About
+sheets draw correctly. Whatever the bring-up doc meant by Linux-only, there is
+nothing to fix here; the doc is what is out of date, and the gate (if one was
+intended) is not needed.
 
 ### `get-libmpv.ps1` did not run as written (fixed, a009521)
 
