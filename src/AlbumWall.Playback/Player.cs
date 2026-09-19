@@ -135,6 +135,32 @@ public sealed class Player : IDisposable
         set { _gain = value; ApplyGain(value); }
     }
 
+    private int _volume = 100;
+
+    /// The app's own volume, 0-100, independent of the system mixer.
+    ///
+    /// mpv's software volume, so it attenuates only this app's stream — which is
+    /// the point: turning the music down so a notification can be heard over it
+    /// should not touch anything else that is making noise.
+    ///
+    /// NOT the same lever as ReplayGain. That normalises between records; this is
+    /// how loud the app is playing right now.
+    public int Volume
+    {
+        get => _volume;
+        set
+        {
+            _volume = Math.Clamp(value, 0, 100);
+            var v = _volume.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (_ctx == IntPtr.Zero) { Option("volume", v); return; }
+
+            // mpv reports refusals rather than throwing, and a volume that
+            // silently did not apply is the kind of thing you only notice later.
+            var rc = Mpv.mpv_set_property_string(_ctx, "volume", v);
+            if (rc < 0) Console.WriteLine($"[mpv] volume {v} refused: {rc}");
+        }
+    }
+
     private void ApplyGain(GainMode mode)
     {
         _gain = mode;

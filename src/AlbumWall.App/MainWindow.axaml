@@ -527,6 +527,25 @@
                             FontSize="10" Padding="10,5"
                             ToolTip.Tip="How the bars separate from the wall — click to change"/>
 
+                    <!-- THIS APP'S OWN VOLUME, not the system's.
+                         For turning the music down so something else can be
+                         heard over it — a notification, a call, someone at the
+                         door — without touching anything else that is making
+                         noise. Its neighbour on the right is the menu, so it
+                         sits at the end of the row where a hand goes looking
+                         for a control rather than a setting. -->
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                        <Path Data="M 0 5 L 3.5 5 L 8 0.5 L 8 15.5 L 3.5 11 L 0 11 Z
+                                    M 11 4.5 A 5.5 5.5 0 0 1 11 11.5"
+                              Fill="#F3EEE6" Stroke="#F3EEE6" StrokeThickness="1.4"
+                              VerticalAlignment="Center"/>
+                        <Slider x:Name="VolumeSlider" Width="88" VerticalAlignment="Center"
+                                Minimum="0" Maximum="100"
+                                TickFrequency="1" IsSnapToTickEnabled="True"
+                                ToolTip.Tip="How loud this app plays"/>
+                    </StackPanel>
+
                     <!-- Menu. Placed at the INNER end of the bench rather than a
                          fixed side: the window buttons move between left and
                          right depending on the desktop, and this must not land

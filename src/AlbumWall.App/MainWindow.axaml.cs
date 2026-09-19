@@ -66,6 +66,9 @@ public partial class MainWindow : Window
     private const double RowSpacing = 15;
     private int _lastReported = -1;
 
+    /// The app's own volume, 0-100, remembered between runs.
+    private int _volume = 100;
+
     /// The tuning bench's three levers, his to set and remembered between runs.
     private int _lightness = Ground.DefaultLightness;
     private int _chrome = Ground.DefaultChrome;
@@ -293,6 +296,7 @@ public partial class MainWindow : Window
         }
 
         _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
+        _settings.Volume = _volume;
         _settings.Lightness = _lightness;
         _settings.Tint = (int)Math.Round(Ground.Saturation * 100);
         _settings.Chrome = Ground.Chromes[_chrome].Name;
@@ -617,6 +621,20 @@ public partial class MainWindow : Window
         TintValue.Text = tint.ToString();
         ChromeButton.Content = Ground.Chromes[_chrome].Name.ToUpperInvariant();
 
+        // Volume lives in the same bar but is not part of the palette bench:
+        // it is a control, not a setting, and it survives the bench being
+        // retired once the colours settle.
+        _volume = Math.Clamp(_settings.Volume ?? 100, 0, 100);
+        VolumeSlider.Value = _volume;
+        VolumeSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property != RangeBase.ValueProperty) return;
+            _volume = (int)Math.Round(VolumeSlider.Value);
+            if (_player is not null) _player.Volume = _volume;
+            RefreshMprisState();
+            ScheduleSave();
+        };
+
         LightSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property != RangeBase.ValueProperty) return;
@@ -912,6 +930,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (text.StartsWith("volume ", StringComparison.OrdinalIgnoreCase)
+            && double.TryParse(text[7..].Trim(), out var vol))
+        {
+            VolumeSlider.Value = vol;
+            Console.WriteLine($"[wall] volume -> {VolumeSlider.Value}");
+            return;
+        }
+
         if (text.Equals("reveal", StringComparison.OrdinalIgnoreCase))
         {
             OnRevealPlaying(this, new Avalonia.Interactivity.RoutedEventArgs());
@@ -1121,10 +1147,14 @@ public partial class MainWindow : Window
     {
         try
         {
+            var fresh = _player is null;
             _player ??= new Playback.Player(
                 Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved)
                     ? saved
                     : Playback.GainMode.Album);
+
+            // A player built now starts at whatever the slider already says.
+            if (fresh) _player.Volume = _volume;
 
             var paths = album.Album.Tracks.Select(t => t.Path).ToList();
 
@@ -1194,7 +1224,7 @@ public partial class MainWindow : Window
     private Mpris? _mpris;
 
     private volatile Mpris.State _mprisState =
-        new(false, false, "", "", "", "", 0, 0);
+        new(false, false, "", "", "", "", 0, 0, 1.0);
 
     private Mpris.State MprisState()
     {
@@ -1207,7 +1237,7 @@ public partial class MainWindow : Window
     {
         if (_player is null || _playingAlbum is null)
         {
-            _mprisState = new Mpris.State(false, false, "", "", "", "", 0, 0);
+            _mprisState = new Mpris.State(false, false, "", "", "", "", 0, 0, _volume / 100.0);
             return;
         }
 
@@ -1230,7 +1260,8 @@ public partial class MainWindow : Window
             // panel caption is worth.
             ArtUrl: art is not null && File.Exists(art) ? new Uri(art).AbsoluteUri : "",
             LengthMicros: (long)(_player.Duration.TotalMicroseconds),
-            PositionMicros: 0);
+            PositionMicros: 0,
+            Volume: _volume / 100.0);
     }
 
     /// A media key, or a click in the shell's own media controls.

@@ -36,6 +36,9 @@ public sealed class Settings
     /// preferences window at all.
     public string? LibraryPath { get; set; }
 
+    /// The app's own playback volume, 0-100.
+    public int? Volume { get; set; }
+
     /// Ground lightness in percent. How light the room is.
     public int? Lightness { get; set; }
 

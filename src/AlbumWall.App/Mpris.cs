@@ -39,7 +39,8 @@ public sealed class Mpris : IPathMethodHandler
         string Album,
         string ArtUrl,
         long LengthMicros,
-        long PositionMicros);
+        long PositionMicros,
+        double Volume);
 
     /// Keeps the connection rooted for the life of the process. See StartAsync.
     private static DBusConnection? Held;
@@ -299,7 +300,13 @@ public sealed class Mpris : IPathMethodHandler
 
         "PlaybackStatus" => VariantValue.String(Status(s)),
         "Position" => VariantValue.Int64(s.PositionMicros),
-        "Rate" or "MinimumRate" or "MaximumRate" or "Volume" => VariantValue.Double(1.0),
+        "Rate" or "MinimumRate" or "MaximumRate" => VariantValue.Double(1.0),
+
+        // The real figure, not a polite fiction: the shell shows what the app
+        // is actually playing at. Still read-only here — accepting a Set means
+        // parsing a variant out of the request body, which is work for the day
+        // something actually tries to set it.
+        "Volume" => VariantValue.Double(s.Volume),
         "CanGoNext" or "CanGoPrevious" or "CanPlay" or "CanPause" or "CanControl" => VariantValue.Bool(true),
 
         // Seeking works in the app's own transport, but honouring Seek and
