@@ -51,10 +51,17 @@ public sealed class Settings
     /// change someone's setting.
     public string? Chrome { get; set; }
 
+    /// ALBUMWALL_CONFIG_DIR moves the settings somewhere else, for test runs. A
+    /// second instance pointed at the real file fights the first over window
+    /// geometry and the library path, and whichever closes last wins — so
+    /// anything launched to try a change gets a scratch directory instead.
     [JsonIgnore]
     public static string Path { get; } = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "albumwall", "settings.json");
+        Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR") is { Length: > 0 } dir
+            ? dir
+            : System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "albumwall"),
+        "settings.json");
 
     public static Settings Load()
     {

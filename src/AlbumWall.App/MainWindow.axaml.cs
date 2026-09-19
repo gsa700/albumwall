@@ -121,7 +121,7 @@ public partial class MainWindow : Window
         ApplyGround();
 
         Opened += (_, _) => { _restored = true; RestorePosition(); };
-        Closing += (_, _) => SaveSettings();
+        Closing += (_, _) => { SaveSettings(); _watcher?.Dispose(); };
 
         // Saving ONLY on close loses the window setup to anything that is not a
         // clean exit — a crash, a logout, or a SIGTERM. Geometry is cheap to
@@ -342,10 +342,31 @@ public partial class MainWindow : Window
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music")
             : _settings.LibraryPath;
 
-    private void ScanLibrary()
+    private Domain.LibraryWatcher? _watcher;
+    private CancellationTokenSource? _scan;
+
+    /// What the wall is currently showing, as (root, fingerprint of the scan).
+    /// A rescan that comes back identical is dropped rather than shown.
+    private (string Root, int Print) _showing = ("", 0);
+
+    /// Scans the library and shows the result.
+    ///
+    /// `asked` is true when a person wanted this — startup, the Rescan button, a
+    /// new folder — and false when the watcher did. The difference is only in
+    /// what happens when nothing turns out to have changed: someone who pressed
+    /// Rescan gets a rescan, while the watcher, which fires for reasons that
+    /// often come to nothing, must not so much as flicker the wall.
+    private void ScanLibrary(bool asked = true)
     {
         var root = LibraryRoot;
-        EmptyState.IsVisible = false;
+        if (asked) EmptyState.IsVisible = false;
+        WatchLibrary(root);
+
+        // One scan at a time, and the newest wins: the watcher can fire again
+        // while a slow scan is still reading, and the older result is by then a
+        // picture of a folder that has moved on.
+        _scan?.Cancel();
+        var ct = (_scan = new CancellationTokenSource()).Token;
 
         // Scan on a worker thread: a cold scan of this library is ~0.1 s but it
         // is bounded by tag reads, and a NAS-backed root will be far slower.
@@ -355,8 +376,9 @@ public partial class MainWindow : Window
             IReadOnlyList<Domain.Album> albums;
             try
             {
-                albums = new Domain.LibraryScanner().Scan(root);
+                albums = new Domain.LibraryScanner().Scan(root, ct: ct);
             }
+            catch (OperationCanceledException) { return; }
             catch (Exception ex)
             {
                 Dispatcher.UIThread.Post(() => StatusText.Text = $"scan failed: {ex.Message}");
@@ -367,36 +389,174 @@ public partial class MainWindow : Window
             var vms = albums.Select(a => new AlbumVm(a)).ToList();
             var tracks = albums.Sum(a => a.Tracks.Count);
             var artists = albums.Select(a => a.AlbumArtist).Distinct().Count();
+            var print = Fingerprint(albums);
 
             Dispatcher.UIThread.Post(() =>
             {
-                _all = vms;
+                if (ct.IsCancellationRequested) return;
+
+                if (!asked && _showing == (root, print))
+                {
+                    Console.WriteLine($"[watch] rescan in {sw.ElapsedMilliseconds} ms, nothing changed");
+                    return;
+                }
+                if (!asked)
+                    Console.WriteLine($"[watch] rescan in {sw.ElapsedMilliseconds} ms, "
+                                    + $"{_all.Count} -> {vms.Count} albums");
+                _showing = (root, print);
+
                 foreach (var vm in vms) vm.OnOpen = a => SetOpen(a);
                 _counts = $"{albums.Count} albums · {tracks} tracks · {artists} artists";
-                ApplyGround();
                 _scanMs = sw.ElapsedMilliseconds;
-                ApplyFilter();
-                ShowEmptyState(albums.Count == 0, root);
-            });
-
-            // Ground hue comes from the art, so it can only be derived after the
-            // scan. Separate task: the wall must be on screen immediately, not
-            // waiting on 200 thumbnail decodes.
-            var gsw = Stopwatch.StartNew();
-            var (hue, concentration) = Ground.HueOf(albums);
-            gsw.Stop();
-            Console.WriteLine($"[wall] ground hue derived in {gsw.ElapsedMilliseconds} ms");
-
-            Dispatcher.UIThread.Post(() =>
-            {
-                // A library whose covers agree on nothing gets the fallback
-                // rather than an arbitrary hue dressed up as a derived one.
-                var h = concentration < 0.2 ? Ground.FallbackHue : hue;
-                _ramp = new Ground.Ramp(h, concentration, _lightness,
-                                        Ground.Chromes[_chrome]);
+                Adopt(vms);
                 ApplyGround();
+                ShowEmptyState(albums.Count == 0, root);
+
+                // Ground hue comes from the art, so it can only be derived after
+                // the scan. Separate task: the wall must be on screen
+                // immediately, not waiting on 200 thumbnail decodes.
+                _ = Task.Run(() =>
+                {
+                    var gsw = Stopwatch.StartNew();
+                    var (hue, concentration) = Ground.HueOf(albums);
+                    gsw.Stop();
+                    Console.WriteLine($"[wall] ground hue derived in {gsw.ElapsedMilliseconds} ms");
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        // A library whose covers agree on nothing gets the fallback
+                        // rather than an arbitrary hue dressed up as a derived one.
+                        var h = concentration < 0.2 ? Ground.FallbackHue : hue;
+                        _ramp = new Ground.Ramp(h, concentration, _lightness,
+                                                Ground.Chromes[_chrome]);
+                        ApplyGround();
+                    });
+                });
             });
         });
+    }
+
+    /// Watches the library folder, so music that arrives while the app is open
+    /// appears without anyone having to know there is a Rescan button.
+    ///
+    /// Best effort, and says so rather than failing: a root that does not exist
+    /// cannot be watched, and a network mount generally reports nothing at all —
+    /// inotify does not see changes made on the far side of NFS or SMB. Rescan
+    /// stays in the menu for exactly those.
+    private void WatchLibrary(string root)
+    {
+        if (_watcher?.Root == root) return;
+
+        _watcher?.Dispose();
+        _watcher = null;
+        try
+        {
+            _watcher = new Domain.LibraryWatcher(root,
+                () => Dispatcher.UIThread.Post(() => ScanLibrary(asked: false)));
+            Console.WriteLine($"[watch] watching {root}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[watch] not watching {root}: {ex.Message}");
+        }
+    }
+
+    /// Everything about a scan that the wall or a panel would show differently.
+    /// In-process only, so string hashes being salted per run does not matter.
+    private static int Fingerprint(IReadOnlyList<Domain.Album> albums)
+    {
+        var h = new HashCode();
+        foreach (var a in albums)
+        {
+            h.Add(a.AlbumArtist); h.Add(a.Title); h.Add(a.Year);
+            h.Add(a.ArtPath); h.Add(a.ArtEmbeddedIn);
+            foreach (var t in a.Tracks) h.Add(t);      // a record: every field counts
+        }
+        return h.ToHashCode();
+    }
+
+    /// Replaces the library under the wall WITHOUT losing your place.
+    ///
+    /// A scan returns all-new objects, and everything that says where you are —
+    /// the open album, the playing one, the search detour — is a reference to an
+    /// old one. Left alone, the open panel closes because its album is "no
+    /// longer on the wall", the wall returns to the top because its rows were
+    /// rebuilt, and the transport's cover stops finding what is playing. That
+    /// was tolerable behind a button nobody pressed mid-album. It is not
+    /// tolerable from a watcher, which fires while you are listening, because
+    /// somebody copied a record in.
+    ///
+    /// So each reference is carried across by album identity — the same
+    /// (AlbumArtist, Title) rule the scanner groups by — and the scroll position
+    /// is restored against the row that was at the top, not as a pixel offset,
+    /// since new albums sorting in above it move every offset below them.
+    private void Adopt(List<AlbumVm> vms)
+    {
+        var byId = new Dictionary<(string, string), AlbumVm>();
+        foreach (var vm in vms) byId.TryAdd((vm.Artist, vm.Title), vm);
+        AlbumVm? Carry(AlbumVm? old) =>
+            old is not null && byId.TryGetValue((old.Artist, old.Title), out var vm) ? vm : null;
+
+        // The landmark is whatever you are looking at: the open album if any of
+        // it is on screen, otherwise the row at the top. Holding the top row
+        // still while a panel is open was tried first and is wrong — albums
+        // sorting in between the two shove the track list you were reading a
+        // whole row down the window.
+        var offset = WallScroller.Offset.Y;
+        var top = OpenAlbumInView(offset) ?? TopAlbumInView();
+        var into = top is null ? 0 : offset - Wall.OffsetOf(RowIndexOf(top));
+
+        if (_open is not null) _open.IsSelected = false;
+        _open = Carry(_open);
+        if (_open is not null) _open.IsSelected = true;
+
+        _beforeSearchOpen = Carry(_beforeSearchOpen);
+        _beforeSearchTop = Carry(_beforeSearchTop);
+
+        // What is playing keeps playing whatever the scan says — mpv has its
+        // own list of paths — so if the album has gone, the old object stays and
+        // the transport goes on describing it. The transport keeps the bitmap it
+        // already has; the new object only needs its cover by the next track.
+        if (Carry(_playingAlbum) is { } playing)
+        {
+            _playingAlbum = playing;
+            playing.EnsureCover(260);
+        }
+
+        _all = vms;
+        _chunkKey = "";      // same count and columns is still a different library
+        ApplyFilter();
+
+        // After layout, as in RestoreViewAfterSearch: the panel's height is only
+        // known once it has been built. Set, not eased — this is not an action
+        // anyone took and should not look like one.
+        top = Carry(top);
+        Dispatcher.UIThread.Post(() =>
+        {
+            var y = top is not null && _visible.Contains(top)
+                ? Wall.OffsetOf(RowIndexOf(top)) + into
+                : offset;
+            var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+            WallScroller.Offset = WallScroller.Offset.WithY(Math.Clamp(y, 0, max));
+        }, DispatcherPriority.Background);
+    }
+
+    /// The open album, if its tile or any of its panel is within the viewport.
+    private AlbumVm? OpenAlbumInView(double offset)
+    {
+        if (_open is null || _panelAt < 0 || !_visible.Contains(_open)) return null;
+
+        var from = Wall.OffsetOf(RowIndexOf(_open));
+        var to = Wall.OffsetOf(_panelAt) + Wall.HeightOf(_panelAt);
+        return to > offset && from < offset + WallScroller.Viewport.Height ? _open : null;
+    }
+
+    /// An album's index in _rows, which is its row on the wall plus one if the
+    /// open panel sits above it.
+    private int RowIndexOf(AlbumVm album)
+    {
+        var row = _visible.IndexOf(album) / Math.Max(1, _columns);
+        return _panelAt >= 0 && _panelAt <= row ? row + 1 : row;
     }
 
     /// Draws the window controls the desktop asked for, on the side it asked

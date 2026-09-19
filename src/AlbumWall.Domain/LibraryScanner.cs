@@ -25,6 +25,12 @@ public sealed partial class LibraryScanner
 
     public sealed record Progress(int FilesSeen, int AlbumsFound, string? Current);
 
+    /// Whether a change to `path` could change what a scan returns. The watcher
+    /// asks, so that the two can never disagree about what a library file is.
+    internal static bool IsLibraryFile(string path) =>
+        AudioExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
+        || ArtNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
+
     /// Scans `root` and returns albums sorted the way the wall shows them.
     public IReadOnlyList<Album> Scan(string root, Action<Progress>? onProgress = null,
                                      CancellationToken ct = default)
