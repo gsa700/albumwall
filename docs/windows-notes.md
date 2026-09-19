@@ -53,6 +53,17 @@ like a browser. Details in that commit.
   is followed by one extra scan that finds nothing. Harmless (the result is
   dropped), but it is a whole second scan on a large library.
 
+### Scan times, full library (1,034 albums, 15,531 tracks, 122 GB, local disk)
+
+- **Cold, straight after copying it in: 160 s.** Every file is a first read and
+  goes through Defender on the way. Behind a bare "scanning…" this was
+  reported as a hang, which is what the progress display is for.
+- **Warm: 4.5 s, and 2.9 s for an immediate rescan.** So the cost is the disk
+  and the virus scanner, not TagLib, and an index would buy little here once
+  the OS cache is warm. A NAS-backed root is where it would matter.
+- The extra NTFS-flush scan described above was NOT seen after the real first
+  scan, only in the small test library. Not understood; not chased.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched

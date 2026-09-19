@@ -92,7 +92,6 @@ public partial class MainWindow : Window
         WallScroller.SizeChanged += OnWallResized;
         SearchBox.PropertyChanged += OnSearchChanged;
 
-        StatusText.Text = "scanning…";
 
 
         // There are no system decorations, so there is no system resize border
@@ -139,7 +138,7 @@ public partial class MainWindow : Window
             CheckSnapshotRequest();
 #endif
 
-            if (_all.Count == 0 || _filter.Length > 0) return true;
+            if (_all.Count == 0 || _filter.Length > 0 || _scanning) return true;
 
             var n = ArtCache.Decoded;
             StatusText.Text = $"{_scanMs} ms scan \u00b7 {n} covers held \u00b7 "
@@ -358,15 +357,50 @@ public partial class MainWindow : Window
     /// often come to nothing, must not so much as flicker the wall.
     private void ScanLibrary(bool asked = true)
     {
+        // One scan at a time. A person's request replaces whatever is running —
+        // they may have just chosen a different folder. The watcher's does NOT:
+        // a first scan of this library is 160 s, a tagger working through it
+        // fires the watcher every few seconds, and a scan that restarts each
+        // time never finishes. So the watcher's request waits its turn, and
+        // however many arrive meanwhile, one scan afterwards answers them all.
+        if (!asked && _scanning)
+        {
+            _scanAgain = true;
+            return;
+        }
+
         var root = LibraryRoot;
         if (asked) EmptyState.IsVisible = false;
         WatchLibrary(root);
 
-        // One scan at a time, and the newest wins: the watcher can fire again
-        // while a slow scan is still reading, and the older result is by then a
-        // picture of a folder that has moved on.
         _scan?.Cancel();
         var ct = (_scan = new CancellationTokenSource()).Token;
+        _scanning = true;
+        _scanAgain = false;
+        ShowScanProgress(null);
+        Console.WriteLine($"[scan] start ({(asked ? "asked" : "watcher")}) {root}");
+
+        // The UI is told at most ~10 times a second however fast the files go
+        // by; a warm scan does thousands a second and the bar does not need them.
+        long lastTold = 0;
+        void Progress(Domain.LibraryScanner.Progress p)
+        {
+            var now = Environment.TickCount64;
+            if (p.FilesSeen < p.Total && now - lastTold < 100) return;
+            lastTold = now;
+            Dispatcher.UIThread.Post(() => { if (!ct.IsCancellationRequested) ShowScanProgress(p); });
+        }
+
+        // Every way a scan can end comes through here, on the UI thread, unless
+        // it was replaced — in which case its successor owns all of this.
+        void Finished(Action? then = null) => Dispatcher.UIThread.Post(() =>
+        {
+            if (ct.IsCancellationRequested) return;
+            _scanning = false;
+            HideScanProgress();
+            then?.Invoke();
+            if (_scanAgain) ScanLibrary(asked: false);
+        });
 
         // Scan on a worker thread: a cold scan of this library is ~0.1 s but it
         // is bounded by tag reads, and a NAS-backed root will be far slower.
@@ -376,25 +410,29 @@ public partial class MainWindow : Window
             IReadOnlyList<Domain.Album> albums;
             try
             {
-                albums = new Domain.LibraryScanner().Scan(root, ct: ct);
+                albums = new Domain.LibraryScanner().Scan(root, Progress, ct);
             }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine($"[scan] replaced after {sw.ElapsedMilliseconds} ms");
+                return;
+            }
             catch (Exception ex)
             {
-                Dispatcher.UIThread.Post(() => StatusText.Text = $"scan failed: {ex.Message}");
+                Console.WriteLine($"[scan] failed: {ex.Message}");
+                Finished(() => StatusText.Text = $"scan failed: {ex.Message}");
                 return;
             }
             sw.Stop();
+            Console.WriteLine($"[scan] done in {sw.ElapsedMilliseconds} ms, {albums.Count} albums");
 
             var vms = albums.Select(a => new AlbumVm(a)).ToList();
             var tracks = albums.Sum(a => a.Tracks.Count);
             var artists = albums.Select(a => a.AlbumArtist).Distinct().Count();
             var print = Fingerprint(albums);
 
-            Dispatcher.UIThread.Post(() =>
+            Finished(() =>
             {
-                if (ct.IsCancellationRequested) return;
-
                 if (!asked && _showing == (root, print))
                 {
                     Console.WriteLine($"[watch] rescan in {sw.ElapsedMilliseconds} ms, nothing changed");
@@ -434,6 +472,47 @@ public partial class MainWindow : Window
                 });
             });
         });
+    }
+
+    private bool _scanning;
+    private bool _scanAgain;
+
+    /// Shows how far a scan has got. Null means it has started but does not yet
+    /// know how much there is — the tree is still being listed.
+    ///
+    /// Two displays, chosen by whether there is a wall to protect. With nothing
+    /// on screen the progress IS the screen: a heading, a bar, the artist being
+    /// read. With a wall already up it is a line along the bottom bar and a
+    /// count in the corner, because a rescan — his or the watcher's — has no
+    /// business taking the wall away from someone who is using it.
+    private void ShowScanProgress(Domain.LibraryScanner.Progress? p)
+    {
+        var fraction = p is { Total: > 0 } ? (double)p.FilesSeen / p.Total : 0;
+        var count = p is { Total: > 0 } ? $"{p.FilesSeen:N0} of {p.Total:N0} tracks" : "looking for music…";
+
+        if (_all.Count == 0)
+        {
+            ScanState.IsVisible = !EmptyState.IsVisible;
+            ScanFill.Width = fraction * 420;
+            ScanDetail.Text = p?.Current is { } artist ? $"{count}  ·  {artist}" : count;
+            StatusText.Text = "";
+        }
+        else
+        {
+            ScanState.IsVisible = false;
+            StatusText.Text = p is { Total: > 0 } ? $"rescanning · {count}" : "rescanning…";
+        }
+
+        // One bar at a time: the line is for when the big one is not showing.
+        ScanBar.IsVisible = !ScanState.IsVisible;
+        ScanBar.Width = fraction * BottomBar.Bounds.Width;
+    }
+
+    private void HideScanProgress()
+    {
+        ScanState.IsVisible = false;
+        ScanBar.IsVisible = false;
+        ScanBar.Width = 0;
     }
 
     /// Watches the library folder, so music that arrives while the app is open
@@ -850,6 +929,10 @@ public partial class MainWindow : Window
         Resources["SheetEdge"] = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
         Resources["SheetField"] = field;
 
+        // The progress line has to read on a ground he can slide from near
+        // black to near white, so it takes the opposite end rather than a hue.
+        Resources["ScanInk"] = SolidColorBrush.Parse(_ramp.Lightness < 55 ? "#B8FFFFFF" : "#B8000000");
+
         CountsText.Text = _counts;
         Console.WriteLine($"[wall] ground {_ramp.GroundHex} L{_ramp.Lightness}% "
                         + $"hue {_ramp.Hue:0.#} \u00b7 chrome {_ramp.Chrome.Name} "
@@ -1105,6 +1188,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // The menu's Rescan, which nothing else here can reach: a warm scan is
+        // over in seconds, so catching its progress display means starting one
+        // on demand and photographing it straight away.
+        if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(); return; }
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: false); return; }
         if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowSheet(about: true); return; }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { Sheet.IsVisible = false; return; }

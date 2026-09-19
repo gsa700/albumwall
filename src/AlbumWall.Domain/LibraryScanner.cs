@@ -23,7 +23,9 @@ public sealed partial class LibraryScanner
     private static readonly string[] ArtNames = ["cover.jpg", "cover.jpeg", "cover.png",
                                                  "folder.jpg", "folder.jpeg", "front.jpg"];
 
-    public sealed record Progress(int FilesSeen, int AlbumsFound, string? Current);
+    /// `Total` is known before the first tag is read, so a bar driven by this is
+    /// an honest fraction rather than a spinner with a number beside it.
+    public sealed record Progress(int FilesSeen, int Total, int AlbumsFound, string? Current);
 
     /// Whether a change to `path` could change what a scan returns. The watcher
     /// asks, so that the two can never disagree about what a library file is.
@@ -39,7 +41,15 @@ public sealed partial class LibraryScanner
         var albums = new Dictionary<(string, string), Album>();
         var files = 0;
 
-        foreach (var path in EnumerateAudio(root))
+        // Listed first, read second. Walking the tree is a fraction of a second
+        // for 18,000 files where reading their tags is minutes on a cold disk,
+        // and knowing the total up front is what lets the wait be shown as
+        // progress. The first scan of a freshly copied library took 160 s on
+        // Windows behind a bare "scanning…", and was reported as a hang.
+        var paths = EnumerateAudio(root).ToList();
+        onProgress?.Invoke(new Progress(0, paths.Count, 0, null));
+
+        foreach (var path in paths)
         {
             ct.ThrowIfCancellationRequested();
             files++;
@@ -95,8 +105,8 @@ public sealed partial class LibraryScanner
                 if (album.ArtPath is null && album.ArtEmbeddedIn is null)
                     ResolveArt(album, dir, tf, path);
 
-                if (files % 200 == 0)
-                    onProgress?.Invoke(new Progress(files, albums.Count, album.Title));
+                if (files % 25 == 0)
+                    onProgress?.Invoke(new Progress(files, paths.Count, albums.Count, albumArtist));
             }
         }
 
@@ -108,7 +118,7 @@ public sealed partial class LibraryScanner
             a.SearchText = $"{a.AlbumArtist}\n{a.Title}".ToLowerInvariant();
         }
 
-        onProgress?.Invoke(new Progress(files, albums.Count, null));
+        onProgress?.Invoke(new Progress(files, paths.Count, albums.Count, null));
 
         return albums.Values.OrderBy(a => a.SortKey, StringComparer.OrdinalIgnoreCase).ToList();
     }

@@ -571,6 +571,15 @@
             <!-- Three columns with equal stars on the outside, so the search box
                  sits at the TRUE centre of the window regardless of how long the
                  text either side of it happens to be. -->
+            <Panel>
+            <!-- Scan progress: a line along the top edge of the bar, where it can
+                 be seen without covering anything. It is the ONLY sign of a
+                 rescan when the wall is already full, because a rescan must not
+                 take the wall away from someone who is using it. Width is set in
+                 code as a fraction of the bar. -->
+            <Border x:Name="ScanBar" Height="3" Width="0" IsVisible="False"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Background="{DynamicResource ScanInk}"/>
             <Grid ColumnDefinitions="*,Auto,*" Margin="26,0">
                 <!-- No cover-size control. The covers size themselves to fill the
                      window exactly; see MainWindow.ComputeLayout. -->
@@ -582,6 +591,7 @@
                 <TextBlock Grid.Column="2" x:Name="StatusText" Classes="dim" FontSize="11"
                            HorizontalAlignment="Right" VerticalAlignment="Center"/>
             </Grid>
+            </Panel>
         </Border>
 
         <!-- Transport. Declared after the controls bar so it docks ABOVE it, and
@@ -683,6 +693,24 @@
     <!-- FIRST RUN ON A FRESH MACHINE IS AN EMPTY MUSIC FOLDER, and an empty wall
          with no explanation is indistinguishable from a broken app. This says
          where it looked and offers the one action that fixes it. -->
+    <!-- THE FIRST SCAN OF A BIG LIBRARY TAKES MINUTES, and an empty wall that
+         says nothing for minutes was, reasonably, reported as a hang. Shown only
+         while there is no wall to look at; a rescan over a full wall gets the
+         line on the bottom bar instead. -->
+    <Border x:Name="ScanState" IsVisible="False" Background="Transparent" IsHitTestVisible="False">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Spacing="16" Width="420">
+            <TextBlock Text="Reading your library" FontSize="25" FontWeight="Bold"
+                       HorizontalAlignment="Center"/>
+            <Border Height="4" CornerRadius="2" Background="{DynamicResource SheetEdge}">
+                <Border x:Name="ScanFill" Height="4" CornerRadius="2" Width="0"
+                        HorizontalAlignment="Left" Background="{DynamicResource ScanInk}"/>
+            </Border>
+            <TextBlock x:Name="ScanDetail" Classes="dim mono" FontSize="12"
+                       HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+    </Border>
+
     <Border x:Name="EmptyState" IsVisible="False" Background="Transparent">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="20" MaxWidth="520">
