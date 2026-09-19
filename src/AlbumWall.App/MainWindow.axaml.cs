@@ -126,6 +126,7 @@ public partial class MainWindow : Window
         DispatcherTimer.Run(() =>
         {
 #if DEBUG
+            CheckCommandRequest();
             CheckSnapshotRequest();
 #endif
 
@@ -504,6 +505,65 @@ public partial class MainWindow : Window
     /// edge fires this continuously, and re-chunking 194 albums on every pixel is
     /// work for no visible change.
 #if DEBUG
+    /// Acts on a command written to `$ALBUMWALL_SNAP.cmd`, DEBUG only.
+    ///
+    /// The snapshot trigger made the app VISIBLE to whoever is building it; this
+    /// makes it DRIVABLE. There is no input path to this window otherwise —
+    /// Techbench has no xdotool, wtype, ydotool, xte, wmctrl or python-Xlib, and
+    /// GNOME will not synthesise events for an unsandboxed caller — so every UI
+    /// change had to be verified by asking him to click something. Now a UI
+    /// change can be opened, photographed and checked without taking his hands
+    /// off what he is doing.
+    ///
+    ///     open &lt;text&gt;   first album whose artist or title contains &lt;text&gt;
+    ///     close          fold the panel away
+    ///
+    /// Deliberately substring-matched rather than indexed: an index means
+    /// counting rows in a scan order nobody can see, and the point is to say
+    /// "open the long Zeppelin one" and have it happen.
+    private void CheckCommandRequest()
+    {
+        var trigger = Environment.GetEnvironmentVariable("ALBUMWALL_SNAP");
+        if (string.IsNullOrEmpty(trigger)) return;
+        var path = trigger + ".cmd";
+        if (!File.Exists(path)) return;
+
+        string text;
+        try
+        {
+            text = File.ReadAllText(path).Trim();
+            File.Delete(path);      // before acting, so a throw cannot spin
+        }
+        catch { return; }
+
+        if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("[wall] command: close");
+            SetOpen(null);
+            return;
+        }
+
+        if (text.StartsWith("open ", StringComparison.OrdinalIgnoreCase))
+        {
+            var want = text[5..].Trim();
+            var hit = _visible.FirstOrDefault(v =>
+                v.Album.Title.Contains(want, StringComparison.OrdinalIgnoreCase) ||
+                v.Album.AlbumArtist.Contains(want, StringComparison.OrdinalIgnoreCase));
+
+            if (hit is null)
+            {
+                Console.WriteLine($"[wall] command: open '{want}' — NO MATCH");
+                return;
+            }
+
+            Console.WriteLine($"[wall] command: open '{want}' -> {hit.Album.AlbumArtist} - {hit.Album.Title}");
+            SetOpen(hit);
+            return;
+        }
+
+        Console.WriteLine($"[wall] command: unrecognised '{text}'");
+    }
+
     /// Renders the window to a PNG when a trigger file appears.
     ///
     /// This exists because there is no other way for the person building this to
@@ -958,6 +1018,12 @@ public partial class MainWindow : Window
     /// How long the anchoring scroll is allowed to keep converging.
     private const int AnchorMs = 750;
 
+    /// The least room left above an opened tile when the panel is tall enough to
+    /// want the rest of the window. ZERO on purpose: any other value leaves a
+    /// sliver of the row above, and a sliver of an album row is a band of
+    /// half-cut labels along the top edge. Flush means nothing is clipped.
+    private const double MinLead = 0;
+
     /// Fraction of the remaining distance the anchor covers each 16 ms tick.
     /// Lower is slower and smoother; this is the shape of the ease, and it is
     /// self-correcting because the target is recomputed every tick.
@@ -1013,13 +1079,57 @@ public partial class MainWindow : Window
     ///
     /// The mis-clicks this used to cause are handled by freezing the wall while it
     /// is in motion, rather than by refusing to move it.
-    private double TargetOffsetFor(Control element)
+    /// Focuses the OPEN ALBUM, not merely the row it came from.
+    ///
+    /// Anchoring on the row alone puts a full album row of context above it. That
+    /// is right for a short album and wrong for a long one: the panel is the thing
+    /// that was asked for, and on a 17-track double it ran off the bottom of the
+    /// window while a row of unrelated covers sat above it holding a place nobody
+    /// needed. His words — "it does seem better to focus the expanded album rather
+    /// than the row it came from... especially if the focus on the line the album
+    /// lives in causes the bottom of it to scroll off screen".
+    ///
+    /// So the panel's foot is brought to the foot of the viewport, inside a range
+    /// that always keeps the opened tile and its arrow on screen: never looser
+    /// than `lead` (a row of context — the old behaviour, which is exactly what a
+    /// short panel still gets) and never tighter than `MinLead` (the tile just
+    /// clear of the top bar, which is what a tall one needs). The clamp IS the
+    /// fix; the short-album case falls out of it unchanged.
+    private double TargetOffsetFor(Control row, Control? panel)
     {
+        // WORK IN VIEWPORT-RELATIVE TERMS, NEVER IN ABSOLUTE Bounds.Y.
+        //
+        // An element's Bounds live in the ItemsRepeater's coordinate space, and
+        // the repeater ESTIMATES that space from the average height of the rows
+        // it has realised. The ScrollViewer's Offset is in its own. The two agree
+        // near the top of the list and drift apart further down — the same
+        // estimation problem that made panels open at the wrong scroll position.
+        // Setting Offset to a Bounds-derived number therefore lands a few pixels
+        // out, which shows up as a band of the row above's labels along the top
+        // edge. Asking the visual tree where the row actually IS relative to the
+        // viewport, and correcting by that delta, cancels the error whatever it is.
+        var y = WallScroller.Offset.Y;
+        var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+
+        var rowTop = row.TranslatePoint(default, WallScroller)?.Y;
+        if (rowTop is null) return y;
+
         // One album row of context above the opened one, so it does not sit jammed
         // against the top edge.
         var lead = CoverPx + LabelHeight + RowSpacing;
-        var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
-        return Math.Clamp(element.Bounds.Y - lead, 0, max);
+        var relaxed = y + rowTop.Value - lead;
+
+        // Closing: there is no panel, so this is the old behaviour verbatim.
+        if (panel is null) return Math.Clamp(relaxed, 0, max);
+
+        var tight = y + rowTop.Value - MinLead;
+
+        var panelFoot = panel.TranslatePoint(new Point(0, panel.Bounds.Height), WallScroller)?.Y;
+        if (panelFoot is null) return Math.Clamp(relaxed, 0, max);
+
+        var foot = y + panelFoot.Value + RowSpacing - WallScroller.Viewport.Height;
+
+        return Math.Clamp(Math.Clamp(foot, relaxed, tight), 0, max);
     }
 
     private void AnchorOn(AlbumVm album)
@@ -1032,20 +1142,39 @@ public partial class MainWindow : Window
         FreezeWall(true);
         var until = DateTime.UtcNow.AddMilliseconds(AnchorMs);
 
+        // The panel's height animates from nothing, so the target keeps moving
+        // until the unfold is done. Reaching it early means nothing yet.
+        var growing = DateTime.UtcNow.AddMilliseconds(UnfoldMs + 40);
+
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
         {
             var element = Wall.TryGetElement(rowIndex);
-            if (element is null || DateTime.UtcNow > until)
+            if (element is null)
             {
                 Settle();
                 return;
             }
 
-            var target = TargetOffsetFor(element);
+            var panel = _panelAt > 0 && _panelAt < _rows.Count
+                ? Wall.TryGetElement(_panelAt)
+                : null;
+            var target = TargetOffsetFor(element, panel);
+
+            // Out of time. Land exactly on the target rather than wherever the
+            // easing had got to: an exponential approach crawls the last few
+            // pixels, and stopping mid-crawl leaves the row a hair off the top
+            // with a sliver of the row above it still showing. The wall is frozen
+            // while this runs, so the final step is not visible as a jump.
+            if (DateTime.UtcNow > until)
+            {
+                WallScroller.Offset = WallScroller.Offset.WithY(target);
+                Settle();
+                return;
+            }
 
             var y = WallScroller.Offset.Y;
-            if (Math.Abs(target - y) < 0.5)
+            if (Math.Abs(target - y) < 0.5 && DateTime.UtcNow > growing)
             {
                 // Settled early, but the unfold may still be growing the panel,
                 // so hold the freeze until that is done too.
@@ -1068,8 +1197,26 @@ public partial class MainWindow : Window
             // The unfold and the scroll are separate animations and either can
             // finish first. Release only once the slower of the two can no longer
             // be moving anything.
-            DispatcherTimer.RunOnce(() => FreezeWall(false),
-                                    TimeSpan.FromMilliseconds(UnfoldMs + 60));
+            //
+            // One last correction before releasing: ItemsRepeater ESTIMATES the
+            // extent from the rows it has realised, and that estimate keeps moving
+            // as the unfold realises more of them — so the content slides a few
+            // pixels under an offset that was exactly right when it was set. Recompute
+            // against where things ended up, while the wall is still frozen.
+            DispatcherTimer.RunOnce(() =>
+            {
+                var row = Wall.TryGetElement(rowIndex);
+                if (row is not null)
+                {
+                    var panel = _panelAt > 0 && _panelAt < _rows.Count
+                        ? Wall.TryGetElement(_panelAt)
+                        : null;
+                    WallScroller.Offset =
+                        WallScroller.Offset.WithY(TargetOffsetFor(row, panel));
+                }
+
+                FreezeWall(false);
+            }, TimeSpan.FromMilliseconds(UnfoldMs + 60));
         }
     }
 
