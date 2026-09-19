@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Animation;
+using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
 using Avalonia.Animation.Easings;
 using Avalonia.Media;
@@ -64,10 +65,11 @@ public partial class MainWindow : Window
     private const double RowSpacing = 15;
     private int _lastReported = -1;
 
-    private readonly int _rung = Ground.DefaultRung;
-    private readonly int _chrome = Ground.DefaultChrome;
+    /// The tuning bench's three levers, his to set and remembered between runs.
+    private int _lightness = Ground.DefaultLightness;
+    private int _chrome = Ground.DefaultChrome;
     private Ground.Ramp _ramp = new(Ground.FallbackHue, 0,
-                                    Ground.Rungs[Ground.DefaultRung],
+                                    Ground.DefaultLightness,
                                     Ground.Chromes[Ground.DefaultChrome]);
     private string _counts = "scanning\u2026";
 
@@ -110,6 +112,7 @@ public partial class MainWindow : Window
             if (_player is not null && Transport.IsVisible) UpdatePosition();
             return true;
         }, TimeSpan.FromMilliseconds(250));
+        SetUpBench();
         ApplyGround();
 
         Opened += (_, _) => { _restored = true; RestorePosition(); };
@@ -288,6 +291,9 @@ public partial class MainWindow : Window
         }
 
         _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
+        _settings.Lightness = _lightness;
+        _settings.Tint = (int)Math.Round(Ground.Saturation * 100);
+        _settings.Chrome = Ground.Chromes[_chrome].Name;
         _settings.Save();
     }
 
@@ -353,7 +359,7 @@ public partial class MainWindow : Window
                 // A library whose covers agree on nothing gets the fallback
                 // rather than an arbitrary hue dressed up as a derived one.
                 var h = concentration < 0.2 ? Ground.FallbackHue : hue;
-                _ramp = new Ground.Ramp(h, concentration, Ground.Rungs[_rung],
+                _ramp = new Ground.Ramp(h, concentration, _lightness,
                                         Ground.Chromes[_chrome]);
                 ApplyGround();
             });
@@ -459,6 +465,71 @@ public partial class MainWindow : Window
             ? WindowState.Normal
             : WindowState.Maximized;
 
+    /// The tuning bench: three levers over the palette the library derived.
+    ///
+    /// None of them touches the HUE — that is the collection's own colour and is
+    /// not a matter of taste. What is adjustable is how light the room is, how
+    /// much of the hue shows in it, and how the furniture separates from the
+    /// wall. Each one writes straight through to a rebuilt ramp so the whole
+    /// window moves together rather than in pieces.
+    private void SetUpBench()
+    {
+        _lightness = Math.Clamp(_settings.Lightness ?? Ground.DefaultLightness,
+                                Ground.MinLightness, Ground.MaxLightness);
+        var tint = Math.Clamp(_settings.Tint ?? 2, 0, 14);
+        Ground.Saturation = tint / 100.0;
+
+        var named = Array.FindIndex(Ground.Chromes,
+                                    c => c.Name.Equals(_settings.Chrome,
+                                                       StringComparison.OrdinalIgnoreCase));
+        _chrome = named >= 0 ? named : Ground.DefaultChrome;
+
+        Palette.SetGroundLightness(_lightness);
+
+        LightSlider.Value = _lightness;
+        TintSlider.Value = tint;
+        LightValue.Text = _lightness.ToString();
+        TintValue.Text = tint.ToString();
+        ChromeButton.Content = Ground.Chromes[_chrome].Name.ToUpperInvariant();
+
+        LightSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property != RangeBase.ValueProperty) return;
+            _lightness = (int)Math.Round(LightSlider.Value);
+            LightValue.Text = _lightness.ToString();
+            Palette.SetGroundLightness(_lightness);
+            Retune();
+        };
+
+        TintSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property != RangeBase.ValueProperty) return;
+            var t = (int)Math.Round(TintSlider.Value);
+            TintValue.Text = t.ToString();
+            Ground.Saturation = t / 100.0;
+            Retune();
+        };
+
+        ChromeButton.Click += (_, _) =>
+        {
+            _chrome = (_chrome + 1) % Ground.Chromes.Length;
+            ChromeButton.Content = Ground.Chromes[_chrome].Name.ToUpperInvariant();
+            Retune();
+        };
+    }
+
+    /// Rebuilds the ground from the current levers and repaints everything that
+    /// took a colour from it — including the open panel, whose palette was
+    /// snapshotted when it opened and would otherwise stay at the old lightness.
+    private void Retune()
+    {
+        _ramp = new Ground.Ramp(_ramp.Hue, _ramp.Concentration, _lightness,
+                                Ground.Chromes[_chrome]);
+        ApplyGround();
+        if (_open is not null) SyncPanel(unfold: false);
+        ScheduleSave();
+    }
+
     private void ApplyGround()
     {
         Surface.Background = SolidColorBrush.Parse(_ramp.GroundHex);
@@ -556,6 +627,31 @@ public partial class MainWindow : Window
             var on = !btn.Classes.Contains(":pointerover");
             ((Avalonia.Controls.IPseudoClasses)btn.Classes).Set(":pointerover", on);
             Console.WriteLine($"[wall] hover: :pointerover {(on ? "set" : "cleared")} on the sleeve");
+            return;
+        }
+
+        // Moves a bench lever through the control itself, so what is exercised is
+        // the same path a hand on the slider takes.
+        if (text.StartsWith("light ", StringComparison.OrdinalIgnoreCase)
+            && double.TryParse(text[6..].Trim(), out var lv))
+        {
+            LightSlider.Value = lv;
+            Console.WriteLine($"[wall] bench: light -> {LightSlider.Value}");
+            return;
+        }
+
+        if (text.StartsWith("tint ", StringComparison.OrdinalIgnoreCase)
+            && double.TryParse(text[5..].Trim(), out var tv))
+        {
+            TintSlider.Value = tv;
+            Console.WriteLine($"[wall] bench: tint -> {TintSlider.Value}");
+            return;
+        }
+
+        if (text.Equals("chrome", StringComparison.OrdinalIgnoreCase))
+        {
+            ChromeButton.Command?.Execute(null);
+            ChromeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             return;
         }
 

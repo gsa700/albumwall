@@ -40,16 +40,27 @@ public static class Ground
     /// At 0.02 the hue is barely present — a warm cast on a neutral rather than a
     /// colour in its own right. The library still chooses it, and on a wall of
     /// album art that is the point: anything more competes with the covers.
-    private const double Saturation = 0.02;
+    ///
+    /// NOW ADJUSTABLE, because it is the lever that decides the brown question
+    /// and the answer was only ever found by looking. Default stays 0.02.
+    public static double Saturation { get; set; } = 0.02;
 
-    /// Lightness rungs, in percent. The wall picks one; the rest exist so the
-    /// choice can be made against real covers instead of guessed from a swatch.
-    public static readonly int[] Rungs = [10, 13, 16, 19, 22];
-
-    /// Chosen against the real wall on a 6K panel, 2026-09-18: the top rung.
-    /// The mockup's 7% read as purposeful on a flat artboard and as a hole on a
-    /// real screen full of covers, which is why this is picked and not guessed.
-    public const int DefaultRung = 4;
+    /// Ground lightness, in percent, as a CONTINUOUS range the person sets.
+    ///
+    /// This started as five fixed rungs topping out at 22, chosen against the
+    /// real wall on a 6K panel in 2026-09-18. He lived with the top rung and
+    /// still found the app too dark — "is there a way to have a sliding scale
+    /// against the library color palette?" — so the ladder became a slider and
+    /// the range opened upward.
+    ///
+    /// THE CEILING IS SET BY TEXT CONTRAST, NOT BY TASTE. The body text is
+    /// #F3EEE6, and against a ground of 40% lightness that is about 4.9:1, which
+    /// still clears the 4.5:1 floor; by 46% it is under it. Going lighter than
+    /// this is not a bigger number, it is a different theme — the text has to
+    /// turn dark — so the slider stops where the current palette stops working.
+    public const int MinLightness = 10;
+    public const int MaxLightness = 40;
+    public const int DefaultLightness = 22;
 
     /// How the app's own furniture separates itself from the wall.
     ///

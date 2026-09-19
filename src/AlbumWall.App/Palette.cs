@@ -38,9 +38,35 @@ public static class Palette
 {
     private static readonly ConcurrentDictionary<string, AlbumPalette> Cache = new();
 
+    /// How far the panel rides with the wall's ground, in lightness points.
+    ///
+    /// The panel is not independent of the room it sits in. Lighten the wall and
+    /// leave the panel where it was, and opening an album punches a dark hole
+    /// into a lightened room — the tint stops reading as "this album" and starts
+    /// reading as a bug. So one number moves both, and it is the wall's own
+    /// distance from the baseline the panel lightnesses below were chosen at.
+    ///
+    /// 0.8 rather than 1.0: the panel should stay a little darker than the wall
+    /// it interrupts, which is what makes it read as a recess rather than a
+    /// sheet laid on top.
+    private const double Ride = 0.8;
+
+    public static double Lift { get; private set; }
+
+    /// Ground lightness has changed, so every cached palette is now wrong.
+    public static void SetGroundLightness(int percent)
+    {
+        var lift = (percent - Ground.DefaultLightness) / 100.0 * Ride;
+        if (Math.Abs(lift - Lift) < 0.0005) return;
+
+        Lift = lift;
+        Cache.Clear();
+        Neutral = Build(28, 0.10, 0.74);
+    }
+
     /// A neutral warm palette for art that yields no usable colour — greyscale
     /// covers, or an album with no art at all.
-    public static AlbumPalette Neutral { get; } = Build(28, 0.10, 0.74);
+    public static AlbumPalette Neutral { get; private set; } = Build(28, 0.10, 0.74);
 
     public static AlbumPalette For(Domain.Album album)
     {
@@ -66,14 +92,14 @@ public static class Palette
         // starts competing with the artwork it is describing.
         var s = Math.Clamp(sat, 0.18, 0.45);
 
-        var ground = FromHsl(hue, s, 0.15);
+        var ground = FromHsl(hue, s, Lit(0.15));
 
         return new AlbumPalette(
             Hue: hue,
             Saturation: s,
             Panel:   new ImmutableSolidColorBrush(ground),
             PanelFade: Fade(ground),
-            Surface: Solid(hue, s * 0.85,   0.20),
+            Surface: Solid(hue, s * 0.85,   Lit(0.20)),
             // The accent carries the album's colour at full strength. It is used
             // on small elements only, where saturation is legible rather than
             // overwhelming.
@@ -101,6 +127,10 @@ public static class Palette
             OnLightDim:   Solid(hue, 0.22, 0.34),
             OnLightHover: Solid(hue, 0.20, 0.52));
     }
+
+    /// A panel lightness, moved by whatever the wall is currently set to and
+    /// held below the point where light text on it would stop being readable.
+    private static double Lit(double l) => Math.Clamp(l + Lift, 0.05, 0.42);
 
     private static IBrush Solid(double h, double s, double l) =>
         new ImmutableSolidColorBrush(FromHsl(h, s, l));

@@ -471,6 +471,49 @@
                 <TextBlock Grid.Column="1" x:Name="AppName" Text="AlbumWall"
                            FontSize="21" FontWeight="Bold"
                            Margin="12,0,0,0" VerticalAlignment="Center"/>
+                <!-- THE TUNING BENCH. His ask: "can we build a set of controls in
+                     the top bar that I can play with over time?"
+                     
+                     Every lever here moves the palette the LIBRARY derived, and
+                     none of them touches the hue: that is the collection's own
+                     colour and not a matter of taste. What is adjustable is how
+                     light the room is, how much of the hue shows in it, and how
+                     the furniture separates itself from the wall.
+                     
+                     Expected to be temporary in this form — the cover-size slider
+                     lived here too, until the right rule was found and it could
+                     go. Settled values become defaults and the control goes away. -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="20"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="24,0,10,0">
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Light" Classes="dim" FontSize="10"
+                                   VerticalAlignment="Center"/>
+                        <Slider x:Name="LightSlider" Width="96" VerticalAlignment="Center"
+                                Minimum="10" Maximum="40"
+                                TickFrequency="1" IsSnapToTickEnabled="True"
+                                ToolTip.Tip="How light the room is"/>
+                        <TextBlock x:Name="LightValue" Classes="dim mono" FontSize="10"
+                                   Width="22" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Tint" Classes="dim" FontSize="10"
+                                   VerticalAlignment="Center"/>
+                        <Slider x:Name="TintSlider" Width="96" VerticalAlignment="Center"
+                                Minimum="0" Maximum="14"
+                                TickFrequency="1" IsSnapToTickEnabled="True"
+                                ToolTip.Tip="How much of the library's hue shows in the ground"/>
+                        <TextBlock x:Name="TintValue" Classes="dim mono" FontSize="10"
+                                   Width="22" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Button x:Name="ChromeButton" Classes="chrome" VerticalAlignment="Center"
+                            FontSize="10" Padding="10,5"
+                            ToolTip.Tip="How the bars separate from the wall — click to change"/>
+                </StackPanel>
+
                 <!-- Filled in code from the window manager's own button-layout
                      preference: which buttons, which side, what order. -->
                 <StackPanel Grid.Column="3" x:Name="RightButtons" Orientation="Horizontal"

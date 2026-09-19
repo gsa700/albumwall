@@ -28,6 +28,18 @@ public sealed class Settings
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 
+    /// Ground lightness in percent. How light the room is.
+    public int? Lightness { get; set; }
+
+    /// Ground saturation in PERCENT (2 = 0.02): how much of the library's hue
+    /// shows in the ground.
+    public int? Tint { get; set; }
+
+    /// How the bars separate from the wall, by name — "recede", "lift", "ink",
+    /// "warm". By name rather than index so reordering the list cannot silently
+    /// change someone's setting.
+    public string? Chrome { get; set; }
+
     [JsonIgnore]
     public static string Path { get; } = System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
