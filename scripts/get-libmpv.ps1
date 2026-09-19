@@ -32,7 +32,9 @@ $sevenZip = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if (-not $sevenZip) {
-    $sevenZip = (Get-Command 7z.exe -ErrorAction SilentlyContinue)?.Source
+    # No ?. here: a stock Windows box has PowerShell 5.1, which cannot parse it.
+    $cmd = Get-Command 7z.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $sevenZip = $cmd.Source }
 }
 
 if (-not $sevenZip) {
@@ -47,11 +49,16 @@ $item = $rss | Where-Object { $_.link -match 'mpv-dev-x86_64-\d{8}-git-[0-9a-f]+
 
 if (-not $item) { Write-Error "Could not find a libmpv build to download." }
 
+# The link ends in /download, so the name comes from the match, not the leaf.
 $url     = $item.link
-$archive = Join-Path $env:TEMP (Split-Path $url -Leaf)
+$name    = [regex]::Match($url, 'mpv-dev-x86_64-\d{8}-git-[0-9a-f]+\.7z').Value
+$archive = Join-Path $env:TEMP $name
 
-Write-Host "Downloading $(Split-Path $url -Leaf)"
-Invoke-WebRequest -Uri $url -OutFile $archive
+# SourceForge redirects to a mirror only for clients that do not look like a
+# browser. PowerShell's default user agent does, and gets the HTML countdown
+# page saved as the archive instead.
+Write-Host "Downloading $name"
+Invoke-WebRequest -Uri $url -OutFile $archive -UserAgent 'curl/8.0'
 
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 
