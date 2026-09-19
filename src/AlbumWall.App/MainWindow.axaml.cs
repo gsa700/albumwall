@@ -667,6 +667,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (text.StartsWith("play ", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(text[5..].Trim(), out var tn))
+        {
+            if (_panelAt < 0 || _rows[_panelAt] is not PanelRow pr) { Console.WriteLine("[wall] play: no panel"); return; }
+            var line = pr.AllLines.Where(l => !l.IsHeader).Skip(tn - 1).FirstOrDefault();
+            if (line?.PlayCommand is null) { Console.WriteLine("[wall] play: no such track"); return; }
+            Trace("before play");
+            line.PlayCommand.Execute(null);
+            DispatcherTimer.RunOnce(() => Trace("after play"), TimeSpan.FromMilliseconds(400));
+            return;
+        }
+
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine("[wall] command: close");
@@ -693,6 +705,21 @@ public partial class MainWindow : Window
         }
 
         Console.WriteLine($"[wall] command: unrecognised '{text}'");
+    }
+
+    /// Panel geometry and scroll position in one line.
+    ///
+    /// Every scroll bug in this app has been a disagreement between numbers that
+    /// all looked individually correct, and each one was found by printing them
+    /// together rather than by reasoning about them. Worth keeping.
+    private void Trace(string when)
+    {
+        var panel = _panelAt > 0 ? Wall.TryGetElement(_panelAt) : null;
+        var top = panel?.TranslatePoint(default, WallScroller)?.Y;
+        Console.WriteLine($"[trace] {when}: panelH={(panel?.Bounds.Height ?? -1):F1} "
+            + $"panelTopInView={(top?.ToString("F1") ?? "n/a")} "
+            + $"offset={WallScroller.Offset.Y:F1} extent={WallScroller.Extent.Height:F1} "
+            + $"viewport={WallScroller.Viewport.Height:F1}");
     }
 
     /// Renders the window to a PNG when a trigger file appears.
@@ -922,6 +949,16 @@ public partial class MainWindow : Window
     private void OnPlaybackState(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(UpdateNowPlaying);
 
+    /// The transport is the only thing that changes the wall's height while an
+    /// album is open, so it is the only place that has to hold the wall still.
+    private void ShowTransport(bool visible)
+    {
+        if (Transport.IsVisible == visible) return;
+        var before = PanelTopInView();
+        Transport.IsVisible = visible;
+        KeepPanelInView(before);
+    }
+
     private bool _draggingPosition;
 
     private void BuildTransport()
@@ -1021,17 +1058,71 @@ public partial class MainWindow : Window
             line.IsPlaying = playing is not null && line.Source?.Path == playing;
     }
 
+    /// Where the open panel currently sits relative to the top of the viewport,
+    /// or null if there is no panel or it is not realised.
+    private double? PanelTopInView()
+    {
+        if (_panelAt <= 0 || _panelAt >= _rows.Count) return null;
+        return Wall.TryGetElement(_panelAt)?.TranslatePoint(default, WallScroller)?.Y;
+    }
+
+    /// Puts the open panel back where it was on screen after something changed
+    /// the wall's geometry underneath it.
+    ///
+    /// SHOWING OR HIDING THE TRANSPORT CHANGES THE VIEWPORT'S HEIGHT, which makes
+    /// the ItemsRepeater re-estimate its extent — and the scroll offset is an
+    /// absolute number into that estimate. It stays put while the content slides
+    /// under it, so the album you just started playing walks off the top of the
+    /// window: measured at 453 px for a 16-track album, and worse further down
+    /// the library, because the error grows with distance from the top.
+    ///
+    /// His report: "I clicked on the first track, it started playing and then the
+    /// window disapeared... if I scroll up it will be there."
+    ///
+    /// Correcting by the DIFFERENCE in the panel's on-screen position, rather
+    /// than by any absolute figure, is what makes this independent of whatever
+    /// the estimate happens to be doing.
+    private void KeepPanelInView(double? before)
+    {
+        if (before is null) return;
+
+        // HOLD IT, do not correct once. The viewport change, the re-measure and
+        // the repeater's new extent estimate do not all land in the same layout
+        // pass, so a single correction runs before the content has finished
+        // sliding, measures a delta of nothing, and congratulates itself.
+        _panelHold?.Stop();
+        var until = DateTime.UtcNow.AddMilliseconds(500);
+
+        _panelHold = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _panelHold.Tick += (_, _) =>
+        {
+            if (DateTime.UtcNow > until) { _panelHold?.Stop(); _panelHold = null; return; }
+            if (PanelTopInView() is not { } after) return;
+
+            var delta = after - before.Value;
+            if (Math.Abs(delta) < 0.5) return;
+
+            var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+            WallScroller.Offset = WallScroller.Offset
+                .WithY(Math.Clamp(WallScroller.Offset.Y + delta, 0, max));
+            Console.WriteLine($"[hold] panel slid {delta:F1}, corrected");
+        };
+        _panelHold.Start();
+    }
+
+    private DispatcherTimer? _panelHold;
+
     private void UpdateNowPlaying()
     {
-        if (_player is null || _playingAlbum is null) { Transport.IsVisible = false; return; }
+        if (_player is null || _playingAlbum is null) { ShowTransport(false); return; }
 
         var i = _player.Index;
-        if (i < 0 || i >= _playingPaths.Count) { Transport.IsVisible = false; return; }
+        if (i < 0 || i >= _playingPaths.Count) { ShowTransport(false); return; }
 
         var path = _playingPaths[i];
         var track = _playingAlbum.Album.Tracks.FirstOrDefault(t => t.Path == path);
 
-        Transport.IsVisible = true;
+        ShowTransport(true);
         TransportTitle.Text = track?.Title ?? Path.GetFileNameWithoutExtension(path);
         TransportArtist.Text = $"{_playingAlbum.Artist}  \u00b7  {_playingAlbum.Title}";
         TransportArt.Source = _playingAlbum.Cover;
