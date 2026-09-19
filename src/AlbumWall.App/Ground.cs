@@ -43,7 +43,11 @@ public static class Ground
     ///
     /// NOW ADJUSTABLE, because it is the lever that decides the brown question
     /// and the answer was only ever found by looking. Default stays 0.02.
-    public static double Saturation { get; set; } = 0.02;
+    public static double Saturation { get; set; } = DefaultTint / 100.0;
+
+    /// The same number as a percentage, which is how the control and the
+    /// settings file count it.
+    public const int DefaultTint = 2;
 
     /// Ground lightness, in percent, as a CONTINUOUS range the person sets.
     ///

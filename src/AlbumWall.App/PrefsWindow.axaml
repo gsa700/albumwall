@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AlbumWall.App.PrefsWindow"
         Title="AlbumWall — Preferences"
-        Width="580" Height="340" CanResize="False"
+        Width="580" Height="440" CanResize="False"
         RequestedThemeVariant="Dark"
         Background="{DynamicResource SheetBg}"
         Foreground="#F3EEE6"
@@ -58,6 +58,57 @@
                                Margin="28,0,0,0"
                                Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
                 </StackPanel>
+            </StackPanel>
+        </TabItem>
+
+        <!-- The three levers that used to sit in the main window's top bar. None of
+             them touches the HUE: that comes from the covers and is the
+             collection's own, not a matter of taste. They are here because the
+             right numbers differ from screen to screen — he settled on 21 / 2 /
+             ink across a 6K panel and a pair of 4K ones, and expects to want
+             something else on the next.
+
+             Everything applies as it moves. Nobody ever chose one of these
+             numbers except by looking at it. -->
+        <TabItem Header="Colors">
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="70,*,34">
+                        <TextBlock Grid.Column="0" Text="Light" FontSize="14" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <Slider Grid.Column="1" x:Name="Light" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        <TextBlock Grid.Column="2" x:Name="LightValue" Classes="dim mono" FontSize="12"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                    <TextBlock Classes="dim" FontSize="13" Margin="70,0,0,0"
+                               Text="How light the room is."/>
+                </StackPanel>
+
+                <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="70,*,34">
+                        <TextBlock Grid.Column="0" Text="Tint" FontSize="14" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <Slider Grid.Column="1" x:Name="Tint" Minimum="0" Maximum="14"
+                                TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        <TextBlock Grid.Column="2" x:Name="TintValue" Classes="dim mono" FontSize="12"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                    <TextBlock Classes="dim" FontSize="13" TextWrapping="Wrap" Margin="70,0,0,0"
+                               Text="How much of your library's own color shows in the background. The color itself comes from your covers."/>
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="70,*">
+                        <TextBlock Grid.Column="0" Text="Bars" FontSize="14" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1" x:Name="Bars" Width="170" HorizontalAlignment="Left"/>
+                    </Grid>
+                    <TextBlock x:Name="BarsAbout" Classes="dim" FontSize="13" LineHeight="20"
+                               TextWrapping="Wrap" Margin="70,0,0,0" MinHeight="40"/>
+                </StackPanel>
+
+                <Button x:Name="ResetColors" Classes="panel" Content="Back to the defaults"
+                        Margin="70,2,0,0"/>
             </StackPanel>
         </TabItem>
 

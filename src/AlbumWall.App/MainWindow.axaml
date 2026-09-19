@@ -465,13 +465,6 @@
             <Setter Property="Background" Value="#1A1512"/>
             <Setter Property="BorderBrush" Value="#55FFFFFF"/>
         </Style>
-        <Style Selector="Button.chrome">
-            <Setter Property="Foreground" Value="#F3EEE6"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
-        </Style>
         <!-- A slow breath on the playing marker. Long and shallow deliberately:
              it should read as "this one is live", not compete with the music. -->
         <Style Selector="Path.pulse">
@@ -533,59 +526,16 @@
                 <TextBlock Grid.Column="1" x:Name="AppName" Text="AlbumWall"
                            FontSize="21" FontWeight="Bold"
                            Margin="12,0,0,0" VerticalAlignment="Center"/>
-                <!-- THE TUNING BENCH. His ask: "can we build a set of controls in
-                     the top bar that I can play with over time?"
-                     
-                     Every lever here moves the palette the LIBRARY derived, and
-                     none of them touches the hue: that is the collection's own
-                     colour and not a matter of taste. What is adjustable is how
-                     light the room is, how much of the hue shows in it, and how
-                     the furniture separates itself from the wall.
-                     
-                     Expected to be temporary in this form — the cover-size slider
-                     lived here too, until the right rule was found and it could
-                     go. Settled values become defaults and the control goes away. -->
+                <!-- The tuning bench used to live here: Light and Tint sliders
+                     and a chrome button, added so he could "play with [them] over
+                     time". They did their job — the values settled at 21 / 2 /
+                     ink — and have moved to the Colors tab in Preferences, where
+                     a setting that differs per screen belongs. What is left in
+                     the bar is what is used every day. -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="20"
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             Margin="24,0,10,0">
 
-                    <!-- HIDDEN, not removed. The values have settled (Light 21,
-                         Tint 2, ink — now the defaults in Ground) so the bench has
-                         done what the note above said it was for. It stays in the
-                         tree because the right values differ per screen and the
-                         levers are due to move into Preferences; until then
-                         ALBUMWALL_BENCH=1 brings it back, and the light/tint/
-                         chrome trigger commands work either way. -->
-                    <StackPanel x:Name="Bench" Orientation="Horizontal" Spacing="20"
-                                VerticalAlignment="Center" IsVisible="False">
-
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="Light" Classes="dim" FontSize="10"
-                                   VerticalAlignment="Center"/>
-                        <Slider x:Name="LightSlider" Width="96" VerticalAlignment="Center"
-                                Minimum="10" Maximum="40"
-                                TickFrequency="1" IsSnapToTickEnabled="True"
-                                ToolTip.Tip="How light the room is"/>
-                        <TextBlock x:Name="LightValue" Classes="dim mono" FontSize="10"
-                                   Width="22" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="Tint" Classes="dim" FontSize="10"
-                                   VerticalAlignment="Center"/>
-                        <Slider x:Name="TintSlider" Width="96" VerticalAlignment="Center"
-                                Minimum="0" Maximum="14"
-                                TickFrequency="1" IsSnapToTickEnabled="True"
-                                ToolTip.Tip="How much of the library's hue shows in the ground"/>
-                        <TextBlock x:Name="TintValue" Classes="dim mono" FontSize="10"
-                                   Width="22" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <Button x:Name="ChromeButton" Classes="chrome" VerticalAlignment="Center"
-                            FontSize="10" Padding="10,5"
-                            ToolTip.Tip="How the bars separate from the wall — click to change"/>
-
-                    </StackPanel>
 
                     <!-- THIS APP'S OWN VOLUME, not the system's.
                          For turning the music down so something else can be

@@ -873,7 +873,7 @@ public partial class MainWindow : Window
     {
         _lightness = Math.Clamp(_settings.Lightness ?? Ground.DefaultLightness,
                                 Ground.MinLightness, Ground.MaxLightness);
-        var tint = Math.Clamp(_settings.Tint ?? 2, 0, 14);
+        var tint = Math.Clamp(_settings.Tint ?? Ground.DefaultTint, 0, 14);
         Ground.Saturation = tint / 100.0;
 
         var named = Array.FindIndex(Ground.Chromes,
@@ -882,14 +882,6 @@ public partial class MainWindow : Window
         _chrome = named >= 0 ? named : Ground.DefaultChrome;
 
         Palette.SetGroundLightness(_lightness);
-
-        Bench.IsVisible = Environment.GetEnvironmentVariable("ALBUMWALL_BENCH") == "1";
-
-        LightSlider.Value = _lightness;
-        TintSlider.Value = tint;
-        LightValue.Text = _lightness.ToString();
-        TintValue.Text = tint.ToString();
-        ChromeButton.Content = Ground.Chromes[_chrome].Name.ToUpperInvariant();
 
         // Volume lives in the same bar but is not part of the palette bench:
         // it is a control, not a setting, and it survives the bench being
@@ -904,36 +896,46 @@ public partial class MainWindow : Window
             RefreshMprisState();
             ScheduleSave();
         };
-
-        LightSlider.PropertyChanged += (_, e) =>
-        {
-            if (e.Property != RangeBase.ValueProperty) return;
-            _lightness = (int)Math.Round(LightSlider.Value);
-            LightValue.Text = _lightness.ToString();
-            Palette.SetGroundLightness(_lightness);
-            Retune();
-        };
-
-        TintSlider.PropertyChanged += (_, e) =>
-        {
-            if (e.Property != RangeBase.ValueProperty) return;
-            var t = (int)Math.Round(TintSlider.Value);
-            TintValue.Text = t.ToString();
-            Ground.Saturation = t / 100.0;
-            Retune();
-        };
-
-        ChromeButton.Click += (_, _) =>
-        {
-            _chrome = (_chrome + 1) % Ground.Chromes.Length;
-            ChromeButton.Content = Ground.Chromes[_chrome].Name.ToUpperInvariant();
-            Retune();
-        };
     }
 
     /// Rebuilds the ground from the current levers and repaints everything that
     /// took a colour from it — including the open panel, whose palette was
     /// snapshotted when it opened and would otherwise stay at the old lightness.
+    // The three levers, as the Colors tab in Preferences sees them. Each one
+    // takes effect at once, on every window, and is saved a moment later — there
+    // is nothing to press to find out what a number looks like, which is the
+    // only way anybody ever chose these.
+    internal int ColorLightness
+    {
+        get => _lightness;
+        set
+        {
+            _lightness = Math.Clamp(value, Ground.MinLightness, Ground.MaxLightness);
+            Palette.SetGroundLightness(_lightness);
+            Retune();
+        }
+    }
+
+    internal int ColorTint
+    {
+        get => (int)Math.Round(Ground.Saturation * 100);
+        set
+        {
+            Ground.Saturation = Math.Clamp(value, 0, 14) / 100.0;
+            Retune();
+        }
+    }
+
+    internal int ColorChrome
+    {
+        get => _chrome;
+        set
+        {
+            _chrome = Math.Clamp(value, 0, Ground.Chromes.Length - 1);
+            Retune();
+        }
+    }
+
     private void Retune()
     {
         _ramp = new Ground.Ramp(_ramp.Hue, _ramp.Concentration, _lightness,
@@ -1165,23 +1167,26 @@ public partial class MainWindow : Window
         if (text.StartsWith("light ", StringComparison.OrdinalIgnoreCase)
             && double.TryParse(text[6..].Trim(), out var lv))
         {
-            LightSlider.Value = lv;
-            Console.WriteLine($"[wall] bench: light -> {LightSlider.Value}");
+            ColorLightness = (int)Math.Round(lv);
+            _prefs?.Fill();
+            Console.WriteLine($"[wall] colors: light -> {ColorLightness}");
             return;
         }
 
         if (text.StartsWith("tint ", StringComparison.OrdinalIgnoreCase)
             && double.TryParse(text[5..].Trim(), out var tv))
         {
-            TintSlider.Value = tv;
-            Console.WriteLine($"[wall] bench: tint -> {TintSlider.Value}");
+            ColorTint = (int)Math.Round(tv);
+            _prefs?.Fill();
+            Console.WriteLine($"[wall] colors: tint -> {ColorTint}");
             return;
         }
 
         if (text.Equals("chrome", StringComparison.OrdinalIgnoreCase))
         {
-            ChromeButton.Command?.Execute(null);
-            ChromeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            ColorChrome = (ColorChrome + 1) % Ground.Chromes.Length;
+            _prefs?.Fill();
+            Console.WriteLine($"[wall] colors: chrome -> {Ground.Chromes[ColorChrome].Name}");
             return;
         }
 
@@ -1253,6 +1258,7 @@ public partial class MainWindow : Window
         // on demand and photographing it straight away.
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
+        if (text.Equals("prefs colors", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Colors); return; }
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.About); return; }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }

@@ -9,7 +9,7 @@ namespace AlbumWall.App;
 public partial class PrefsWindow : Window
 {
     /// In the order they appear. About stays last.
-    public enum Tab { Library, Startup, About }
+    public enum Tab { Library, Startup, Colors, About }
 
     private readonly MainWindow? _host;
 
@@ -46,6 +46,36 @@ public partial class PrefsWindow : Window
             host.AppSettings.Save();
         };
 
+        Light.Minimum = Ground.MinLightness;
+        Light.Maximum = Ground.MaxLightness;
+        Bars.ItemsSource = Ground.Chromes.Select(c => char.ToUpper(c.Name[0]) + c.Name[1..]).ToList();
+
+        Light.PropertyChanged += (_, e) =>
+        {
+            if (_filling || e.Property != Avalonia.Controls.Primitives.RangeBase.ValueProperty) return;
+            host.ColorLightness = (int)Math.Round(Light.Value);
+            LightValue.Text = host.ColorLightness.ToString();
+        };
+        Tint.PropertyChanged += (_, e) =>
+        {
+            if (_filling || e.Property != Avalonia.Controls.Primitives.RangeBase.ValueProperty) return;
+            host.ColorTint = (int)Math.Round(Tint.Value);
+            TintValue.Text = host.ColorTint.ToString();
+        };
+        Bars.SelectionChanged += (_, _) =>
+        {
+            if (_filling || Bars.SelectedIndex < 0) return;
+            host.ColorChrome = Bars.SelectedIndex;
+            BarsAbout.Text = AboutBars(host.ColorChrome);
+        };
+        ResetColors.Click += (_, _) =>
+        {
+            host.ColorLightness = Ground.DefaultLightness;
+            host.ColorTint = Ground.DefaultTint;
+            host.ColorChrome = Ground.DefaultChrome;
+            Fill();
+        };
+
         // Where it was, like the family's Setup windows. Saved as it closes
         // rather than as it moves: nothing is lost if this one is wrong.
         Closing += (_, _) =>
@@ -74,12 +104,30 @@ public partial class PrefsWindow : Window
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;
         AutoPlay.IsChecked = _host.AppSettings.AutoPlay == true;
         AutoPlay.IsEnabled = Resume.IsChecked == true;
+        Light.Value = _host.ColorLightness;
+        Tint.Value = _host.ColorTint;
+        Bars.SelectedIndex = _host.ColorChrome;
         _filling = false;
+
+        LightValue.Text = _host.ColorLightness.ToString();
+        TintValue.Text = _host.ColorTint.ToString();
+        BarsAbout.Text = AboutBars(_host.ColorChrome);
 
         var v = typeof(PrefsWindow).Assembly.GetName().Version;
         AboutVersion.Text = $"AlbumWall {v?.Major}.{v?.Minor}.{v?.Build}";
         AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }
+
+    /// What each way of separating the bars from the wall actually does, in the
+    /// words Ground.cs uses to justify them.
+    private static string AboutBars(int chrome) => Ground.Chromes[chrome].Name switch
+    {
+        "recede" => "The bars sink below the wall and lose their color, so the wall is the lit thing in the room.",
+        "lift" => "The bars rise as a neutral panel, like a toolbar laid over the wall.",
+        "ink" => "Near-black and fully neutral: the most separation, and the wall floats.",
+        "warm" => "The bars keep your library's warmth, pushed well apart from the wall in lightness.",
+        _ => ""
+    };
 
     /// Puts the window where it was last time, if that place still exists —
     /// a monitor can be unplugged between runs — and otherwise over the main
