@@ -242,6 +242,16 @@
             </StackPanel>
         </TabItem>
 
+        <!-- WHAT THE KEYS DO AND WHAT THE SEARCH BOX UNDERSTANDS: the two things in
+             this app that cannot be found by looking at it. F1 opens it. Built in code
+             (PrefsWindow.Help.cs) beside the list it has to agree with. Before About,
+             which stays last by convention. -->
+        <TabItem Header="Help">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="HelpBody" Spacing="3" Margin="0,0,14,0"/>
+            </ScrollViewer>
+        </TabItem>
+
         <TabItem Header="About">
             <StackPanel Spacing="12">
                 <!-- The wordmark, with its alpha (see App.Wordmark), and the version

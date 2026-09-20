@@ -395,6 +395,11 @@ public partial class MainWindow : Window
 
         SetUpMenu();
         CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Statistics);
+
+        // Tunnelled, so the keys work wherever the focus happens to be - after a
+        // click it is on whichever cover was clicked, and a bubbling handler would
+        // only ever hear what that button did not want.
+        AddHandler(KeyDownEvent, OnShortcutKey, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         ScanLibrary();
 
         // The shell wants a media player on the bus whether or not anything is
@@ -1644,6 +1649,25 @@ public partial class MainWindow : Window
         if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
         if (text.Equals("prefs stats", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Statistics); return; }
+        if (text.Equals("prefs help", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Help); return; }
+
+        // A key press, for testing the shortcuts without typing into whatever
+        // window he happens to have in front: "key space", "key ctrl+right",
+        // "key f1", "key /". It is raised on the window as a real KeyDown and
+        // goes through the same tunnel as one, so what is tested is the handler
+        // and the routing; what is NOT tested is the keyboard itself.
+        if (text.StartsWith("key ", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = text[4..].Trim().Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var mods = KeyModifiers.None;
+            foreach (var m in parts[..^1])
+                if (Enum.TryParse<KeyModifiers>(m.Equals("ctrl", StringComparison.OrdinalIgnoreCase) ? "Control" : m, true, out var parsed)) mods |= parsed;
+            var name = parts[^1] switch { "/" => "OemQuestion", "," => "OemComma", "esc" or "Esc" => "Escape", var other => other };
+            if (!Enum.TryParse<Key>(name, true, out var key)) { Console.WriteLine($"[key] no such key: {parts[^1]}"); return; }
+            var target = (FocusManager?.GetFocusedElement() as Interactive) ?? this;
+            target.RaiseEvent(new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = key, KeyModifiers = mods, Source = target });
+            return;
+        }
         if (text.Equals("prefs appearance", StringComparison.OrdinalIgnoreCase)
             || text.Equals("prefs colors", StringComparison.OrdinalIgnoreCase))   // the tab's old name
         { ShowPrefs(PrefsWindow.Tab.Appearance); return; }
@@ -2529,6 +2553,108 @@ public partial class MainWindow : Window
         if (_panelAt <= 0 || _panelAt >= _rows.Count) return null;
         return Wall.TryGetElement(_panelAt)?.TranslatePoint(default, WallScroller)?.Y;
     }
+
+    // ------------------------------------------------------------------ keys
+
+    /// The keyboard, beyond the media keys. "keyboard me boss."
+    ///
+    /// THE LIST IS IN TWO PLACES and they must agree: here, and the Help tab of
+    /// Preferences (PrefsWindow.Help.cs), which is how anyone finds out. A shortcut
+    /// nobody can discover is a bug waiting to be pressed by accident.
+    ///
+    /// WHAT WAS LEFT ALONE, on purpose:
+    /// - Plain Up, Down, PageUp, PageDown, Home, End: they scroll the wall, as they
+    ///   do in every window with a scroll bar in it. Volume is Ctrl+Up / Ctrl+Down.
+    /// - Tab, Shift+Tab and Enter: how a keyboard-only user moves between the
+    ///   covers and opens one. Nothing here may swallow them.
+    /// - Anything at all while the search box has the focus, except Esc and the
+    ///   Ctrl combinations: Space is a character there, and so are the arrows.
+    ///
+    /// SPACE IS PLAY/PAUSE EVERYWHERE ELSE, including when a cover has the focus -
+    /// which it does after every click - where Space would otherwise "press" that
+    /// cover again and fold the album he had just opened. Enter still presses
+    /// whatever has the focus, so nothing is out of a keyboard's reach.
+    private void OnShortcutKey(object? sender, KeyEventArgs e)
+    {
+        var focused = FocusManager?.GetFocusedElement();
+        var typing = focused is TextBox;
+        var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        var other = e.KeyModifiers & ~KeyModifiers.Control;
+        if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift)) return;
+
+        switch (e.Key)
+        {
+            case Key.Escape:
+                // Out of whatever was last gone into: the search first, then the album.
+                if (_filter.Length > 0 || (typing && !string.IsNullOrEmpty(SearchBox.Text))) SearchBox.Text = "";
+                else if (typing) WallScroller.Focus();
+                else if (_open is not null) SetOpen(null);
+                else return;
+                break;
+
+            case Key.F when ctrl:
+            case Key.OemQuestion when !ctrl && !typing && other == KeyModifiers.None:      // the "/" key
+                SearchBox.Focus();
+                SearchBox.SelectAll();
+                break;
+
+            case Key.OemComma when ctrl:
+                ShowPrefs(PrefsWindow.Tab.Library);
+                break;
+
+            case Key.F1:
+                ShowPrefs(PrefsWindow.Tab.Help);
+                break;
+
+            case Key.L when ctrl:
+                OnRevealPlaying(null, new Avalonia.Interactivity.RoutedEventArgs());
+                break;
+
+            case Key.Space when !ctrl && !typing:
+                if (_player is null || !_mprisState.HasTrack) return;
+                _player.TogglePause();
+                break;
+
+            case Key.Right when ctrl:
+                if (_player is null || !_mprisState.HasTrack) return;
+                _player.Next();
+                break;
+            case Key.Left when ctrl:
+                if (_player is null || !_mprisState.HasTrack) return;
+                _player.Previous();
+                break;
+
+            case Key.Right when !typing && focused is not Slider:
+            case Key.Left when !typing && focused is not Slider:
+            {
+                if (_player is null || !_mprisState.HasTrack) return;
+                var duration = _player.Duration;
+                if (duration <= TimeSpan.Zero) return;
+                var to = _player.Position + TimeSpan.FromSeconds(e.Key == Key.Right ? SeekStep : -SeekStep);
+                _player.Seek(to < TimeSpan.Zero ? TimeSpan.Zero : to > duration ? duration : to);
+                UpdatePosition();
+                Dispatcher.UIThread.Post(PushTimeline, DispatcherPriority.Background);
+                break;
+            }
+
+            case Key.Up when ctrl:
+                VolumeSlider.Value = Math.Min(100, VolumeSlider.Value + VolumeStep);
+                break;
+            case Key.Down when ctrl:
+                VolumeSlider.Value = Math.Max(0, VolumeSlider.Value - VolumeStep);
+                break;
+
+            default:
+                return;
+        }
+        e.Handled = true;
+        Console.WriteLine($"[key] {(ctrl ? "Ctrl+" : "")}{e.Key}"
+                        + (_player is not null && _mprisState.HasTrack ? $"  (track {_player.Index + 1}, {Clock(_player.Position)}, "
+                                                                       + $"{(_player.IsPlaying ? "playing" : "paused")}, volume {VolumeSlider.Value:0})" : ""));
+    }
+
+    private const int SeekStep = 10;        // seconds
+    private const int VolumeStep = 5;       // of 100
 
     /// Takes the wall to the album that is playing, and opens it.
     ///

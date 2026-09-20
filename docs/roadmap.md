@@ -147,18 +147,23 @@ is ahead, the history is for what is behind.
   editing, above. Unsynced lyrics first; timed ones (`SYLT`, LRC) are a separate
   and much larger feature.
 
-- **Keyboard shortcuts beyond the media keys** (2026-09-20). Cheap, used daily.
-  A first set: Space play/pause; Ctrl+Left/Right previous/next; Left/Right seek;
-  Up/Down volume; Ctrl+F or `/` to the search box; Esc clears the search or folds
-  the open album; Ctrl+, Preferences. Space must not fire while typing in the
-  search box. Moving about the wall itself with the arrow keys is a bigger job
-  and a later one.
-
-- **A Help page in the app** (2026-09-20). The `art:missing` / `art:small` /
-  `art:nonsquare` searches cannot be discovered today, and shortcuts will be
-  just as hidden: one page listing both. `--help` and `--version` go with the
-  command-line work below. A man page for Linux can be generated from the same
-  text and installed by the self-installer; a nicety, later.
+- **Arrow-key navigation of the wall**, and the rest of keyboard and screen-reader
+  access. The shortcuts and the Help page are DONE (2026-09-20: Space, Ctrl+arrows,
+  arrows to seek, Ctrl+Up/Down, Ctrl+F or `/`, Esc, Ctrl+L, Ctrl+`,`, F1; the Help
+  tab lists them and the `art:` searches, and must be kept in step with
+  `MainWindow.OnShortcutKey`). Asked whether that helps accessibility, the honest
+  answer was "partly": what a keyboard-only or screen-reader user still lacks is
+  - moving about the wall with the ARROW keys, with a focus ring that can be
+    seen — Tab reaches every cover today, one at a time, through a thousand;
+  - an audit of what each control is CALLED. The Preferences tabs all said
+    "Avalonia.Controls.StackPanel" until the updater's test tripped on it, and
+    the covers had no name until they were given "Title, by Artist, year".
+    Track rows, the play controls and the sliders have not been looked at;
+  - "reduce motion": the sliding play controls and the unfolding album ignore
+    the system setting;
+  - contrast, which depends on his Light and Tint.
+  `--help` and `--version` go with the command-line work below; a man page for
+  Linux can be generated from the Help tab's text, later.
 
 - **One instance, and a command line to it** (2026-09-20, from "remote control
   and/or specialized command line arguments?"). Three things, in this order:
@@ -174,7 +179,6 @@ is ahead, the history is for what is behind.
   3. A NETWORK REMOTE (a phone, a web page): not now. A listening socket with
      the security questions that come with one, for no concrete use yet.
 
-- **Arrow-key navigation of the wall.** See shortcuts, above.
 
 ## Decided
 

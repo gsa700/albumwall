@@ -39,7 +39,8 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="app:AlbumVm">
-                        <Button Classes="tile" Command="{Binding OpenCommand}">
+                        <Button Classes="tile" Command="{Binding OpenCommand}"
+                                AutomationProperties.Name="{Binding Spoken}">
                             <StackPanel Spacing="5" Width="{DynamicResource CoverPx}">
                                 <Panel Width="{DynamicResource CoverPx}"
                                        Height="{DynamicResource CoverPx}">
@@ -682,7 +683,13 @@
              The wall is a list of ROWS, not a grid. A uniform grid has no row to
              insert between, and the expansion panel has to push the rows after it
              down. StackLayout still virtualizes, by row instead of by tile. -->
-        <ScrollViewer x:Name="WallScroller"
+        <!-- FOCUSABLE, which a ScrollViewer is not by default. Esc in an empty search
+             box hands the keyboard back to the wall, and until the wall could take
+             it the focus simply stayed in the box: the next Esc, meant to fold the
+             open album, went to the box again. It is also what lets the arrow keys
+             and Page Up / Page Down scroll the wall once the keyboard is there. No
+             focus ring - the wall is the whole window and a ring round it is noise. -->
+        <ScrollViewer x:Name="WallScroller" Focusable="True" FocusAdorner="{x:Null}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"
                       Padding="26,20,26,0">

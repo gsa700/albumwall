@@ -506,6 +506,27 @@ Left installed at the end: today's build (5082e79 plus the log fix), so the
 taskbar pin — which had been pointing at test3 — starts a good copy. It shares
 the real settings with the development build; one at a time.
 
+### The media flyout has NO progress bar, for anybody (Windows 11 25H2)
+
+f71942d sends Windows a timeline and answers seek requests, and was sold to him
+as "a progress bar in the flyout, like Spotify's or a browser's". THERE IS NO
+SUCH BAR. His words after the update: "uh, no progress bar." Windows had
+everything — asked directly, the media-session manager reported his running
+copy at `01:31 of 03:55`, moving, `position enabled: True`, and as the session
+the flyout leads with — and he then checked the control: "no seek bar on
+youtube either". The quick-settings media card on this build draws the cover,
+title, artist and three buttons, for every app, and nothing else.
+
+What went wrong was not the code. It was describing what Windows draws from
+memory, building on it, and testing the INTERFACE the flyout reads rather than
+the flyout — then saying so only in a caveat. One look at the flyout with a
+browser playing would have settled it before a line was written.
+
+The change stays: it is the correct use of the API, costs nothing, and the
+timeline and the seek request are there for whatever does read them —
+third-party flyouts, Phone Link, some Bluetooth displays, a later Windows. But
+nobody should promise a bar in the flyout again.
+
 ### The updater (same evening)
 
 Ported from FlexPad's `UpdateService` — the newest of the family's four copies —

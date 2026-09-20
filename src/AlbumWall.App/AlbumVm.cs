@@ -31,6 +31,12 @@ public sealed class AlbumVm : INotifyPropertyChanged
     }
 
     public string Title => Album.Title;
+
+    /// What a screen reader says for the cover: the record and who made it. The
+    /// tile is a button whose content is a picture and two labels, and a button
+    /// with no name of its own is announced as the type of its content.
+    public string Spoken => Album.Year > 0 ? $"{Album.Title}, by {Album.AlbumArtist}, {Album.Year}"
+                                           : $"{Album.Title}, by {Album.AlbumArtist}";
     public string Artist => Album.AlbumArtist;
     public string Year => Album.Year > 0 ? Album.Year.ToString() : "";
     public Avalonia.Media.IBrush Placeholder { get; }

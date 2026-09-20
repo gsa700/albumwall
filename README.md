@@ -38,6 +38,9 @@ could play music.
   › Appearance decides how light it sits and how much of the hue it takes.
 - **Media keys and the desktop's own controls** — MPRIS on Linux (the GNOME
   panel and lock screen), the media flyout and hardware keys on Windows.
+- **The keyboard works**: Space to play or pause, Ctrl+arrows for the next and
+  previous track, arrows to seek, Ctrl+F to search, Esc to back out, and F1 for
+  the list — Preferences › Help has every key and every search the box understands.
 - **Live search** by artist or album, a way back to whatever is playing, and
   three searches for art that wants attention: `art:missing`, `art:small`,
   `art:nonsquare`.

@@ -9,7 +9,7 @@ namespace AlbumWall.App;
 public partial class PrefsWindow : Window
 {
     /// In the order they appear. About stays last.
-    public enum Tab { Library, Statistics, Startup, Appearance, About }
+    public enum Tab { Library, Statistics, Startup, Appearance, Help, About }
 
     private readonly MainWindow? _host;
 
@@ -410,6 +410,7 @@ public partial class PrefsWindow : Window
         var v = typeof(PrefsWindow).Assembly.GetName().Version;
         if (AboutWordmark.Inlines is not { Count: > 0 }) App.DrawWordmark(AboutWordmark);
         if (AboutLinks.Children.Count == 0) FillAboutLinks();
+        if (HelpBody.Children.Count == 0) FillHelp();
         AboutVersion.Text = $"Version {v?.Major}.{v?.Minor}.{v?.Build}";
         AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }
