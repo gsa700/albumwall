@@ -602,6 +602,10 @@
                          that directly launches it like our other apps." -->
                     <Button x:Name="SettingsButton" Classes="chrome" VerticalAlignment="Center"
                             Padding="8,4" ToolTip.Tip="Preferences">
+                        <!-- The dot says a newer version exists. It is the only thing the
+                             launch-time check ever does on its own: nothing is downloaded
+                             or installed until it is asked for on the About tab. -->
+                        <Panel>
                         <Path Stretch="Uniform" Width="17" Height="17" Fill="#F3EEE6"
                               Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58
                                     c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96
@@ -614,6 +618,10 @@
                                     c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32
                                     c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z
                                     M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                        <Ellipse x:Name="UpdateDot" Width="7" Height="7" IsVisible="False"
+                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-4,0"
+                                 Fill="{DynamicResource WordmarkInk}"/>
+                        </Panel>
                     </Button>
                 </StackPanel>
 

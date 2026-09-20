@@ -1132,6 +1132,14 @@ public partial class MainWindow : Window
     internal string LibraryCounts => _counts;
     internal int LibraryTrackCount => _trackCount;
 
+    /// The dot on the gear: a newer version exists (or the last update failed).
+    internal void ShowUpdateDot(bool on)
+    {
+        UpdateDot.IsVisible = on;
+        ToolTip.SetTip(SettingsButton, on ? "Preferences \u2014 a newer version is available" : "Preferences");
+        _prefs?.Fill();
+    }
+
     /// What the library is made of, as of the last scan. Null until there is one.
     internal Domain.LibraryStats? LibraryStatistics => _stats;
     private Domain.LibraryStats? _stats;

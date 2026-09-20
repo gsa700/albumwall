@@ -487,7 +487,40 @@ public static class InstallService
     /// that is set. This used to be the Linux path on both, so on Windows the uninstall looked in
     /// the home folder, found nothing, and left the cache behind. (LP-100A, 2026-09-09.)
     /// </summary>
-    private static string ExtractionRoot
+    /// <summary>
+    /// The ONE folder under <see cref="ExtractionRoot"/> that belongs to this running copy, or null
+    /// for a build that unpacks nothing (a development build). The host names the folder for the
+    /// bundle, so two different builds never share one - and two copies CAN be running at once: an
+    /// installed one and a loose one, or his player and a test. The updater removes this folder and
+    /// no other. Its first draft removed the whole root, and was one test run away from deleting
+    /// libmpv - which loads only when something is first played - out from under the copy he was
+    /// listening to. The host publishes where it unpacked in NATIVE_DLL_SEARCH_DIRECTORIES.
+    /// </summary>
+    internal static string? OwnExtractionDir
+    {
+        get
+        {
+            try
+            {
+                var root = Path.GetFullPath(ExtractionRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                var dirs = AppContext.GetData("NATIVE_DLL_SEARCH_DIRECTORIES") as string ?? "";
+                foreach (var d in dirs.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var full = Path.GetFullPath(d);
+                    if (full.StartsWith(root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                    {
+                        // The first segment under the root: <root>/<bundle id>/...
+                        var id = full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries)[0];
+                        return Path.Combine(root, id);
+                    }
+                }
+            }
+            catch { /* then there is nothing to clean, which is safe */ }
+            return null;
+        }
+    }
+
+    internal static string ExtractionRoot
     {
         get
         {

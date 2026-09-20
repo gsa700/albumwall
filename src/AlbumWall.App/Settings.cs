@@ -40,6 +40,11 @@ public sealed class Settings
     public bool? ResumeSession { get; set; }
     public bool? AutoPlay { get; set; }
 
+    /// Whether to ask, once as it opens, if there is a newer version. On unless
+    /// turned off. It is one small request to GitHub and nothing is ever
+    /// downloaded or installed without being asked for in Preferences.
+    public bool? CheckForUpdates { get; set; }
+
     /// Whether the play controls sit above the wall instead of below it. Off is
     /// the layout everything else was designed around, and stays the default:
     /// "default to bottom as now but make it an option in settings."

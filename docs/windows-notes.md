@@ -506,6 +506,49 @@ Left installed at the end: today's build (5082e79 plus the log fix), so the
 taskbar pin — which had been pointing at test3 — starts a good copy. It shares
 the real settings with the development build; one at a time.
 
+### The updater (same evening)
+
+Ported from FlexPad's `UpdateService` — the newest of the family's four copies —
+with what this project's own day had taught:
+
+- **The swap is retried** for up to ten seconds. The family's helper does one
+  `Copy-Item` the moment the process id disappears, which is the same race that
+  left this app's exe behind on its first uninstall (c7b545f).
+- **The download is verified** against the release's `SHA256SUMS` before it is
+  unpacked, and a release without one is not installed.
+- **The old build's unpacked libraries are removed** after a successful swap —
+  29 MB per build that nothing else ever cleans. ITS OWN FOLDER ONLY. The first
+  draft removed the whole `%TEMP%/.net/AlbumWall`, and was one test run from
+  deleting libmpv — which loads only when something is first played — out from
+  under the installed copy he was listening to. Caught reading the test over
+  before running it, not by luck of the run. The host says where it unpacked in
+  `NATIVE_DLL_SEARCH_DIRECTORIES`; the helper also skips the removal if any
+  running AlbumWall has a module loaded from that folder (two copies of the
+  same build share one), matching on the folder's own name because the same
+  path turns up as `DAVIDE~1` and in full.
+- The helper starts in the temp folder, not ours; paths are quoted for an
+  apostrophe; `VersionOrder` and `UpdateApplyScript` live in Domain so
+  `tools/update-check.cs` can run the family's test cases against them.
+
+**Tested end to end, for real**, with `_aw_installtest/update-test.ps1`: two
+builds published here (0.1.0, and 0.1.1 via `-p:Version=`), a local
+`python -m http.server` playing GitHub, `ALBUMWALL_UPDATE_FEED` pointing at it,
+a throwaway settings folder, the About tab driven through UI Automation.
+
+| | result |
+|---|---|
+| launch-time check | gear tooltip "Preferences — a newer version is available" |
+| About tab | "Version 0.1.1 is available. This is 0.1.0." / "Update to 0.1.1 and restart" |
+| after the button | checksum matched; old process gone in 1.0 s; **0.1.1 running at 1.6 s**; exe byte-identical to the 0.1.1 build |
+| left behind | nothing: no failure marker, no staging folder, no helper script; its own unpacked folder removed, the other copy's untouched |
+| wrong checksum | "The download does not match the release's SHA-256 and has been thrown away. Nothing was installed." App still running, exe unchanged |
+| the real feed today | `[update] nothing published (404)` — the repository is private |
+
+**It found an accessibility bug on the way.** The test could not find the About
+tab: with the family's tab template every `TabItem`'s automation name falls
+through to its CONTENT, so all five tabs announced themselves to a screen
+reader as "Avalonia.Controls.StackPanel". They now carry their headers.
+
 ### Release paperwork, done from Hambench (same evening)
 
 Both "a release does not go out without these" items, which need no Fedora:

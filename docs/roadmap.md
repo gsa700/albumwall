@@ -59,9 +59,20 @@ is ahead, the history is for what is behind.
      pin grouping, the About tab in installed mode, and the desktop shortcut
      staying deleted. Only a single-file release installs; a development build
      says so in About and is never offered.
-  4. `UpdateService` — built now, switched on later: it reads
-     `/releases/latest` unauthenticated, which a private repository answers
-     with 404. It goes live with the public snapshot.
+  4. ~~`UpdateService`~~ — done 2026-09-20 (this entry used to say "built now",
+     and it was not: there was no such class until that day). Ported from
+     FlexPad, the newest of the family's four, and tested END TO END on Hambench
+     against a local fake feed: a published 0.1.0 found 0.1.1 at launch, offered
+     it on the About tab, verified the download, swapped its own exe and was
+     running as 0.1.1 1.6 s after the button. A wrong checksum is refused with
+     nothing swapped. It reads `/releases/latest` unauthenticated, which a
+     private repository answers with 404 — shown as "No release has been
+     published yet", which is true — so it goes live, by itself, with the
+     public snapshot. `ALBUMWALL_UPDATE_FEED` points it elsewhere for testing.
+     **THE FIRST PUBLIC RELEASE MUST BUMP `<Version>`**: every test build so far
+     reports 0.1.0, and nobody is offered the version they already have.
+     Releases must carry `SHA256SUMS`; the updater refuses one that does not.
+     Not run on Linux.
 
   **A release does not go out without these two, and they are paperwork, not
   engineering.** We distribute other people's GPL and LGPL code inside the

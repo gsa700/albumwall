@@ -59,6 +59,26 @@ public partial class App : Application
     /// is correct: nobody else has a copy.
     public const string ProjectUrl = "https://github.com/gsa700/albumwall";
 
+    /// What the last update check found, if there has been one: shared by the dot
+    /// on the gear and the About tab, so that opening About does not ask again.
+    public static Install.UpdateInfo? LatestUpdate { get; set; }
+
+    /// True for this run if the previous update's helper could not swap the exe
+    /// and relaunched the old one. Read once at startup; the marker is gone.
+    public static bool LastUpdateFailed { get; private set; }
+
+    /// Leaves so that the update helper can swap the exe. The main window closes
+    /// the ordinary way - so the session, the geometry and the index are saved as
+    /// on any other exit - from an idle dispatcher frame, never from inside the
+    /// click that asked for it (the family's rule). The exit below is the backstop
+    /// the uninstall also has: the helper is waiting on this process id, and a
+    /// close that leaves a windowless process behind would leave it waiting.
+    public static void ExitForUpdate(Avalonia.Controls.Window main)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(main.Close, Avalonia.Threading.DispatcherPriority.ApplicationIdle);
+        _ = Task.Delay(TimeSpan.FromSeconds(4)).ContinueWith(_ => Environment.Exit(0));
+    }
+
     /// Draws the wordmark into a TextBlock, the alpha in the collection's own
     /// color (WordmarkInk, set by ApplyGround from the hue of his covers) and the
     /// rest in whatever the text around it is.
@@ -104,6 +124,22 @@ public partial class App : Application
                 // rule, learned when a lost registration stayed lost. A no-op
                 // unless this copy is the installed one.
                 Install.InstallService.EnsureRegistered();
+
+                LastUpdateFailed = Install.UpdateService.ConsumeUpdateFailed();
+                if (LastUpdateFailed) Console.WriteLine("[update] the last update was NOT applied; this is the old exe");
+
+                // Once, a few seconds in, and only for a copy that could act on the
+                // answer. All it ever does is light the dot on the gear.
+                if (Install.UpdateService.CanUpdate && window.AppSettings.CheckForUpdates != false)
+                    _ = Task.Delay(TimeSpan.FromSeconds(6)).ContinueWith(async _ =>
+                    {
+                        var info = await Install.UpdateService.CheckAsync();
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            LatestUpdate = info;
+                            window.ShowUpdateDot(info.UpdateAvailable || LastUpdateFailed);
+                        });
+                    });
 
                 // A release sitting wherever it was unzipped offers to install
                 // itself. Never a development build (see InstallService), and

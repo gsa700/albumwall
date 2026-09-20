@@ -29,6 +29,15 @@ public partial class PrefsWindow : Window
     {
         _host = host;
         Title = $"{App.DisplayName} \u2014 Preferences";
+
+        // A TAB IS CALLED WHAT ITS HEADER SAYS. With the family's tab template the
+        // automation name falls through to the CONTENT, so every tab here announced
+        // itself to a screen reader as "Avalonia.Controls.StackPanel" - five of them
+        // in a row. Found by the updater's test, which could not find "About" to
+        // press. Whatever reads the screen for someone gets the header.
+        foreach (var item in Tabs.Items.OfType<TabItem>())
+            if (item.Header is string header)
+                Avalonia.Automation.AutomationProperties.SetName(item, header);
         WhenItOpens.Text = $"When {App.DisplayName} opens";
 
         ChooseFolder.Click += async (_, _) => { await host.ChooseLibraryFolder(this); Fill(); };
@@ -55,6 +64,20 @@ public partial class PrefsWindow : Window
             if (_filling) return;
             host.AppSettings.AutoPlay = AutoPlay.IsChecked == true;
             host.AppSettings.Save();
+        };
+        CheckUpdates.IsCheckedChanged += (_, _) =>
+        {
+            if (_filling) return;
+            host.AppSettings.CheckForUpdates = CheckUpdates.IsChecked == true;
+            host.AppSettings.Save();
+        };
+
+        UpdateButton.Click += async (_, _) => await OnUpdateButton();
+        UpdateNotes.Click += async (_, _) =>
+        {
+            var url = App.LatestUpdate?.ReleaseUrl ?? App.ProjectUrl + "/releases/latest";
+            try { await Launcher.LaunchUriAsync(new Uri(url)); }
+            catch (Exception ex) { Console.WriteLine($"[about] could not open {url}: {ex.Message}"); }
         };
 
         // Applies as it moves, like the rest of this tab: the point of the option
@@ -126,6 +149,82 @@ public partial class PrefsWindow : Window
     }
 
     public void Select(Tab tab) => Tabs.SelectedIndex = (int)tab;
+
+    // ------------------------------------------------------------------ updates
+
+    private bool _updating;
+    private string? _updateNote;
+
+    /// Where things stand, from whatever is known: the launch-time check may have
+    /// answered already, and the last update may have failed to apply.
+    private void FillUpdate()
+    {
+        UpdateSection.IsVisible = Install.UpdateService.CanUpdate;
+        if (!UpdateSection.IsVisible || _updating) return;
+
+        var have = Install.UpdateService.CurrentVersion;
+        var info = App.LatestUpdate;
+
+        UpdateNotes.IsVisible = info is { UpdateAvailable: true };
+        UpdateButton.IsEnabled = true;
+        UpdateButton.Content = info is { UpdateAvailable: true, AssetUrl: not null }
+            ? $"Update to {info.LatestTag.TrimStart('v', 'V')} and restart"
+            : "Check for updates";
+
+        UpdateStatus.Text = _updateNote
+            ?? (App.LastUpdateFailed ? $"The last update could not be put in place, so this is still {have}. Try it again."
+              : info is null ? $"This is version {have}."
+              : info.Error is { } error ? error
+              : info.NothingPublished ? $"No release has been published yet. This is version {have}."
+              : !info.UpdateAvailable ? $"This is the latest version, {have}."
+              : info.AssetUrl is null ? $"{info.LatestTag} is out, but it has no build for this kind of computer."
+              : $"Version {info.LatestTag.TrimStart('v', 'V')} is available. This is {have}.");
+    }
+
+    private async Task OnUpdateButton()
+    {
+        if (_updating || _host is null) return;
+        _updateNote = null;
+
+        // Nothing newer known: this press is a check.
+        if (App.LatestUpdate is not { UpdateAvailable: true, AssetUrl: not null })
+        {
+            UpdateButton.IsEnabled = false;
+            UpdateStatus.Text = "Looking…";
+            App.LatestUpdate = await Install.UpdateService.CheckAsync();
+            _host.ShowUpdateDot(App.LatestUpdate.UpdateAvailable);
+            FillUpdate();
+            return;
+        }
+
+        // Something newer known: this press fetches it, checks it, and restarts into it.
+        _updating = true;
+        UpdateButton.IsEnabled = false;
+        UpdateNotes.IsVisible = false;
+        UpdateBar.IsVisible = true;
+        try
+        {
+            var progress = new Progress<double>(f =>
+            {
+                UpdateFill.Width = f * UpdateBar.Bounds.Width;
+                UpdateStatus.Text = $"Downloading {App.LatestUpdate.LatestTag.TrimStart('v', 'V')}… {f:P0}";
+            });
+            var staged = await Install.UpdateService.DownloadAndStageAsync(App.LatestUpdate, progress);
+
+            UpdateStatus.Text = "Checked. Restarting into the new version…";
+            Install.UpdateService.ApplyAndRestart(staged);
+            App.ExitForUpdate(_host);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[update] failed: {ex.Message}");
+            _updating = false;
+            UpdateBar.IsVisible = false;
+            UpdateFill.Width = 0;
+            _updateNote = ex.Message;
+            FillUpdate();
+        }
+    }
 
     /// The About tab's links: what each is called, what is at the other end in
     /// plain words, and where it goes. A null address opens the notices window,
@@ -244,6 +343,7 @@ public partial class PrefsWindow : Window
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;
         AutoPlay.IsChecked = _host.AppSettings.AutoPlay == true;
         AutoPlay.IsEnabled = Resume.IsChecked == true;
+        CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         TransportTop.IsChecked = _host.TransportAtTop;
         Light.Value = _host.ColorLightness;
         Tint.Value = _host.ColorTint;
@@ -278,6 +378,7 @@ public partial class PrefsWindow : Window
         BarsAbout.Text = AboutBars(_host.ColorChrome);
 
         FillInstall();
+        FillUpdate();
 
         var installed = Install.InstallService.Mode == Install.InstallMode.Installed;
         ShortcutSection.IsVisible = OperatingSystem.IsWindows() && !installed;

@@ -143,6 +143,12 @@
                                Margin="28,0,0,0"
                                Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
                 </StackPanel>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="CheckUpdates" Content="Look for a newer version"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="One small question to GitHub as it opens. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it on the About tab."/>
+                </StackPanel>
             </StackPanel>
         </TabItem>
 
@@ -270,6 +276,27 @@
                                TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Button x:Name="InstallButton" Classes="panel"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- UPDATES. Only for a published single-file build, which is the only
+                     kind that can be swapped for another: the update IS one file. One
+                     line that always says where things stand, one button that does the
+                     next thing, and a bar while it downloads. Nothing here happens by
+                     itself - the check at launch only ever lights the dot on the gear. -->
+                <StackPanel x:Name="UpdateSection" Spacing="7" Margin="0,8,0,0" IsVisible="False">
+                    <TextBlock x:Name="UpdateStatus" Classes="dim" FontSize="13" LineHeight="20"
+                               TextWrapping="Wrap"/>
+                    <Border x:Name="UpdateBar" Height="4" CornerRadius="2" IsVisible="False"
+                            Background="{DynamicResource SheetBg}">
+                        <Border x:Name="UpdateFill" Height="4" CornerRadius="2" Width="0"
+                                HorizontalAlignment="Left" Background="{DynamicResource WordmarkInk}"/>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="UpdateButton" Classes="panel" Content="Check for updates"/>
+                        <Button x:Name="UpdateNotes" Classes="link" VerticalAlignment="Center" IsVisible="False">
+                            <TextBlock Text="What's new" FontSize="13" TextDecorations="Underline"/>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
 

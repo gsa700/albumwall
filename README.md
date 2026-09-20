@@ -52,7 +52,12 @@ could play music.
   <img src="docs/screenshots/appearance.webp" width="40%" alt="Preferences: Appearance, where the window's color comes from">
 </p>
 
-Not built yet: tag editing, a right-click menu, an A–Z rail, in-app updates.
+- **It updates itself.** Preferences › About checks GitHub for a newer release,
+  downloads the build for your platform, checks it against the release's
+  SHA-256 list, and restarts into it. A dot on the gear says there is one; nothing
+  is ever downloaded until you ask.
+
+Not built yet: tag editing, a right-click menu, an A–Z rail.
 What is wanted next is in [docs/roadmap.md](docs/roadmap.md).
 
 The screenshots are the author's own library. The covers belong to their
