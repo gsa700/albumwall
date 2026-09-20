@@ -41,6 +41,15 @@ if (args.Length < 3)
 
 var lib = NativeLibrary.Load(Path.GetFullPath(args[0]));
 var files = args[1..].Select(Path.GetFullPath).ToArray();
+
+// Said here, because otherwise it is said sixty lines down as "could not find
+// gapless-check-1234.wav", which reads like a libmpv that cannot decode. Git
+// Bash on Windows rewrites backslashed arguments; PowerShell does not.
+if (files.Where(f => !File.Exists(f)).ToList() is { Count: > 0 } missing)
+{
+    foreach (var f in missing) Console.Error.WriteLine($"no such track: {f}");
+    return 2;
+}
 var wav = Path.Combine(Path.GetTempPath(), $"gapless-check-{Environment.ProcessId}.wav");
 
 T Fn<T>(string name) where T : Delegate =>

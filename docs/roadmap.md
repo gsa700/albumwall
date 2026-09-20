@@ -86,8 +86,9 @@ is ahead, the history is for what is behind.
   ffmpeg pin — see `docs/windows-notes.md`. **Fixed by `FFMPEG=n9.0.2`**, which
   now measures PASS on iTunes AAC, matching the upstream DLL's score exactly.
   Both Linux libraries now measure PASS; `libmpv-0.41.0-3` is published.
-  **What is left: run `gapless-check` against the new DLL on Hambench, then a
-  test4.** When that passes, `get-libmpv.ps1` should fetch our release instead
+  **The Windows DLL passes too** (Hambench, 2026-09-20: +6 samples, the
+  identical sample count the upstream DLL produces — see the notes). **What is
+  left: a test4 carrying it**, and `get-libmpv.ps1` fetching our release instead
   of SourceForge. Wanted before the repository goes public; the upstream DLL is
   the rollback until then.
 

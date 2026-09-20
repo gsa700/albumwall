@@ -357,6 +357,28 @@ but nothing on the Linux side can run it, so `gapless-check` has to be run
 there once more against `libmpv-0.41.0-3-win-x64.zip`. When it passes,
 `get-libmpv.ps1` can finally point at our release instead of SourceForge.
 
+**Run on Hambench the same afternoon: the Windows DLL PASSES.** Downloaded from
+the release, SHA-256 matching `SHA256SUMS`, and measured on the same three Dark
+Side tracks as the FAIL above, with the upstream DLL beside it as the control:
+
+| libmpv | versions | decoded | result |
+|---|---|---|---|
+| `libmpv-0.41.0-3` win-x64 | mpv 0.41.0, ffmpeg n9.0.2 | 38,702,166 | **+6 samples — PASS** |
+| upstream SourceForge | mpv 0.41.0-1012, ffmpeg git | 38,702,166 | **+6 samples — PASS** |
+
+Not merely both inside the tolerance: **the identical sample count.** Three
+MP3s (no iTunSMPB, so nothing to check against) also decode to the identical
+27,389,046 through both. So all three platforms of -3 are proven, and nothing
+measurable separates our 9.9 MB DLL from the 120 MB upstream one on this
+library. `get-libmpv.ps1` still fetches SourceForge — not changed here; the
+repository is private, so pointing it at the release means `gh release
+download` and a logged-in `gh`, which is a decision rather than a one-liner.
+
+One thing about the tool, found on the way: run from Git Bash, the track paths
+arrived mangled, mpv loaded nothing, and the tool died with a
+FileNotFoundException on its own WAV — which reads like a broken libmpv and is
+not. It now checks that each track exists before starting and says so.
+
 ### UNINSTALL did not remove the program — and the app put itself back
 
 His report: "i uninstalled from the about, the app closed and presumably
