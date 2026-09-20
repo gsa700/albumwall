@@ -369,6 +369,13 @@ public partial class MainWindow : Window
     private Domain.LibraryWatcher? _watcher;
     private CancellationTokenSource? _scan;
 
+    /// What the scanner read last time, so that an unchanged file is not opened
+    /// again — see LibraryIndex for why opening is the cost. Beside the settings,
+    /// so a scratch ALBUMWALL_CONFIG_DIR gets a scratch index. Loaded on first
+    /// use, which is on the scan's thread and not this one.
+    private readonly Lazy<Domain.LibraryIndex> _index = new(() =>
+        Domain.LibraryIndex.Open(Path.Combine(Path.GetDirectoryName(Settings.Path)!, "index.db")));
+
     /// What the wall is currently showing, as (root, fingerprint of the scan).
     /// A rescan that comes back identical is dropped rather than shown.
     private (string Root, int Print) _showing = ("", 0);
@@ -380,7 +387,12 @@ public partial class MainWindow : Window
     /// what happens when nothing turns out to have changed: someone who pressed
     /// Rescan gets a rescan, while the watcher, which fires for reasons that
     /// often come to nothing, must not so much as flicker the wall.
-    private void ScanLibrary(bool asked = true)
+    ///
+    /// `honest` opens every file and believes nothing the index says. It is what
+    /// Rescan means, and only Rescan: it is the way out when the index is wrong,
+    /// and on Windows it is minutes where a trusting scan is a fraction of a
+    /// second, so nothing that happens by itself may ask for it.
+    private void ScanLibrary(bool asked = true, bool honest = false)
     {
         // One scan at a time. A person's request replaces whatever is running —
         // they may have just chosen a different folder. The watcher's does NOT:
@@ -402,8 +414,10 @@ public partial class MainWindow : Window
         var ct = (_scan = new CancellationTokenSource()).Token;
         _scanning = true;
         _scanAgain = false;
+        _honestRunning = honest;
+        _scanStarted = Environment.TickCount64;
         ShowScanProgress(null);
-        Console.WriteLine($"[scan] start ({(asked ? "asked" : "watcher")}) {root}");
+        Console.WriteLine($"[scan] start ({(asked ? "asked" : "watcher")}{(honest ? ", honest" : "")}) {root}");
 
         // The UI is told at most ~10 times a second however fast the files go
         // by; a warm scan does thousands a second and the bar does not need them.
@@ -422,6 +436,7 @@ public partial class MainWindow : Window
         {
             if (ct.IsCancellationRequested) return;
             _scanning = false;
+            _honestRunning = false;
             HideScanProgress();
             then?.Invoke();
             if (_scanAgain) ScanLibrary(asked: false);
@@ -432,10 +447,11 @@ public partial class MainWindow : Window
         _ = Task.Run(() =>
         {
             var sw = Stopwatch.StartNew();
+            var scanner = new Domain.LibraryScanner();
             IReadOnlyList<Domain.Album> albums;
             try
             {
-                albums = new Domain.LibraryScanner().Scan(root, Progress, ct);
+                albums = scanner.Scan(root, Progress, ct, _index.Value, trustIndex: !honest);
             }
             catch (OperationCanceledException)
             {
@@ -445,11 +461,16 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 Console.WriteLine($"[scan] failed: {ex.Message}");
-                Finished(() => StatusText.Text = $"scan failed: {ex.Message}");
+                Finished(() =>
+                {
+                    StatusText.Text = $"scan failed: {ex.Message}";
+                    if (honest) _prefs?.ShowRescanResult($"It failed: {ex.Message}");
+                });
                 return;
             }
             sw.Stop();
-            Console.WriteLine($"[scan] done in {sw.ElapsedMilliseconds} ms, {albums.Count} albums");
+            Console.WriteLine($"[scan] done in {sw.ElapsedMilliseconds} ms, {albums.Count} albums, "
+                            + $"{scanner.FilesOpened} files opened");
 
             var vms = albums.Select(a => new AlbumVm(a)).ToList();
             var tracks = albums.Sum(a => a.Tracks.Count);
@@ -458,6 +479,10 @@ public partial class MainWindow : Window
 
             Finished(() =>
             {
+                _trackCount = tracks;
+                if (honest)
+                    _prefs?.ShowRescanResult($"Done — {tracks:N0} tracks read in {Spoken(sw.Elapsed)}.");
+
                 if (!asked && _showing == (root, print))
                 {
                     Console.WriteLine($"[watch] rescan in {sw.ElapsedMilliseconds} ms, nothing changed");
@@ -512,6 +537,13 @@ public partial class MainWindow : Window
     private bool _scanning;
     private bool _scanAgain;
 
+    /// The scan now running is the honest one, asked for in Preferences — the
+    /// only scan that can be stopped, because it is the only one with a wall
+    /// already behind it and nothing to lose by giving up.
+    private bool _honestRunning;
+    private long _scanStarted;
+    private int _trackCount;
+
     /// Shows how far a scan has got. Null means it has started but does not yet
     /// know how much there is — the tree is still being listed.
     ///
@@ -541,6 +573,14 @@ public partial class MainWindow : Window
         // One bar at a time: the line is for when the big one is not showing.
         ScanBar.IsVisible = !ScanState.IsVisible;
         ScanBar.Width = fraction * BottomBar.Bounds.Width;
+
+        // Preferences is probably sitting on top of all of the above. It is told
+        // about the scan he asked for there at once, and about any other only
+        // when it has lasted long enough to be worth a glance: a scan through
+        // the index is over in a fifth of a second, and a bar that appears for
+        // that long is a flicker, not information.
+        if (_honestRunning || Environment.TickCount64 - _scanStarted > 600)
+            _prefs?.ShowScan(fraction, p?.Current is { } who ? $"{count}  ·  {who}" : count, _honestRunning);
     }
 
     private void HideScanProgress()
@@ -548,7 +588,14 @@ public partial class MainWindow : Window
         ScanState.IsVisible = false;
         ScanBar.IsVisible = false;
         ScanBar.Width = 0;
+        _prefs?.ScanEnded();
     }
+
+    /// "2 min 38 s", for a sentence. The log keeps the milliseconds.
+    private static string Spoken(TimeSpan t) =>
+        t.TotalSeconds < 1 ? "under a second"
+        : t.TotalMinutes < 1 ? $"{t.Seconds} s"
+        : $"{(int)t.TotalMinutes} min {t.Seconds} s";
 
     /// Watches the library folder, so music that arrives while the app is open
     /// appears without anyone having to know there is a Rescan button.
@@ -566,7 +613,8 @@ public partial class MainWindow : Window
         try
         {
             _watcher = new Domain.LibraryWatcher(root,
-                () => Dispatcher.UIThread.Post(() => ScanLibrary(asked: false)));
+                () => Dispatcher.UIThread.Post(() => ScanLibrary(asked: false)),
+                path => _index.Value.Touch(path));
             Console.WriteLine($"[watch] watching {root}");
         }
         catch (Exception ex)
@@ -779,14 +827,17 @@ public partial class MainWindow : Window
         var prefs = new MenuItem { Header = "Preferences\u2026" };
         prefs.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
 
-        var rescan = new MenuItem { Header = "Rescan library" };
-        rescan.Click += (_, _) => ScanLibrary();
-
         var about = new MenuItem { Header = "About" };
         about.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.About);
 
         // ABOUT IS LAST, by convention, here and as a tab in the sheet it
         // opens. Anything new goes above the separator.
+        //
+        // No Rescan either, since the index. It used to be here, when it cost
+        // four seconds and was the only way to pick up new music. The watcher
+        // does that now, and what Rescan has become — every file opened again,
+        // minutes of it on Windows — belongs next to a description of itself,
+        // not one slip below Preferences. It is on the Library tab.
         //
         // No Quit. The window has a close button, which he put there himself,
         // and a second way to do the same thing at the bottom of a three-item
@@ -796,7 +847,7 @@ public partial class MainWindow : Window
             Placement = PlacementMode.BottomEdgeAlignedRight,
             ItemsSource = new object[]
             {
-                prefs, rescan, new Separator(), about
+                prefs, new Separator(), about
             }
         };
 
@@ -829,7 +880,24 @@ public partial class MainWindow : Window
     internal Settings AppSettings => _settings;
     internal string LibraryRootPath => LibraryRoot;
     internal string LibraryCounts => _counts;
-    internal void Rescan() => ScanLibrary();
+    internal int LibraryTrackCount => _trackCount;
+    internal bool RescanRunning => _honestRunning;
+    internal void Rescan() => ScanLibrary(honest: true);
+
+    /// Gives up on the honest scan. The wall is as it was, since a scan changes
+    /// nothing until it finishes, and the index keeps what had been re-read —
+    /// the scanner commits what it has on the way out. Then the watcher gets
+    /// the turn it may have been waiting for.
+    internal void StopRescan()
+    {
+        if (!_honestRunning) return;
+        _scan?.Cancel();
+        _scanning = false;
+        _honestRunning = false;
+        HideScanProgress();
+        _prefs?.ShowRescanResult("Stopped. The library is as it was.");
+        if (_scanAgain) ScanLibrary(asked: false);
+    }
 
     internal void UseDefaultLibrary()
     {
@@ -1276,7 +1344,8 @@ public partial class MainWindow : Window
         // The menu's Rescan, which nothing else here can reach: a warm scan is
         // over in seconds, so catching its progress display means starting one
         // on demand and photographing it straight away.
-        if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(); return; }
+        if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(honest: true); return; }
+        if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
         if (text.Equals("prefs colors", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Colors); return; }
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }

@@ -7,6 +7,14 @@
 // truth that drifts the first time an event is dropped. Events are dropped —
 // see OnError.
 //
+// The one thing it does pass on is the NAME of a music or art file it saw
+// something happen to, through `touched`, and only ever to make the next scan
+// more honest: the index forgets that file, so it is opened and read again
+// whatever its size and modified time claim afterwards. That is what catches a
+// tag edit that preserves both, while the app is open. A dropped event costs
+// nothing here that it did not cost before — the file is then judged by size
+// and time like any other.
+//
 // First found on Windows: music copied into the folder while the app was open
 // simply never appeared, and nothing on screen suggested pressing Rescan.
 
@@ -27,14 +35,17 @@ public sealed class LibraryWatcher : IDisposable
     private readonly FileSystemWatcher _fsw;
     private readonly Timer _timer;
     private readonly Action _changed;
+    private readonly Action<string>? _touched;
 
     public string Root { get; }
 
     /// `changed` is raised on a thread-pool thread, once per burst of activity.
-    public LibraryWatcher(string root, Action changed)
+    /// `touched` is raised at once, for every event that names a library file.
+    public LibraryWatcher(string root, Action changed, Action<string>? touched = null)
     {
         Root = root;
         _changed = changed;
+        _touched = touched;
         _timer = new Timer(_ => _changed(), null, Timeout.Infinite, Timeout.Infinite);
 
         _fsw = new FileSystemWatcher(root)
@@ -52,14 +63,25 @@ public sealed class LibraryWatcher : IDisposable
         _fsw.Created += OnEvent;
         _fsw.Changed += OnEvent;
         _fsw.Deleted += OnEvent;
-        _fsw.Renamed += (_, e) => { if (Matters(e.OldFullPath, true) || Matters(e.FullPath, true)) Nudge(); };
+        _fsw.Renamed += (_, e) =>
+        {
+            Touched(e.OldFullPath);
+            Touched(e.FullPath);
+            if (Matters(e.OldFullPath, true) || Matters(e.FullPath, true)) Nudge();
+        };
         _fsw.Error += OnError;
         _fsw.EnableRaisingEvents = true;
     }
 
     private void OnEvent(object sender, FileSystemEventArgs e)
     {
+        Touched(e.FullPath);
         if (Matters(e.FullPath, e.ChangeType == WatcherChangeTypes.Deleted)) Nudge();
+    }
+
+    private void Touched(string path)
+    {
+        if (_touched is not null && LibraryScanner.IsLibraryFile(path)) _touched(path);
     }
 
     /// Music, cover art, and anything that is or might have been a folder.

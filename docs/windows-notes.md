@@ -80,6 +80,75 @@ like a browser. Details in that commit.
 - **Warm: 4.5 s, and 2.9 s for an immediate rescan.** So the cost is the disk
   and the virus scanner, not TagLib, and an index would buy little here once
   the OS cache is warm. A NAS-backed root is where it would matter.
+- **"Warm" does not last the night, so the conclusion above was wrong.** First
+  launch on 2026-09-20, same library, machine not rebooted since the 14th:
+  **158 s** again, against 4.2 s at 01:01 that morning. During it AlbumWall
+  used 16 s of CPU in total, the NVMe sat at 4% busy, and Defender (MsMpEng)
+  burned one full core in lockstep with the file opens. So the cost is one
+  virus scan per file opened, it comes back whenever Defender's and the OS's
+  caches have been turned over, and in daily use that means the first launch
+  of the day — reported as "it's taking forever to scan". Listing the folder
+  costs nothing; opening 15,531 music files is what costs.
+- **It is not even per-day: it is per-program.** Two hours after that launch, a
+  different exe (the check tool below) scanning the same files took **191 s**,
+  and 4 s on its second pass. Whatever Defender remembers, it did not carry
+  over from AlbumWall having just read every one of them.
+- **So the index (spec §6) is built: `LibraryIndex`, `index.db` beside the
+  settings.** A file whose path, size and modified time it recognizes is not
+  opened. Same library, second launch: **166 ms, 0 files opened** (71 ms of
+  that is loading 15,531 rows), against 6.2 s with everything warm and 158 s
+  cold. 3.9 MB on disk. `tools/index-check.cs` scans four ways and requires
+  them to agree; on the real library they do.
+
+### The index: what it trusts, and what that can miss (for Techbench to weigh)
+
+Spec §6 rule 1 says never to detect changes by mtime alone and to keep a
+`tag_hash`. **The index keeps path, size and modified time and NO tag hash**,
+on purpose: a hash can only be checked by opening the file, and opening the
+file is the entire cost on Windows. What stands in for it:
+
+- **While the app is open, the watcher names every music or art file it sees
+  an event for, and the index forgets that file** (`Touch`) whatever its size
+  and time say afterwards. Tested live: a same-length title edit with the
+  modified time put back was picked up — "1 files opened". The watcher still
+  decides nothing about the album list; this only ever makes a scan MORE
+  honest, and a dropped event leaves that file judged by size and time.
+- **Rescan is the honest scan (rule 2):** every file opened, nothing in the
+  index believed, the index rebuilt from the result. Startup, a new folder and
+  the watcher trust the index; only Rescan does not. On Windows that is
+  minutes, which is why nothing automatic may ask for it — and why it **left
+  the main menu**, where it sat one slip below Preferences from the days when
+  it cost four seconds. It is now "Read everything again" on the Library tab
+  of Preferences, under a paragraph that says what it does, how many files,
+  why it is slow, and when you would want it. His call: "move the rescan from
+  the hamburger menu into the prefs proper with a warning about what is
+  actually going to happen". The button becomes **Stop** while it runs;
+  stopping leaves the wall as it was and keeps what had been re-read. The tab
+  also shows a progress bar for ANY scan that lasts more than 0.6 s, since
+  Preferences is usually covering the main window's own. (`rescan` and
+  `rescan stop` are the trigger commands.)
+- **Deleting `index.db` is boring (rule 5).** So is a corrupt one or one from
+  another `Version`: discarded, rebuilt by the next scan. Uninstall removes it
+  whatever was chosen about settings. Nothing the user makes lives in it.
+- **THE GAP THAT IS LEFT: an edit that preserves size AND modified time, made
+  while the app is CLOSED** — `metaflac --preserve-modtime` into existing
+  padding is exactly that — is not seen until Rescan. `index-check.cs … edit`
+  shows it ("trusting scan … sees the edit: False"). That is the very failure
+  §6 was written about, softened to "until Rescan" rather than "forever", and
+  it matters more on Techbench, where that flag is in daily use, than here.
+  What would close it is the inode change time (`st_ctime` / NTFS ChangeTime),
+  which no tool can put back; .NET exposes neither. Options for Techbench:
+  P/Invoke `statx` on Linux and add ctime to the key there, or have the app
+  not trust the index on Linux at all, where opening files is cheap and only a
+  NAS-backed root would miss it. Not decided here — it can't be tested here.
+- **A trap for whoever next changes the scanner:** an indexed file is never
+  re-read, so a new fallback rule or `ImageSize.Repair` shape reaches no file
+  already indexed until `LibraryIndex.Version` is bumped. Both files say so at
+  the spot; `index-check.cs` is the check.
+- Found by the first test of `Touch`: the scanner's paths come through
+  `DirectoryInfo`, which expands 8.3 names, and the watcher's do not — so a
+  root spelled `C:\Users\DAVIDE~1\…` touched nothing. `Touch` now normalizes,
+  and paths compare case-insensitively on Windows.
 - The extra NTFS-flush scan described above was NOT seen after the real first
   scan, only in the small test library. Not understood; not chased.
 

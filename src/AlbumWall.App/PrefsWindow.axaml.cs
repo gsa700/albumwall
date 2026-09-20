@@ -33,7 +33,12 @@ public partial class PrefsWindow : Window
 
         ChooseFolder.Click += async (_, _) => { await host.ChooseLibraryFolder(this); Fill(); };
         UseDefault.Click += (_, _) => { host.UseDefaultLibrary(); Fill(); };
-        Rescan.Click += (_, _) => host.Rescan();
+        Rescan.Click += (_, _) =>
+        {
+            if (host.RescanRunning) host.StopRescan();
+            else { RescanResult.Text = ""; host.Rescan(); }
+            Fill();
+        };
 
         // Written straight through: there is no OK button to forget, and a
         // setting that only takes effect at the next launch has nothing to
@@ -108,6 +113,27 @@ public partial class PrefsWindow : Window
 
     public void Select(Tab tab) => Tabs.SelectedIndex = (int)tab;
 
+    /// A scan is running and has something to show. `mine` is the one started
+    /// from the button here, which is the one the button can stop.
+    public void ShowScan(double fraction, string detail, bool mine)
+    {
+        ScanRow.IsVisible = true;
+        ScanFill.Width = fraction * ScanRow.Bounds.Width;
+        ScanDetail.Text = detail;
+        Rescan.Content = mine ? "Stop" : "Read everything again";
+        Rescan.IsEnabled = mine;        // not while another scan has the floor
+    }
+
+    public void ScanEnded()
+    {
+        ScanRow.IsVisible = false;
+        ScanFill.Width = 0;
+        Rescan.Content = "Read everything again";
+        Rescan.IsEnabled = true;
+    }
+
+    public void ShowRescanResult(string text) => RescanResult.Text = text;
+
     /// Re-reads everything shown. Called when it opens, after anything here
     /// changes the library, and by the main window when a scan finishes — the
     /// counts on the About tab are only as good as the last scan.
@@ -117,6 +143,21 @@ public partial class PrefsWindow : Window
 
         _filling = true;
         LibraryPath.Text = _host.LibraryRootPath;
+
+        // What the button does, in the terms he will experience it. The count is
+        // the honest size of the job; the reason it is slow is Windows' and is
+        // only claimed on Windows.
+        var n = _host.LibraryTrackCount;
+        var every = n > 0 ? $"all {n:N0} tracks" : "every track";
+        RescanAbout.Text =
+            $"{App.DisplayName} notices music that is added, changed or removed by itself, and remembers what it "
+          + $"has read so that it opens quickly. This sets that memory aside and opens {every} again. "
+          + (OperatingSystem.IsWindows()
+                ? "Windows Security checks each file as it is opened, so it can take several minutes. "
+                : "On a big library, or one on a network drive, that can take several minutes. ")
+          + "You can keep listening while it runs, and stop it whenever you like.\n\n"
+          + "You should only need it when a tag edit has not shown up. That can happen if a tool changed a file "
+          + $"while keeping its size and date the same, and {App.DisplayName} was closed at the time.";
 
         // Resume is on unless turned off; auto-play is off unless turned on.
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;

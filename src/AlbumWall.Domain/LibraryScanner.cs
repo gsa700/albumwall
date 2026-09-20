@@ -2,12 +2,14 @@
 //
 // Walks a folder tree, reads tags, and groups tracks into albums.
 //
-// THE RULE THAT MATTERS: the files on disk are the truth. This scanner reads
-// tags unconditionally every time it is asked; it never decides a file is
-// unchanged from a timestamp. The cache layer above may skip work, but it must
-// always be able to ask for an honest re-read — see the spec, "The index is a
-// cache". A player that trusted mtime is exactly how a previous tool silently
-// ignored every tag edit made with `metaflac --preserve-modtime`.
+// THE RULE THAT MATTERS: the files on disk are the truth. Asked plainly, this
+// scanner opens every file and reads its tags, every time. Given a LibraryIndex
+// AND told to trust it, it skips the files the index still recognizes — that is
+// the only shortcut, it is the caller's decision each time, and an honest
+// re-read is always one argument away. See the spec, "The index is a cache",
+// and LibraryIndex for exactly what trusting it can miss. A player that trusted
+// mtime with no way out is how a previous tool silently ignored every tag edit
+// made with `metaflac --preserve-modtime`.
 
 using System.Text.RegularExpressions;
 
@@ -33,45 +35,69 @@ public sealed partial class LibraryScanner
         AudioExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
         || ArtNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
 
+    /// How many files the last scan actually opened. With a trusted index on an
+    /// unchanged library this is zero, and that is the point of the index.
+    public int FilesOpened { get; private set; }
+
     /// Scans `root` and returns albums sorted the way the wall shows them.
+    ///
+    /// With an `index`, what is read is remembered in it. With `trustIndex` as
+    /// well, a file whose path, size and modified time it recognizes is not
+    /// opened. Without, every file is — and the index is rebuilt from the result,
+    /// which is what makes Rescan the way out when the index is wrong.
     public IReadOnlyList<Album> Scan(string root, Action<Progress>? onProgress = null,
-                                     CancellationToken ct = default)
+                                     CancellationToken ct = default,
+                                     LibraryIndex? index = null, bool trustIndex = true)
     {
         // Key is (AlbumArtist, Title) — the album identity rule.
         var albums = new Dictionary<(string, string), Album>();
         var files = 0;
+        FilesOpened = 0;
+
+        var startedAt = index?.Now() ?? 0;
+        var seen = new Dictionary<string, LibraryIndex.TrackFacts>(LibraryIndex.PathComparer);
+        var seenArt = new Dictionary<string, LibraryIndex.ArtFacts>(LibraryIndex.PathComparer);
 
         // Listed first, read second. Walking the tree is a fraction of a second
         // for 18,000 files where reading their tags is minutes on a cold disk,
         // and knowing the total up front is what lets the wait be shown as
         // progress. The first scan of a freshly copied library took 160 s on
         // Windows behind a bare "scanning…", and was reported as a hang.
+        //
+        // The listing carries each file's size and modified time — on Windows
+        // they arrive with the directory entry, at no further cost — and those
+        // are what the index is asked about. Nothing is opened to find them out.
         var paths = EnumerateAudio(root).ToList();
         onProgress?.Invoke(new Progress(0, paths.Count, 0, null));
 
-        foreach (var path in paths)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            files++;
-
-            TagLib.File tf;
-            try { tf = TagLib.File.Create(path); }
-            catch { continue; }          // unreadable or not really audio; skip quietly
-
-            using (tf)
+            foreach (var info in paths)
             {
-                var tag = tf.Tag;
+                ct.ThrowIfCancellationRequested();
+                files++;
 
-                // AlbumArtist can be absent on loose files; fall back to the
-                // performer so such tracks still group sensibly rather than
-                // vanishing from the library.
-                var albumArtist = First(tag.AlbumArtists) ?? First(tag.Performers) ?? "Unknown Artist";
-                var title = string.IsNullOrWhiteSpace(tag.Album) ? "Unknown Album" : tag.Album.Trim();
+                var path = info.FullName;
+                long size, modified;
+                try { size = info.Length; modified = info.LastWriteTimeUtc.Ticks; }
+                catch { continue; }          // gone since it was listed
 
-                var key = (albumArtist, title);
+                var facts = trustIndex ? index?.Find(path, size, modified) : null;
+                if (facts is null)
+                {
+                    FilesOpened++;
+                    facts = ReadFacts(path, size, modified);
+                }
+                seen[path] = facts;
+
+                // Unreadable, or not really audio. Remembered all the same, or
+                // it would be opened again on every launch to find that out.
+                if (!facts.Readable) continue;
+
+                var key = (facts.AlbumArtist, facts.Album);
                 if (!albums.TryGetValue(key, out var album))
                 {
-                    album = new Album { AlbumArtist = albumArtist, Title = title };
+                    album = new Album { AlbumArtist = facts.AlbumArtist, Title = facts.Album };
                     albums[key] = album;
                 }
 
@@ -86,31 +112,39 @@ public sealed partial class LibraryScanner
                 // stable answer: it made the Toto box report 1982 on one run
                 // and would reshuffle the sort order between scans.
                 var m = FolderYear().Match(Path.GetFileName(dir));
-                var year = m.Success ? int.Parse(m.Groups[1].Value) : (int)tag.Year;
+                var year = m.Success ? int.Parse(m.Groups[1].Value) : facts.TagYear;
                 if (year > 0 && (album.Year == 0 || year < album.Year))
                     album.Year = year;
 
-                var props = tf.Properties;
                 album.Tracks.Add(new Track(
-                    Disc: (int)Math.Max(1, tag.Disc),
-                    Number: (int)tag.Track,
-                    Title: string.IsNullOrWhiteSpace(tag.Title)
-                             ? Path.GetFileNameWithoutExtension(path) : tag.Title.Trim(),
-                    Artist: First(tag.Performers) ?? albumArtist,
-                    Duration: props?.Duration ?? TimeSpan.Zero,
+                    Disc: facts.Disc,
+                    Number: facts.Number,
+                    Title: facts.Title,
+                    Artist: facts.Artist,
+                    Duration: new TimeSpan(facts.DurationTicks),
                     Path: path,
-                    SampleRate: props?.AudioSampleRate ?? 0,
-                    BitDepth: props?.BitsPerSample ?? 0));
+                    SampleRate: facts.SampleRate,
+                    BitDepth: facts.BitDepth));
 
                 // Until a track with a picture turns up, keep looking: a sidecar
                 // found on the way is only a fallback. See ResolveArt.
                 if (album.ArtEmbeddedIn is null)
-                    ResolveArt(album, dir, tf, path);
+                    ResolveArt(album, dir, facts, path, trustIndex ? index : null, seenArt);
 
                 if (files % 25 == 0)
-                    onProgress?.Invoke(new Progress(files, paths.Count, albums.Count, albumArtist));
+                    onProgress?.Invoke(new Progress(files, paths.Count, albums.Count, facts.AlbumArtist));
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Cut short, but what was read was read, and on a cold first scan
+            // that may be minutes of it. Kept, without concluding anything about
+            // the files this scan never reached.
+            index?.Commit(seen, seenArt, startedAt, complete: false);
+            throw;
+        }
+
+        index?.Commit(seen, seenArt, startedAt, complete: true);
 
         foreach (var a in albums.Values)
         {
@@ -140,55 +174,107 @@ public sealed partial class LibraryScanner
     /// Both paths exist because real libraries use both — this FLAC library has
     /// zero embedded art and only cover.jpg, while the mp3/aac collection has
     /// only embedded art. Supporting one would fail half the time.
-    private static void ResolveArt(Album album, string dir, TagLib.File tf, string filePath)
+    private static void ResolveArt(Album album, string dir, LibraryIndex.TrackFacts facts, string filePath,
+                                   LibraryIndex? trusted, Dictionary<string, LibraryIndex.ArtFacts> seenArt)
     {
-        try
+        if (facts.HasCover)
         {
-            if (ImageSize.Cover(tf.Tag.Pictures) is { } cover)
-            {
-                album.ArtEmbeddedIn = filePath;
-                album.ArtPath = null;
-                album.ArtWidth = album.ArtHeight = 0;     // not the sidecar's
-                Measure(album, cover);
-                return;
-            }
+            album.ArtEmbeddedIn = filePath;
+            album.ArtPath = null;
+            album.ArtWidth = facts.CoverWidth;          // not the sidecar's
+            album.ArtHeight = facts.CoverHeight;
+            return;
         }
-        catch { /* malformed picture block shouldn't kill the scan */ }
 
         if (album.ArtPath is not null) return;          // already have a fallback
 
         foreach (var name in ArtNames)
         {
-            var candidate = Path.Combine(dir, name);
-            if (!File.Exists(candidate)) continue;
+            var candidate = new FileInfo(Path.Combine(dir, name));
+            if (!candidate.Exists) continue;
 
-            album.ArtPath = candidate;
+            album.ArtPath = candidate.FullName;
             try
             {
-                // The head of the file, not all of it. A sidecar can be several
-                // megabytes and a FLAC library has one per album; the frame
-                // header is past the EXIF block but well inside this.
-                using var fs = File.OpenRead(candidate);
-                var head = new byte[(int)Math.Min(fs.Length, 256 * 1024)];
-                fs.ReadExactly(head);
-                Measure(album, head);
+                var (size, modified) = (candidate.Length, candidate.LastWriteTimeUtc.Ticks);
+                if (!seenArt.TryGetValue(candidate.FullName, out var art))
+                    art = trusted?.FindArt(candidate.FullName, size, modified);
+                if (art is null)
+                {
+                    // The head of the file, not all of it. A sidecar can be several
+                    // megabytes and a FLAC library has one per album; the frame
+                    // header is past the EXIF block but well inside this.
+                    using var fs = candidate.OpenRead();
+                    var head = new byte[(int)Math.Min(fs.Length, 256 * 1024)];
+                    fs.ReadExactly(head);
+                    var (w, h) = ImageSize.Read(head) ?? (0, 0);
+                    art = new LibraryIndex.ArtFacts(size, modified, w, h);
+                }
+                seenArt[candidate.FullName] = art;
+                album.ArtWidth = art.Width;
+                album.ArtHeight = art.Height;
             }
             catch { /* art we cannot measure is still art */ }
             return;
         }
     }
 
-    private static void Measure(Album album, ReadOnlySpan<byte> data)
+    /// Opens one file and takes everything the scanner wants from it. The only
+    /// place a music file is opened, and what the index exists to avoid.
+    ///
+    /// CHANGE WHAT THIS RETURNS FOR THE SAME FILE AND LibraryIndex.Version MUST
+    /// GO UP, or every file already indexed keeps the old answer.
+    private static LibraryIndex.TrackFacts ReadFacts(string path, long size, long modified)
     {
-        if (ImageSize.Read(data) is not var (w, h)) return;
-        album.ArtWidth = w;
-        album.ArtHeight = h;
+        TagLib.File tf;
+        try { tf = TagLib.File.Create(path); }
+        catch
+        {
+            return new LibraryIndex.TrackFacts(size, modified, false, "", "", 0, 0, 0, "", "", 0, 0, 0, false, 0, 0);
+        }
+
+        using (tf)
+        {
+            var tag = tf.Tag;
+            var props = tf.Properties;
+
+            // AlbumArtist can be absent on loose files; fall back to the
+            // performer so such tracks still group sensibly rather than
+            // vanishing from the library.
+            var albumArtist = First(tag.AlbumArtists) ?? First(tag.Performers) ?? "Unknown Artist";
+
+            var (hasCover, w, h) = (false, 0, 0);
+            try
+            {
+                if (ImageSize.Cover(tag.Pictures) is { } cover)
+                {
+                    hasCover = true;
+                    (w, h) = ImageSize.Read(cover) ?? (0, 0);
+                }
+            }
+            catch { /* malformed picture block shouldn't kill the scan */ }
+
+            return new LibraryIndex.TrackFacts(
+                size, modified, true,
+                AlbumArtist: albumArtist,
+                Album: string.IsNullOrWhiteSpace(tag.Album) ? "Unknown Album" : tag.Album.Trim(),
+                TagYear: (int)tag.Year,
+                Disc: (int)Math.Max(1, tag.Disc),
+                Number: (int)tag.Track,
+                Title: string.IsNullOrWhiteSpace(tag.Title)
+                         ? Path.GetFileNameWithoutExtension(path) : tag.Title.Trim(),
+                Artist: First(tag.Performers) ?? albumArtist,
+                DurationTicks: (props?.Duration ?? TimeSpan.Zero).Ticks,
+                SampleRate: props?.AudioSampleRate ?? 0,
+                BitDepth: props?.BitsPerSample ?? 0,
+                HasCover: hasCover, CoverWidth: w, CoverHeight: h);
+        }
     }
 
     private static string? First(string[]? xs) =>
         xs is { Length: > 0 } && !string.IsNullOrWhiteSpace(xs[0]) ? xs[0].Trim() : null;
 
-    private static IEnumerable<string> EnumerateAudio(string root)
+    private static IEnumerable<FileInfo> EnumerateAudio(string root)
     {
         var opts = new EnumerationOptions
         {
@@ -196,8 +282,8 @@ public sealed partial class LibraryScanner
             IgnoreInaccessible = true,
             AttributesToSkip = FileAttributes.System
         };
-        foreach (var p in Directory.EnumerateFiles(root, "*", opts))
-            if (AudioExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
-                yield return p;
+        foreach (var f in new DirectoryInfo(root).EnumerateFiles("*", opts))
+            if (AudioExtensions.Contains(f.Extension, StringComparer.OrdinalIgnoreCase))
+                yield return f;
     }
 }

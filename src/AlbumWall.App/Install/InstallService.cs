@@ -596,6 +596,15 @@ public static class InstallService
     /// </summary>
     public static IEnumerable<string> DataFilesToRemove(UninstallOptions options)
     {
+        // The library index is a cache — the next scan rebuilds it from the files — so it goes
+        // with the program whatever was decided about the settings. (The -journal is SQLite's, and
+        // is only there at all if a save was interrupted.)
+        foreach (var name in new[] { "index.db", "index.db-journal" })
+        {
+            var path = Path.Combine(DataDir, name);
+            if (File.Exists(path)) yield return path;
+        }
+
         if (!options.RemoveSettings) yield break;
 
         foreach (var name in new[] { "settings.json", "session.json", "albumwall.log", "registration.log" })
