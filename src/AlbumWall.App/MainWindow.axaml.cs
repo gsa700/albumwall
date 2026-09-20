@@ -376,6 +376,11 @@ public partial class MainWindow : Window
         foreach (var sc in Screens.All)
             Console.WriteLine($"[wall] screen bounds={sc.Bounds} working={sc.WorkingArea} "
                             + $"scaling={sc.Scaling} primary={sc.IsPrimary}");
+        // WHICH settings file this instance is using. A test run that is silently
+        // reading the real one looks exactly like a test run that works, right up
+        // until it writes his window geometry over the top of itself.
+        Console.WriteLine($"[wall] settings {Settings.Path} "
+                        + $"(exists={File.Exists(Settings.Path)}, transportAtTop={TransportAtTop})");
         Console.WriteLine($"[wall] window pos={Position} size={Width}x{Height} "
                         + $"renderScaling={RenderScaling}");
 
@@ -989,38 +994,22 @@ public partial class MainWindow : Window
                         + $"pos={Position}  remembered={_normalGeometry}");
     }
 
-    /// The menu, the preferences sheet and the empty state — all one concern,
-    /// because they exist for one reason: the app cannot know where the music is.
+    /// The settings button and the empty state — both here because they exist for
+    /// one reason: the app cannot know where the music is.
+    ///
+    /// THERE IS NO MENU. It was a hamburger with two items, Preferences and
+    /// About, and About is a TAB of the window that Preferences opens — so the
+    /// menu's entire job was to ask which door of the same room to use, one slip
+    /// before every visit. Rescan had already left it for the Library tab, and
+    /// Quit before that ("lets get rid of quit, no need"), which is the whole
+    /// arc: everything that was ever in this menu turned out to belong somewhere
+    /// more specific. The button now opens Preferences directly, as the rest of
+    /// the family's tools do.
+    ///
+    /// About is still reachable, as the last tab of that window, by convention.
     private void SetUpMenu()
     {
-        var prefs = new MenuItem { Header = "Preferences\u2026" };
-        prefs.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
-
-        var about = new MenuItem { Header = "About" };
-        about.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.About);
-
-        // ABOUT IS LAST, by convention, here and as a tab in the sheet it
-        // opens. Anything new goes above the separator.
-        //
-        // No Rescan either, since the index. It used to be here, when it cost
-        // four seconds and was the only way to pick up new music. The watcher
-        // does that now, and what Rescan has become — every file opened again,
-        // minutes of it on Windows — belongs next to a description of itself,
-        // not one slip below Preferences. It is on the Library tab.
-        //
-        // No Quit. The window has a close button, which he put there himself,
-        // and a second way to do the same thing at the bottom of a three-item
-        // menu was only ever in the way: "lets get rid of quit, no need".
-        var flyout = new MenuFlyout
-        {
-            Placement = PlacementMode.BottomEdgeAlignedRight,
-            ItemsSource = new object[]
-            {
-                prefs, new Separator(), about
-            }
-        };
-
-        MenuButton.Click += (_, _) => flyout.ShowAt(MenuButton);
+        SettingsButton.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
 
         EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder(this);
     }

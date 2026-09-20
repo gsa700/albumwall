@@ -87,10 +87,13 @@ public sealed class Settings
             if (File.Exists(Path))
                 return JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path)) ?? new Settings();
         }
-        catch
+        catch (Exception e)
         {
             // A corrupt or unreadable settings file must never stop the app
-            // starting. Defaults are always a valid answer.
+            // starting. Defaults are always a valid answer — but say so, because
+            // silently falling back to defaults is indistinguishable from reading
+            // a file that happens to hold the defaults.
+            Console.WriteLine($"[settings] {Path} could not be read, using defaults: {e.Message}");
         }
         return new Settings();
     }

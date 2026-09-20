@@ -88,11 +88,16 @@ public partial class PrefsWindow : Window
             host.ColorChrome = Bars.SelectedIndex;
             BarsAbout.Text = AboutBars(host.ColorChrome);
         };
+        // Everything the tab controls, not just the colors: once the layout
+        // option moved in here, a "defaults" button that quietly skipped it would
+        // be lying about its own tab. His ask: "can we fold that into the window
+        // appearance defaults?"
         ResetColors.Click += (_, _) =>
         {
             host.ColorLightness = Ground.DefaultLightness;
             host.ColorTint = Ground.DefaultTint;
             host.ColorChrome = Ground.DefaultChrome;
+            host.TransportAtTop = false;
             Fill();
         };
 
