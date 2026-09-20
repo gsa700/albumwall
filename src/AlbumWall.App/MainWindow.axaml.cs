@@ -1621,6 +1621,38 @@ public partial class MainWindow : Window
 
         if (columns != _columns) Rebuild();
         else if (_open is not null) SchedulePanelRefresh();
+
+        RecenterOpenPanel();
+    }
+
+    /// Puts an open album back in the middle of the window after the window has
+    /// changed size.
+    ///
+    /// Opening an album centres its panel (TargetOffset, driven by AnchorOn), but
+    /// only then. A resize re-chunks every row and moves the panel to a new index
+    /// without ever revisiting the scroll offset, so after maximizing the album he
+    /// had open was left wherever the new layout happened to put it. Reported
+    /// 2026-09-20, straight after the maximize fix: "it needs to recenter the
+    /// expanded album".
+    ///
+    /// Snapped, not eased. AnchorOn's 750 ms glide belongs to a click; running it
+    /// per frame of a window drag would be a fight, not an animation.
+    private void RecenterOpenPanel()
+    {
+        if (_open is null) return;
+
+        // After the layout pass: OffsetOf and HeightOf read row geometry that this
+        // relayout has only just invalidated, and Extent is what TargetOffset
+        // clamps against.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_open is null || _panelAt <= 0 || _panelAt >= _rows.Count) return;
+
+            var index = _visible.IndexOf(_open);
+            if (index < 0) return;
+
+            WallScroller.Offset = WallScroller.Offset.WithY(TargetOffset(index / _columns));
+        }, DispatcherPriority.Loaded);
     }
 
     private DispatcherTimer? _panelRefresh;
