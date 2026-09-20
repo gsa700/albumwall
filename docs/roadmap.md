@@ -114,6 +114,14 @@ is ahead, the history is for what is behind.
   settled: AlbumWall is the name." It is what the project had been called from
   the first commit, so there was no rename work. The candidates it beat, and
   why, are in the commit that settled it. Do not reopen this unless he does.
+  He did, once (2026-09-20): "aWall", with a Greek alpha, "alpha wall for first
+  or best". As a name it lost — `awall` is Alpine's firewall tool and two
+  commercial products, "AlphaWall" is a security company, and an alpha cannot
+  be typed, sorts after Z, and falls back to `awall` wherever ASCII is needed.
+  "AlbumWall stays." **The alpha lives in the WORDMARK instead**
+  (`App.Wordmark`): the header above the wall and the top of the About tab
+  draw the A as α. Everything the system, a search or a screen reader reads
+  still says AlbumWall. Said aloud, aWall is a fine nickname.
 - **Any companion tool is called Deadwax.** "If this thing ever gets a companion
   app for any reason: we name it deadwax no question."
 

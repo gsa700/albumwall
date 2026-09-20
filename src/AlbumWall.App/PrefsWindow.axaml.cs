@@ -235,7 +235,8 @@ public partial class PrefsWindow : Window
         }
 
         var v = typeof(PrefsWindow).Assembly.GetName().Version;
-        AboutVersion.Text = $"{App.DisplayName} {v?.Major}.{v?.Minor}.{v?.Build}";
+        if (AboutWordmark.Inlines is not { Count: > 0 }) App.DrawWordmark(AboutWordmark);
+        AboutVersion.Text = $"Version {v?.Major}.{v?.Minor}.{v?.Build}";
         AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }
 

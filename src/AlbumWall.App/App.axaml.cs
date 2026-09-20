@@ -26,6 +26,51 @@ public partial class App : Application
     /// their own account, and now always will.
     public const string DisplayName = "AlbumWall";
 
+    /// The name as it is DRAWN, in the two places it is a piece of lettering
+    /// rather than a piece of text: the header above the wall, and the top of the
+    /// About tab. The A is a Greek alpha.
+    ///
+    /// It came from him wanting to shorten the name to "aWall" — alpha wall,
+    /// "for first or best", and it "rolls off the tongue better". As a NAME that
+    /// lost on the merits, twice: `awall` is Alpine Linux's firewall tool and two
+    /// commercial products already, "AlphaWall" is a security company, and an
+    /// alpha in a name cannot be typed, sorts after Z rather than before B, and
+    /// falls back to that same `awall` wherever ASCII is required. But none of
+    /// that applies to a wordmark. Nobody types a logo, sorts by it or searches
+    /// for it. "AlbumWall stays. let's put the α in the About wordmark and
+    /// anywhere else that makes sense." Say aWall out loud all you like.
+    ///
+    /// THE RULE: this goes only where the name is looked at. Anything the system,
+    /// a search box, a screen reader or another program will read — window
+    /// titles, the taskbar, shortcuts, Installed apps, the media controls, the
+    /// sentences in Preferences — uses DisplayName. Wherever this is shown, the
+    /// control's automation name is DisplayName, so it is never read out as
+    /// "alpha l b u m wall".
+    ///
+    /// Written as an escape on purpose: in plenty of editor fonts an alpha and an
+    /// "a" are hard to tell apart, and this line should not look like a typo.
+    public const string Wordmark = "αlbumWall";
+
+    /// Draws the wordmark into a TextBlock, the alpha in the collection's own
+    /// color (WordmarkInk, set by ApplyGround from the hue of his covers) and the
+    /// rest in whatever the text around it is.
+    ///
+    /// The tint is what makes it an alpha. In Inter Bold at header size an alpha
+    /// and a lowercase "a" are nearly the same shape, and untinted the wordmark
+    /// simply read "albumWall" with a slightly odd first letter. It is also the
+    /// right color for the job: the one letter that stands for the collection
+    /// wears the one color that comes from it, and changes when the library does.
+    public static void DrawWordmark(Avalonia.Controls.TextBlock block)
+    {
+        var alpha = new Avalonia.Controls.Documents.Run(Wordmark[..1]);
+        alpha.Bind(Avalonia.Controls.Documents.TextElement.ForegroundProperty,
+                   Avalonia.Controls.ResourceNodeExtensions.GetResourceObservable(block, "WordmarkInk"));
+
+        block.Text = null;
+        block.Inlines = [alpha, new Avalonia.Controls.Documents.Run(Wordmark[1..])];
+        Avalonia.Automation.AutomationProperties.SetName(block, DisplayName);
+    }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

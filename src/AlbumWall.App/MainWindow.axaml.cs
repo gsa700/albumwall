@@ -85,7 +85,7 @@ public partial class MainWindow : Window
         // The markup says "AlbumWall" so the previewer has something to show;
         // what he actually sees comes from one place. See App.DisplayName.
         Title = App.DisplayName;
-        AppName.Text = App.DisplayName;
+        App.DrawWordmark(AppName);          // drawn, not read: see App.Wordmark
 
         // Size before the window is shown; position after, once the screens are
         // known. Both come back from last time — see RestorePosition.
@@ -1266,6 +1266,7 @@ public partial class MainWindow : Window
         shared["SheetBg"] = SolidColorBrush.Parse(_ramp.BarHex);
         shared["SheetEdge"] = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
         shared["SheetField"] = field;
+        shared["WordmarkInk"] = SolidColorBrush.Parse(_ramp.WordmarkHex);
 
         // The progress line has to read on a ground he can slide from near
         // black to near white, so it takes the opposite end rather than a hue.

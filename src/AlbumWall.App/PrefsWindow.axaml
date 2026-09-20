@@ -186,7 +186,14 @@
 
         <TabItem Header="About">
             <StackPanel Spacing="12">
-                <TextBlock x:Name="AboutVersion" FontSize="15" FontWeight="SemiBold"/>
+                <!-- The wordmark, with its alpha (see App.Wordmark), and the version
+                     under it as a plain fact. They used to be one 15 px line,
+                     "AlbumWall 0.1.0", which is a label. This is the one place in
+                     the app that is ABOUT the app, so the name gets to be seen. -->
+                <StackPanel Spacing="2" Margin="0,2,0,4">
+                    <TextBlock x:Name="AboutWordmark" Text="AlbumWall" FontSize="34" FontWeight="Bold"/>
+                    <TextBlock x:Name="AboutVersion" Classes="dim" FontSize="13"/>
+                </StackPanel>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                            Text="A player for a music library you own, built around seeing the whole collection at once."/>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"

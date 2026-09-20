@@ -117,6 +117,13 @@ public static class Ground
         /// to separate from the bar, not from the wall, or they vanish into it.
         public string FieldHex  => Hex(Hue, Chrome.BarSat, Math.Clamp(BarL + 0.05, 0.03, 0.95));
         public string FieldEdgeHex => Hex(Hue, Chrome.BarSat, Math.Clamp(BarL + 0.11, 0.03, 0.95));
+
+        /// The alpha in the wordmark: the collection's own hue at a strength
+        /// nothing else in the window uses, because it is one letter and has to
+        /// be seen as a different color at 21 px. Light on a dark bar and dark on
+        /// a light one — it sits on the bars and in the Preferences panel,
+        /// which both follow BarL, not on the wall.
+        public string WordmarkHex => Hex(Hue, 0.62, BarL < 0.5 ? 0.64 : 0.36);
     }
 
     /// Saturation-weighted circular mean hue across the library's covers.
