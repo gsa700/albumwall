@@ -74,7 +74,7 @@ is ahead, the history is for what is behind.
     pinned versions go up next to the native-library assets. The build recipe
     is part of that source and is already in the repository.
 
-- **Our own audio-only libmpv for Windows: BUILT, NOT YET PROVEN.** "we don't
+- **Our own audio-only libmpv for Windows: BUILT AND PROVEN, not yet in a release.** "we don't
   need any of that extra stuff, lets leave it out." `scripts/build-libmpv/build.sh
   win-x64` cross-compiles a 9.4 MB `libmpv-2.dll` from the same pins and decoder
   list as the Linux library, replacing an upstream DLL of about 100 MB that
@@ -87,10 +87,11 @@ is ahead, the history is for what is behind.
   now measures PASS on iTunes AAC, matching the upstream DLL's score exactly.
   Both Linux libraries now measure PASS; `libmpv-0.41.0-3` is published.
   **The Windows DLL passes too** (Hambench, 2026-09-20: +6 samples, the
-  identical sample count the upstream DLL produces — see the notes). **What is
-  left: a test4 carrying it**, and `get-libmpv.ps1` fetching our release instead
-  of SourceForge. Wanted before the repository goes public; the upstream DLL is
-  the rollback until then.
+  identical sample count the upstream DLL produces — see the notes), and
+  **`get-libmpv.ps1` fetches our release now**, pinned to the tag and checked
+  against `SHA256SUMS`, so a development build on Windows plays through what
+  ships. `-Upstream` still fetches SourceForge's: the rollback. **What is left:
+  a test4 carrying it.**
 
 - **The native libraries are release assets now**: tag `libmpv-0.41.0-2`, a
   PRE-release on purpose so `/releases/latest` (and with it the app's updater)
@@ -110,10 +111,9 @@ is ahead, the history is for what is behind.
 ## Decided
 
 - **The name is AlbumWall.** Settled 2026-09-19, in his words: "let's mark this
-  settled: AlbumWall is the name." It was the working name all along, so there
-  is no rename work; the one thing left is on the Techbench side, which is to
-  strike "working title" from the spec. The candidates it beat, and why, are in
-  the commit that settled it. Do not reopen this unless he does.
+  settled: AlbumWall is the name." It is what the project had been called from
+  the first commit, so there was no rename work. The candidates it beat, and
+  why, are in the commit that settled it. Do not reopen this unless he does.
 - **Any companion tool is called Deadwax.** "If this thing ever gets a companion
   app for any reason: we name it deadwax no question."
 

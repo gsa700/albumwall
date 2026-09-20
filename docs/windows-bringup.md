@@ -60,11 +60,19 @@ dotnet run --project src\AlbumWall.App
 restore. If the box has 8 or 9, that is the first thing to fix:
 `winget install Microsoft.DotNet.SDK.10`.
 
-**`get-libmpv.ps1` needs 7-Zip** — the official mpv builds are published only
-as `.7z`. `winget install 7zip.7zip` if it complains. It fetches the plain
-x86_64 build deliberately, not the `-v3` one, which is compiled for a newer
-instruction set and will not start on an older CPU. The DLL lands in
+**`get-libmpv.ps1` needs the GitHub CLI, signed in**, for as long as this
+repository is private: since 2026-09-20 it fetches OUR libmpv from the pinned
+`libmpv-*` release here, checks it against the release's `SHA256SUMS`, and
+leaves a `libmpv-source.txt` beside it saying which one it is.
+`winget install GitHub.cli`, then `gh auth login`, if it complains. Once the
+repository is public it falls back to the plain URL by itself. The DLL lands in
 `native/win-x64/` (git-ignored) and the project copies it beside the exe.
+
+`-Upstream` fetches the official full build from SourceForge instead — the
+rollback, and the control when the two need comparing. That path needs 7-Zip
+(`winget install 7zip.7zip`), because those builds are published only as `.7z`,
+and takes the plain x86_64 build deliberately, not the `-v3` one, which is
+compiled for a newer instruction set and will not start on an older CPU.
 
 ## What "working" looks like
 
@@ -247,7 +255,8 @@ Worth checking, in this order:
 
 If it passes, `get-libmpv.ps1` should learn to fetch this release instead of
 SourceForge — that change belongs to the Windows side, where it can be run.
-Write what happens into `windows-notes.md`.
+Write what happens into `windows-notes.md`. **(Done 2026-09-20, for `-3`: it
+passed, and the script now fetches it. The steps above are what the script does.)**
 
 ## 2026-09-20 — the installer needs its Windows half tested
 

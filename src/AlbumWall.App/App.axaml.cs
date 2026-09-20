@@ -11,9 +11,9 @@ public partial class App : Application
     /// media controls it is called.
     ///
     /// SETTLED 2026-09-19: "let's mark this settled: AlbumWall is the name". It
-    /// had been the working name from the start and the front-runner for a
-    /// while. What decided it was seeing the rivals — Shieldwall, Songhoard,
-    /// Discotheca, Musivum, all of them good — and finding it still held up: it
+    /// is what the project had been called from the first commit. What decided
+    /// it was seeing the rivals — Shieldwall, Songhoard, Discotheca, Musivum,
+    /// all of them good — and finding it still held up: it
     /// says what the thing is, it sorts near the top of a list, and it asks
     /// nobody to know Norse or Latin. (It is also better than it looks: an
     /// *album* was a whitened board the Romans hung on a public wall for

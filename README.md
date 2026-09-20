@@ -27,13 +27,14 @@ dotnet run --project src/AlbumWall.App
 **Windows**
 
 ```powershell
-.\scripts\get-libmpv.ps1           # once: fetches libmpv-2.dll
+.\scripts\get-libmpv.ps1           # once: fetches libmpv-2.dll (needs `gh auth login` while this repository is private)
 dotnet run --project src\AlbumWall.App
 ```
 
 libmpv is not committed to this repository. It is a large binary from another
 GPL project, and vendoring it would mean shipping their source alongside ours;
-the script fetches the official build instead. The project copies it next to
+the script fetches our own audio-only build from this repository's releases
+instead (`-Upstream` fetches the official full build from SourceForge). The project copies it next to
 the executable when you build.
 
 ## Installing

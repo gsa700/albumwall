@@ -374,6 +374,22 @@ library. `get-libmpv.ps1` still fetches SourceForge — not changed here; the
 repository is private, so pointing it at the release means `gh release
 download` and a logged-in `gh`, which is a decision rather than a one-liner.
 
+**Decided the same day: "point get-libmpv.ps1 at our release".** It now fetches
+the pinned tag (`libmpv-0.41.0-3`) through `gh`, refuses a zip that does not
+match the release's `SHA256SUMS`, and stamps `native\win-x64\libmpv-source.txt`
+with what it fetched, so the next run — and the next person — can tell ours from
+upstream's without guessing from the file size. No `gh`, or not signed in: it
+tries the plain URL, which will work once the repository is public, and until
+then fails saying exactly what to install. `-Upstream` is the old behavior,
+kept as the rollback and the control; `-Force` refetches. All four paths were
+run here under Windows PowerShell 5.1, and the DLL it leaves is byte-identical
+(SHA-256 `c2857e0e…`) to the one measured above.
+
+One trap it now steps around: the project copies the DLL to the output folder
+with `PreserveNewest`, which goes by date, and Copy-Item keeps the source's.
+Rolling back to a DLL BUILT EARLIER than the one in `bin` would therefore never
+reach the exe. The script dates the DLL at the moment it fetched it.
+
 One thing about the tool, found on the way: run from Git Bash, the track paths
 arrived mangled, mpv loaded nothing, and the tool died with a
 FileNotFoundException on its own WAV — which reads like a broken libmpv and is
