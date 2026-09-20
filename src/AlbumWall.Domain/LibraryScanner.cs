@@ -124,7 +124,9 @@ public sealed partial class LibraryScanner
                     Duration: new TimeSpan(facts.DurationTicks),
                     Path: path,
                     SampleRate: facts.SampleRate,
-                    BitDepth: facts.BitDepth));
+                    BitDepth: facts.BitDepth,
+                    Bitrate: facts.Bitrate,
+                    Size: size));
 
                 // Until a track with a picture turns up, keep looking: a sidecar
                 // found on the way is only a fallback. See ResolveArt.
@@ -230,7 +232,7 @@ public sealed partial class LibraryScanner
         try { tf = TagLib.File.Create(path); }
         catch
         {
-            return new LibraryIndex.TrackFacts(size, modified, false, "", "", 0, 0, 0, "", "", 0, 0, 0, false, 0, 0);
+            return new LibraryIndex.TrackFacts(size, modified, false, "", "", 0, 0, 0, "", "", 0, 0, 0, 0, false, 0, 0);
         }
 
         using (tf)
@@ -267,6 +269,7 @@ public sealed partial class LibraryScanner
                 DurationTicks: (props?.Duration ?? TimeSpan.Zero).Ticks,
                 SampleRate: props?.AudioSampleRate ?? 0,
                 BitDepth: props?.BitsPerSample ?? 0,
+                Bitrate: props?.AudioBitrate ?? 0,
                 HasCover: hasCover, CoverWidth: w, CoverHeight: h);
         }
     }

@@ -76,6 +76,58 @@
             </StackPanel>
         </TabItem>
 
+        <!-- WHAT THE LIBRARY IS MADE OF. "detailed library stats like x number
+             file types and bitrates etc." — reached from the counts in the main
+             window's bottom bar, which are the first line of this same page.
+
+             A tab of its own and not more of Library, because Library is
+             settings (where the music is, reading it again) and this is
+             something to READ; and because Library was already the second
+             longest tab. Nothing here is a setting and nothing here opens a
+             file: it is all worked out from the last scan (Domain.LibraryStats).
+
+             The rows are built in code, since how many there are depends on
+             the library. A section with nothing in it is left out — this
+             library has no lossless files, Techbench's has few lossy ones.
+
+             THE ONE SCROLLVIEWER IN THIS WINDOW, against the format's "no
+             scrolling". The format's rule is there so tabs of fixed content are
+             sized once and never clip; this tab's height depends on someone's
+             music. It fits without scrolling for every library seen so far, and
+             when one day it does not, a scrollbar is better than rows falling
+             off the bottom edge with nothing to say so (see 352c479). -->
+        <TabItem Header="Statistics">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="10">
+                    <TextBlock x:Name="StatsEmpty" Classes="dim" FontSize="13" IsVisible="False"
+                               Text="Nothing to count yet. This fills in when the library has been read."/>
+
+                    <Grid x:Name="StatsTotals" ColumnDefinitions="*,*,*,1.35*,*" Margin="0,2,0,6"/>
+
+                    <StackPanel x:Name="StatsTypesSection" Spacing="5">
+                        <TextBlock Text="File types" FontSize="14" FontWeight="SemiBold"/>
+                        <StackPanel x:Name="StatsTypes" Spacing="4"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="StatsBitratesSection" Spacing="5" Margin="0,8,0,0">
+                        <TextBlock Text="Bitrates" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="StatsBitratesAbout" Classes="dim" FontSize="12" TextWrapping="Wrap"/>
+                        <StackPanel x:Name="StatsBitrates" Spacing="4"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="StatsLosslessSection" Spacing="5" Margin="0,8,0,0">
+                        <TextBlock Text="Lossless" FontSize="14" FontWeight="SemiBold"/>
+                        <StackPanel x:Name="StatsLossless" Spacing="4"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="StatsArtSection" Spacing="5" Margin="0,8,0,0">
+                        <TextBlock Text="Cover art" FontSize="14" FontWeight="SemiBold"/>
+                        <StackPanel x:Name="StatsArt" Spacing="4"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
         <TabItem Header="Startup">
             <StackPanel Spacing="14">
                 <TextBlock x:Name="WhenItOpens" Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>

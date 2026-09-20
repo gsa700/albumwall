@@ -393,6 +393,7 @@ public partial class MainWindow : Window
         AlbumVm.Scaling = RenderScaling;
 
         SetUpMenu();
+        CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Statistics);
         ScanLibrary();
 
         // The shell wants a media player on the bus whether or not anything is
@@ -588,10 +589,12 @@ public partial class MainWindow : Window
             var tracks = albums.Sum(a => a.Tracks.Count);
             var artists = albums.Select(a => a.AlbumArtist).Distinct().Count();
             var print = Fingerprint(albums);
+            var stats = Domain.LibraryStats.From(albums);
 
             Finished(() =>
             {
                 _trackCount = tracks;
+                _stats = stats;
                 if (honest)
                     _prefs?.ShowRescanResult($"Done — {tracks:N0} tracks read in {Spoken(sw.Elapsed)}.");
 
@@ -1095,6 +1098,18 @@ public partial class MainWindow : Window
     internal string LibraryRootPath => LibraryRoot;
     internal string LibraryCounts => _counts;
     internal int LibraryTrackCount => _trackCount;
+
+    /// What the library is made of, as of the last scan. Null until there is one.
+    internal Domain.LibraryStats? LibraryStatistics => _stats;
+    private Domain.LibraryStats? _stats;
+
+    /// Types a search for him — the Statistics tab's way of showing WHICH albums
+    /// a count is about (art:missing, art:small) instead of only how many.
+    internal void SearchFor(string text)
+    {
+        SearchBox.Text = text;
+        Activate();
+    }
     internal bool RescanRunning => _honestRunning;
     internal void Rescan() => ScanLibrary(honest: true);
 
@@ -1585,6 +1600,7 @@ public partial class MainWindow : Window
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(honest: true); return; }
         if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
+        if (text.Equals("prefs stats", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Statistics); return; }
         if (text.Equals("prefs appearance", StringComparison.OrdinalIgnoreCase)
             || text.Equals("prefs colors", StringComparison.OrdinalIgnoreCase))   // the tab's old name
         { ShowPrefs(PrefsWindow.Tab.Appearance); return; }

@@ -17,9 +17,12 @@ is ahead, the history is for what is behind.
   in the format of the family's Setup windows (FlexPad, LP-100A, W2, Shack
   Power) — system title bar, fixed size, one instance, position remembered, the
   family's tab chrome from `App.axaml`. **About is always the last tab**, and
-  the last item in the menu, by convention; new tabs go before it. Library,
-  Startup and Colors exist. Add a tab when the second option for it arrives,
-  not before.
+  by convention; new tabs go before it. Library, Statistics, Startup and
+  Appearance exist. Add a tab of OPTIONS when the second option for it arrives,
+  not before. Statistics (2026-09-20) is the exception that is not one: it holds
+  no options at all, it is a page to read — file types, bitrates, lossless
+  formats, cover art — reached by pressing the library counts in the main
+  window's bottom bar.
 
 - **A file-properties window**, in the SAME FORMAT as Preferences — "we'll use
   the same format with the file properties window when we get to it". The

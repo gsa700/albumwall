@@ -36,7 +36,9 @@ namespace AlbumWall.Domain;
 
 public sealed class LibraryIndex
 {
-    private const int Version = 1;
+    // 1  2026-09-20  first
+    // 2  2026-09-20  bitrate, for the Statistics tab
+    private const int Version = 2;
 
     /// Everything the scanner takes from one audio file. The strings are as the
     /// scanner resolved them — fallbacks applied — so that folding a remembered
@@ -45,7 +47,7 @@ public sealed class LibraryIndex
         long Size, long Modified, bool Readable,
         string AlbumArtist, string Album, int TagYear,
         int Disc, int Number, string Title, string Artist,
-        long DurationTicks, int SampleRate, int BitDepth,
+        long DurationTicks, int SampleRate, int BitDepth, int Bitrate,
         bool HasCover, int CoverWidth, int CoverHeight);
 
     /// A sidecar's measured size. Measuring one means opening it too.
@@ -213,7 +215,7 @@ public sealed class LibraryIndex
         using (var q = c.CreateCommand())
         {
             q.CommandText = "SELECT path, size, modified, readable, album_artist, album, tag_year, disc, "
-                          + "number, title, artist, duration, sample_rate, bit_depth, has_cover, cover_w, cover_h "
+                          + "number, title, artist, duration, sample_rate, bit_depth, bitrate, has_cover, cover_w, cover_h "
                           + "FROM tracks";
             using var r = q.ExecuteReader();
             while (r.Read())
@@ -221,8 +223,8 @@ public sealed class LibraryIndex
                     r.GetInt64(1), r.GetInt64(2), r.GetInt64(3) != 0,
                     r.GetString(4), r.GetString(5), r.GetInt32(6),
                     r.GetInt32(7), r.GetInt32(8), r.GetString(9), r.GetString(10),
-                    r.GetInt64(11), r.GetInt32(12), r.GetInt32(13),
-                    r.GetInt64(14) != 0, r.GetInt32(15), r.GetInt32(16));
+                    r.GetInt64(11), r.GetInt32(12), r.GetInt32(13), r.GetInt32(14),
+                    r.GetInt64(15) != 0, r.GetInt32(16), r.GetInt32(17));
         }
 
         using (var q = c.CreateCommand())
@@ -247,7 +249,7 @@ public sealed class LibraryIndex
         Run(c, "CREATE TABLE IF NOT EXISTS tracks (path TEXT PRIMARY KEY, size INTEGER, modified INTEGER, "
              + "readable INTEGER, album_artist TEXT, album TEXT, tag_year INTEGER, disc INTEGER, "
              + "number INTEGER, title TEXT, artist TEXT, duration INTEGER, sample_rate INTEGER, "
-             + "bit_depth INTEGER, has_cover INTEGER, cover_w INTEGER, cover_h INTEGER) WITHOUT ROWID");
+             + "bit_depth INTEGER, bitrate INTEGER, has_cover INTEGER, cover_w INTEGER, cover_h INTEGER) WITHOUT ROWID");
         Run(c, "CREATE TABLE IF NOT EXISTS art (path TEXT PRIMARY KEY, size INTEGER, modified INTEGER, "
              + "width INTEGER, height INTEGER) WITHOUT ROWID");
         Run(c, $"PRAGMA user_version = {Version}");
@@ -255,15 +257,15 @@ public sealed class LibraryIndex
         using (var put = c.CreateCommand())
         {
             put.CommandText = "INSERT OR REPLACE INTO tracks VALUES "
-                            + "($p,$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$q)";
+                            + "($p,$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$q,$r)";
             var names = new[] { "$p", "$a", "$b", "$c", "$d", "$e", "$f", "$g", "$h",
-                                "$i", "$j", "$k", "$l", "$m", "$n", "$o", "$q" };
+                                "$i", "$j", "$k", "$l", "$m", "$n", "$o", "$q", "$r" };
             var ps = names.Select(n => put.Parameters.Add(new SqliteParameter { ParameterName = n })).ToArray();
             foreach (var (path, f) in putTracks)
             {
                 object[] values = [path, f.Size, f.Modified, f.Readable ? 1 : 0, f.AlbumArtist, f.Album,
                                    f.TagYear, f.Disc, f.Number, f.Title, f.Artist, f.DurationTicks,
-                                   f.SampleRate, f.BitDepth, f.HasCover ? 1 : 0, f.CoverWidth, f.CoverHeight];
+                                   f.SampleRate, f.BitDepth, f.Bitrate, f.HasCover ? 1 : 0, f.CoverWidth, f.CoverHeight];
                 for (var i = 0; i < ps.Length; i++) ps[i].Value = values[i];
                 put.ExecuteNonQuery();
             }

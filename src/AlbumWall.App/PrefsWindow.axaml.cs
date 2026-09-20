@@ -9,7 +9,7 @@ namespace AlbumWall.App;
 public partial class PrefsWindow : Window
 {
     /// In the order they appear. About stays last.
-    public enum Tab { Library, Startup, Appearance, About }
+    public enum Tab { Library, Statistics, Startup, Appearance, About }
 
     private readonly MainWindow? _host;
 
@@ -154,6 +154,8 @@ public partial class PrefsWindow : Window
     public void Fill()
     {
         if (_host is null) return;
+
+        FillStatistics();
 
         _filling = true;
         LibraryPath.Text = _host.LibraryRootPath;

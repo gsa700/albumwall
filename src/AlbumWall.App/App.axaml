@@ -17,6 +17,32 @@
         <Style Selector="TextBlock.mono">
             <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
         </Style>
+        <!-- Text that goes somewhere. Looks like the text around it until the
+             pointer is on it, because its two uses are a line of figures in the
+             bottom bar and a count inside a sentence, and neither should shout.
+             A Button and not a TextBlock with a handler, so that it can be
+             reached and pressed from the keyboard. -->
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Opacity" Value="0.62"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}" Background="Transparent"
+                                      Padding="{TemplateBinding Padding}"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.link:pointerover">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.link:focus-visible">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
         <Style Selector="Button.panel">
             <Setter Property="Background" Value="#26FFFFFF"/>
             <Setter Property="Foreground" Value="#F3EEE6"/>

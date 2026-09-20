@@ -19,7 +19,12 @@ public sealed record Track(
     TimeSpan Duration,
     string Path,
     int SampleRate,
-    int BitDepth)
+    int BitDepth,
+    // kbit/s as the file's own header reports it, 0 when it does not. For a
+    // VBR file this is the average. Only the Statistics tab reads it.
+    int Bitrate = 0,
+    // Bytes on disk, from the directory listing. The whole file, art included.
+    long Size = 0)
 {
     public string DurationText =>
         Duration.TotalHours >= 1

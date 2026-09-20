@@ -609,13 +609,26 @@
             <Grid ColumnDefinitions="*,Auto,*" Margin="26,0">
                 <!-- No cover-size control. The covers size themselves to fill the
                      window exactly; see MainWindow.ComputeLayout. -->
-                <TextBlock Grid.Column="0" x:Name="CountsText" Classes="dim mono" FontSize="11"
+                <!-- WHICH SIDE IS WHICH was the other way round until 2026-09-20:
+                     "let's swap the library stats on the left with the scan
+                     results on the right". The status line is the one that
+                     changes (a rescan counts up in it), so it goes where a line
+                     of text starts; the counts are a fixed fact about the
+                     library and sit at the far end.
+
+                     The counts are also A WAY IN: pressing them opens Preferences
+                     at the Statistics tab, which is the same three numbers taken
+                     apart. A Button (see Button.link) so the keyboard gets there. -->
+                <TextBlock Grid.Column="0" x:Name="StatusText" Classes="dim" FontSize="11"
                            HorizontalAlignment="Left" VerticalAlignment="Center"/>
                 <TextBox Grid.Column="1" x:Name="SearchBox" Classes="search" Width="320"
                          PlaceholderText="Search artist or album…" VerticalAlignment="Center"
                          FontSize="13" Padding="11,5"/>
-                <TextBlock Grid.Column="2" x:Name="StatusText" Classes="dim" FontSize="11"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" x:Name="CountsLink" Classes="link"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        ToolTip.Tip="Library statistics">
+                    <TextBlock x:Name="CountsText" Classes="mono" FontSize="11"/>
+                </Button>
             </Grid>
             </Panel>
         </Border>
