@@ -1,21 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <!-- One target per machine, chosen by where it is being BUILT. On Windows
-         the app targets the Windows SDK so that Smtc.cs can reach the System
-         Media Transport Controls (media keys, headset buttons, the card in the
-         volume flyout); that target also defines WINDOWS, which is what Smtc.cs
-         is wrapped in. Everywhere else it is plain net10.0, as it always was,
-         and Linux gets its media keys from Mpris.cs.
+    <!-- The target follows what is being built FOR, not where. A Windows build
+         targets the Windows SDK so that Smtc.cs can reach the System Media
+         Transport Controls (media keys, headset buttons, the card in the volume
+         flyout); that target also defines WINDOWS, which is what Smtc.cs is
+         wrapped in. Everything else is plain net10.0, and Linux gets its media
+         keys from Mpris.cs.
 
-         Deliberately not multi-targeting: that would build both on every
-         machine, and the Windows one cannot be built on Fedora without the
-         Windows targeting pack being pulled in for no reason.
+         This used to be chosen by the BUILD HOST, which quietly cost the family
+         its one-box release: publishing linux-x64 from Windows picked the
+         Windows target, and Windows could not be published from Linux at all.
+         Keyed on the RuntimeIdentifier instead, any machine can publish every
+         platform. With no RID given — a plain `dotnet run` — the host decides,
+         exactly as before, so day-to-day development is unchanged.
 
-         It does mean the output folder differs by platform:
-         bin/Debug/net10.0-windows10.0.19041.0/ here, bin/Debug/net10.0/ there. -->
-    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.19041.0</TargetFramework>
-    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0</TargetFramework>
+         EnableWindowsTargeting is what lets a non-Windows host build the
+         Windows target: the SDK reference pack arrives from NuGet, and only
+         when a win-* publish actually asks for it.
+
+         Still deliberately not multi-targeting, which would build both targets
+         on every machine on every build. The output folder differs by target:
+         bin/<cfg>/net10.0-windows10.0.19041.0/ versus bin/<cfg>/net10.0/. -->
+    <ForWindows Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier.StartsWith('win'))</ForWindows>
+    <ForWindows Condition="'$(RuntimeIdentifier)' == ''">$([MSBuild]::IsOSPlatform('Windows'))</ForWindows>
+    <TargetFramework Condition="'$(ForWindows)' == 'True'">net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework Condition="'$(ForWindows)' != 'True'">net10.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Version>0.1.0</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -50,12 +61,25 @@
     <ProjectReference Include="..\AlbumWall.Playback\AlbumWall.Playback.csproj" />
   </ItemGroup>
 
-  <!-- libmpv on Windows, fetched by scripts/get-libmpv.ps1 rather than
-       committed: it is a large binary from another GPL project. Absent on
-       Linux, where libmpv comes from the distribution, so the whole group is
-       conditional on the folder existing. -->
-  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/../../native/win-x64')">
-    <None Include="../../native/win-x64/*.dll" Link="%(Filename)%(Extension)"
+  <!-- The app's own libmpv, per platform: fetched on Windows
+       (scripts/get-libmpv.ps1), built on Linux (scripts/build-libmpv/). Never
+       committed either way — native/ is git-ignored.
+
+       The folder follows what is being built FOR, same rule as the target
+       framework above, so a win-x64 publish made on Fedora picks up the Windows
+       DLL and not this machine's .so. With no RID, the host decides.
+
+       The whole group is conditional on the folder existing: a development
+       checkout without it builds fine and uses the distribution's libmpv. -->
+  <PropertyGroup>
+    <NativeRid>$(RuntimeIdentifier)</NativeRid>
+    <HostArch>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArch>
+    <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-$(HostArch)</NativeRid>
+    <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-$(HostArch)</NativeRid>
+    <NativeDir>$(MSBuildProjectDirectory)/../../native/$(NativeRid)</NativeDir>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(NativeRid)' != '' and Exists('$(NativeDir)')">
+    <None Include="$(NativeDir)/*.dll;$(NativeDir)/*.so*" Link="%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

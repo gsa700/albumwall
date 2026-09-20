@@ -34,6 +34,27 @@ is ahead, the history is for what is behind.
   hicolor theme from their own Setup windows, and the About tab is where a
   matching button would go. The MPRIS `DesktopEntry` is already "albumwall".
 
+- **RELEASES — decided 2026-09-19: "I'd like to get to the release stage soon...
+  I see no reason to hold any longer."** The shape is the family's, ported from
+  Shack Power (`InstallService` + `UpdateService`): a single-file self-contained
+  exe per platform, zipped as `AlbumWall-<rid>.zip` on a GitHub release; the app
+  installs itself per-user and updates in place. No installers, no RPM/DEB,
+  no AppImage, no Flatpak — each was weighed and none beats this for an app
+  that carries its own player. What is left to build, roughly in order:
+  1. The single-file publish with libmpv folded INSIDE it
+     (`IncludeNativeLibrariesForSelfExtract`), and proof that the resolver in
+     `Mpv.cs` finds a self-extracted library. The updater swaps one file, so
+     libmpv has to be in that file.
+  2. The native libraries published as release assets of their own (a tag like
+     `libmpv-0.41.0-1`), so whichever machine cuts an app release downloads
+     them instead of building them. linux-arm64 still has to be built, natively
+     on a Pi, with the same script.
+  3. `InstallService` — which also fixes the entry below, and whose Linux half
+     is the `.desktop` entry above.
+  4. `UpdateService` — built now, switched on later: it reads
+     `/releases/latest` unauthenticated, which a private repository answers
+     with 404. It goes live with the public snapshot.
+
 - **An installed copy, separate from the build folder.** The Start Menu
   shortcut points at wherever the app is running from, which today is
   `bin/Debug`. That works, but it means the player he is listening to has to be
@@ -72,4 +93,12 @@ is ahead, the history is for what is behind.
 - One library at a time. Do not merge libraries.
 - No touch-sized controls yet; the design should flow toward touch, not become
   a touch app.
-- libmpv is fetched, never committed. The repository stays private.
+- libmpv is never committed: FETCHED on Windows (`scripts/get-libmpv.ps1`),
+  BUILT on Linux (`scripts/build-libmpv/` — our own audio-only build, because
+  the distribution's drags in 338 shared libraries). "That is the best match to
+  windows and we should keep them the same when we can." Both land in the
+  git-ignored `native/<rid>/`, and the app prefers its own copy over the
+  system's.
+- Any machine can publish every platform: the target framework follows the
+  RuntimeIdentifier, not the build host. Keep it that way.
+- The repository stays private.

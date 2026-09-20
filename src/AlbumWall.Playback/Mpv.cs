@@ -1,4 +1,4 @@
-// AlbumWall — libmpv bindings.
+﻿// AlbumWall — libmpv bindings.
 //
 // Raw P/Invoke only. Nothing in here makes decisions; the policy lives in
 // Player.cs, so that the awkward parts of talking to a C library stay in one
@@ -29,6 +29,23 @@ internal static class Mpv
         {
             if (name != Lib) return IntPtr.Zero;
 
+            // OURS FIRST, THE SYSTEM'S SECOND.
+            //
+            // A release carries its own audio-only libmpv, and that is the one
+            // gapless was tested against. But the plain TryLoad below is a bare
+            // dlopen, and on Linux dlopen NEVER looks beside the executable —
+            // only Windows does that. So without this pass a bundled library is
+            // silently ignored in favor of whatever the distribution has, or
+            // nothing at all. Asking with the assembly makes the runtime probe
+            // the app's own directories, including wherever a single-file build
+            // unpacked its native libraries.
+            foreach (var candidate in Candidates())
+                if (NativeLibrary.TryLoad(candidate, asm, DllImportSearchPath.AssemblyDirectory, out var ours))
+                    return ours;
+
+            // A development checkout has no bundled copy and lands here, which
+            // is right: it uses the distribution's libmpv, as it always did.
+            //
             // Ordered by how specific they are. A bare "libmpv.so" is usually a
             // development symlink and is the least likely to be present on a
             // machine that only has the runtime package installed.
@@ -60,6 +77,30 @@ internal static class Mpv
         yield return "libmpv.so.2";
         yield return "libmpv.so.1";
         yield return "libmpv.so";
+    }
+
+    /// The file libmpv was actually loaded from, for the log.
+    ///
+    /// Two copies can exist — the one shipped with the app and the
+    /// distribution's — and they differ in exactly the ways that produce
+    /// confusing bug reports: codecs, versions, outputs. One line at startup
+    /// saying which is running settles it before anyone has to wonder. Linux
+    /// only, because /proc makes it free there; elsewhere this returns null.
+    public static string? LoadedFrom()
+    {
+        if (!OperatingSystem.IsLinux()) return null;
+        try
+        {
+            foreach (var line in File.ReadLines("/proc/self/maps"))
+            {
+                var at = line.IndexOf('/');
+                if (at < 0) continue;
+                var path = line[at..];
+                if (Path.GetFileName(path).StartsWith("libmpv", StringComparison.Ordinal)) return path;
+            }
+        }
+        catch { /* a diagnostic must never be the thing that breaks playback */ }
+        return null;
     }
 
     /// True when libmpv could be loaded at all. Checked before the app offers to

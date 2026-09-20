@@ -1,4 +1,4 @@
-// AlbumWall — playback.
+﻿// AlbumWall — playback.
 //
 // All the policy lives here; Mpv.cs is only the wire. The requirements this is
 // built to meet, from the spec:
@@ -91,11 +91,15 @@ public sealed class Player : IDisposable
                 "libmpv is not installed. On Fedora: sudo dnf install mpv-libs");
 
         _ctx = Mpv.mpv_create();
+        if (Mpv.LoadedFrom() is { } lib) Console.WriteLine($"[mpv] library: {lib}");
         if (_ctx == IntPtr.Zero)
             throw new InvalidOperationException("mpv_create failed");
 
         // Options must be set BEFORE mpv_initialize; several of these are
         // read-only afterwards.
+        // What the system mixer calls this stream. Without it every mpv-based
+        // app is "mpv", and the one slider you are looking for is anonymous.
+        Option("audio-client-name", "AlbumWall");
         Option("vid", "no");                 // audio only; there is no video here
         Option("audio-display", "no");       // do not treat cover art as a video track
         Option("gapless-audio", "yes");      // the hard requirement
