@@ -76,6 +76,8 @@ is ahead, the history is for what is behind.
   list as the Linux library, replacing an upstream DLL of about 100 MB that
   carries H.264, HEVC and VVC decoders the app never calls. Verified from Linux:
   it imports only Windows system DLLs and exports everything `Mpv.cs` uses.
+  Gapless through the LINUX sibling of this build was confirmed by ear on
+  2026-09-20 ("gapless is FB here"), which is the same mpv and the same ffmpeg.
   **What is left is on Hambench: that it loads, plays, and stays GAPLESS** — the
   test is at the end of `docs/windows-bringup.md`. When it passes,
   `get-libmpv.ps1` should fetch our release instead of SourceForge. Wanted
