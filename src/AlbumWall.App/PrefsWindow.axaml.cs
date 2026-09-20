@@ -285,11 +285,24 @@ public partial class PrefsWindow : Window
         {
             var has = WindowsShell.HasShortcut;
             var current = WindowsShell.ShortcutIsCurrent;
+
+            // The shortcut is the INSTALLED copy's, and this is some other copy:
+            // say so, and offer nothing. Until 2026-09-20 this case got the
+            // wording for a stray shortcut — "points at a different copy ... one
+            // that was moved or rebuilt somewhere else" — with buttons to re-point
+            // it here or remove it, which was true of nothing: the copy it points
+            // at is exactly where it should be. Seen in his screenshot of the
+            // development build's About tab an hour after the first real install.
+            var theirs = !current && WindowsShell.ShortcutBelongsToInstalledCopy;
+            ShortcutAdd.IsVisible = !theirs;
+            if (ShortcutAdd.Parent is Control buttons) buttons.IsVisible = !theirs;    // or the empty row keeps its gap
             ShortcutAdd.Content = !has ? "Add to the Start Menu" : current ? "Re-create the shortcut" : "Point the shortcut here";
-            ShortcutRemove.IsVisible = has;
+            ShortcutRemove.IsVisible = has && !theirs;
             ShortcutStatus.Text = _shortcutNote
                 ?? (!has ? "No shortcut yet. With one, Start search finds it and you can pin it to the taskbar."
                     : current ? "In the Start Menu, and pointing at this copy."
+                    : theirs ? $"The Start Menu shortcut belongs to the installed copy, in {Install.InstallService.InstallDirectory}. "
+                             + "This copy leaves it alone."
                     : "There is a shortcut, but it points at a different copy of the program — one that was moved or rebuilt somewhere else.");
         }
 

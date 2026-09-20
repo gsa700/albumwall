@@ -78,6 +78,26 @@ public static class WindowsShell
         }
     }
 
+    /// True when the shortcut points at the INSTALLED copy and that copy exists
+    /// — in which case it is the installer's shortcut, not a stray one, and a
+    /// development or loose copy has no business re-pointing or removing it. The
+    /// installed copy re-asserts it at every start anyway, so taking it would
+    /// not even last.
+    public static bool ShortcutBelongsToInstalledCopy
+    {
+        get
+        {
+            if (!OperatingSystem.IsWindows() || !File.Exists(ShortcutPath)) return false;
+            try
+            {
+                var installed = Install.InstallService.InstalledExePath;
+                return File.Exists(installed)
+                    && string.Equals(Long(ReadTarget(ShortcutPath)), Long(installed), StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+    }
+
     /// Creates or replaces the Start Menu shortcut. Returns null on success, or
     /// a sentence that can be shown to him as it is.
     public static string? AddShortcut()

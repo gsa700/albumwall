@@ -490,9 +490,14 @@ Two things it turned up:
   strings were read back out of the registry; the Settings button itself was
   not pressed, because its command line is the one the interactive test ran.
 
-NOT tested, because they need eyes or a hand: whether the running window groups
-under the taskbar pin, the About tab's appearance in installed mode, and
-"delete the desktop shortcut and it must not come back".
+**Taskbar grouping: good, by his eyes.** Asked what the item meant and told (one
+icon, the pin itself lit, not a second one beside it), his answer was "its been
+good the whole time" — that is, since test3 and through today's reinstalls over
+it. So the AppUserModelID claimed at startup and the one written into the
+shortcut agree, and a pin made from one build carries over to the next.
+
+NOT tested, because they need eyes or a hand: the About tab's appearance in
+installed mode, and "delete the desktop shortcut and it must not come back".
 
 Left installed at the end: today's build (5082e79 plus the log fix), so the
 taskbar pin — which had been pointing at test3 — starts a good copy. It shares
