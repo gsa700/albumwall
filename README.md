@@ -51,8 +51,8 @@ scatter itself across a decade.
 
 ## What it does
 
-- A virtualised wall of cover art that scrolls to any size of library
-- Albums open in place, centred, coloured from their own artwork
+- A virtualized wall of cover art that scrolls to any size of library
+- Albums open in place, centered, colored from their own artwork
 - Gapless playback, native sample rate, ReplayGain (album or track)
 - Media keys, and the GNOME panel and lock screen controls, over MPRIS
 - Live search, and a way back to whatever is playing
@@ -61,7 +61,7 @@ scatter itself across a decade.
 
 Not built yet: tag editing, an A–Z rail, anything resembling a library database.
 
-## Licence
+## License
 
 GPL v3 or later — see [LICENSE](LICENSE).
 

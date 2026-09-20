@@ -8,7 +8,7 @@
 //
 // The same decision pays twice: implementing MPRIS also puts the app in GNOME's
 // own media controls — the panel, the lock screen — and makes the keys work
-// whether or not the window has focus, which is the behaviour a music player is
+// whether or not the window has focus, which is the behavior a music player is
 // expected to have while you are doing something else.
 //
 // This is Linux-only. Windows has an equivalent (SystemMediaTransportControls)
@@ -309,7 +309,7 @@ public sealed class Mpris : IPathMethodHandler
         "Volume" => VariantValue.Double(s.Volume),
         "CanGoNext" or "CanGoPrevious" or "CanPlay" or "CanPause" or "CanControl" => VariantValue.Bool(true),
 
-        // Seeking works in the app's own transport, but honouring Seek and
+        // Seeking works in the app's own transport, but honoring Seek and
         // SetPosition means keeping a stable trackid for the shell to name a
         // track by, which this does not do yet. Declared false until true.
         "CanSeek" => VariantValue.Bool(false),

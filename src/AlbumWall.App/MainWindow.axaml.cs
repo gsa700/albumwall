@@ -2,11 +2,11 @@
 //
 // Three jobs here, and nothing else: scan the library off the UI thread, keep
 // the tile geometry in step with the size slider, and load cover art only for
-// tiles the virtualising layout has actually realised.
+// tiles the virtualizing layout has actually realized.
 //
 // The art rule is the whole reason this window is worth building before the
 // player: 194 albums today, ~1100 when the lossy collection is folded in. If
-// art loaded per item rather than per realised tile, opening the window would
+// art loaded per item rather than per realized tile, opening the window would
 // decode the entire library.
 
 using System.Collections.ObjectModel;
@@ -101,10 +101,10 @@ public partial class MainWindow : Window
         AddHandler(PointerPressedEvent, OnPointerPressedForResize, RoutingStrategies.Tunnel);
 
         // The top bar IS the title bar now, so it owes the window the three
-        // behaviours the system one provided: drag to move, double-click to
-        // maximise, and the buttons the desktop asked for.
+        // behaviors the system one provided: drag to move, double-click to
+        // maximize, and the buttons the desktop asked for.
         TopBar.PointerPressed += OnTitleBarPressed;
-        TopBar.DoubleTapped += (_, _) => ToggleMaximised();
+        TopBar.DoubleTapped += (_, _) => ToggleMaximized();
         BuildWindowButtons();
         BuildTransport();
 
@@ -154,7 +154,7 @@ public partial class MainWindow : Window
                             + $"{ArtCache.HeldBytes / (1024 * 1024)} MB art";
 #if DEBUG
             // Echoed to stdout as well: the decode count is the measurement
-            // that tells us virtualisation is real, and it is easier to trust
+            // that tells us virtualization is real, and it is easier to trust
             // from a log than from a glance at the status bar.
             if (n != _lastReported)
             {
@@ -226,7 +226,7 @@ public partial class MainWindow : Window
         if (_settings.Maximized) { WindowState = WindowState.Maximized; return; }
 
         // No saved position means a first run. WindowStartupLocation is Manual so
-        // that a saved position is honoured exactly, but with nothing to honour
+        // that a saved position is honored exactly, but with nothing to honor
         // that would drop the window in the top-left corner.
         if (_settings.WindowX is not { } x || _settings.WindowY is not { } y)
         {
@@ -292,8 +292,8 @@ public partial class MainWindow : Window
     {
         _settings.Maximized = WindowState == WindowState.Maximized;
 
-        // Only record geometry from a normal window. Saving a maximised or
-        // minimised window's bounds means restoring to something that was never
+        // Only record geometry from a normal window. Saving a maximized or
+        // minimized window's bounds means restoring to something that was never
         // deliberately chosen.
         if (WindowState == WindowState.Normal)
         {
@@ -668,9 +668,9 @@ public partial class MainWindow : Window
     }
 
     /// Draws the window controls the desktop asked for, on the side it asked
-    /// for. On this GNOME that is minimise and close on the right and NO
-    /// maximise button, because the user turned it off; double-clicking the bar
-    /// still maximises, which is how GNOME expects it to be done.
+    /// for. On this GNOME that is minimize and close on the right and NO
+    /// maximize button, because the user turned it off; double-clicking the bar
+    /// still maximizes, which is how GNOME expects it to be done.
     private void BuildWindowButtons()
     {
         var (left, right) = WindowButtons.Layout();
@@ -686,7 +686,7 @@ public partial class MainWindow : Window
             switch (k)
             {
                 case WindowButtons.Kind.Minimize: WindowState = WindowState.Minimized; break;
-                case WindowButtons.Kind.Maximize: ToggleMaximised(); break;
+                case WindowButtons.Kind.Maximize: ToggleMaximized(); break;
                 default: Close(); break;
             }
         }
@@ -761,7 +761,7 @@ public partial class MainWindow : Window
             BeginMoveDrag(e);
     }
 
-    private void ToggleMaximised() =>
+    private void ToggleMaximized() =>
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
             : WindowState.Maximized;
@@ -871,7 +871,7 @@ public partial class MainWindow : Window
 
     /// The tuning bench: three levers over the palette the library derived.
     ///
-    /// None of them touches the HUE — that is the collection's own colour and is
+    /// None of them touches the HUE — that is the collection's own color and is
     /// not a matter of taste. What is adjustable is how light the room is, how
     /// much of the hue shows in it, and how the furniture separates from the
     /// wall. Each one writes straight through to a rebuilt ramp so the whole
@@ -892,7 +892,7 @@ public partial class MainWindow : Window
 
         // Volume lives in the same bar but is not part of the palette bench:
         // it is a control, not a setting, and it survives the bench being
-        // retired once the colours settle.
+        // retired once the colors settle.
         _volume = Math.Clamp(_settings.Volume ?? 100, 0, 100);
         VolumeSlider.Value = _volume;
         VolumeSlider.PropertyChanged += (_, e) =>
@@ -906,7 +906,7 @@ public partial class MainWindow : Window
     }
 
     /// Rebuilds the ground from the current levers and repaints everything that
-    /// took a colour from it — including the open panel, whose palette was
+    /// took a color from it — including the open panel, whose palette was
     /// snapshotted when it opened and would otherwise stay at the old lightness.
     // The three levers, as the Colors tab in Preferences sees them. Each one
     // takes effect at once, on every window, and is saved a moment later — there
@@ -1240,7 +1240,7 @@ public partial class MainWindow : Window
                 var el = Wall.TryGetElement(i);
                 var y = el?.TranslatePoint(default, WallScroller)?.Y;
                 Console.WriteLine($"[trace]   row {i} {(_rows[i] is PanelRow ? "PANEL" : "album")} "
-                    + $"{(el is null ? "UNREALISED" : $"y={y:F0} h={el.Bounds.Height:F0} vis={el.IsVisible} op={el.Opacity:F2} " + $"el={el.GetType().Name} dc={el.DataContext?.GetType().Name ?? "null"} " + $"items={(el as ItemsControl)?.ItemCount.ToString() ?? "-"}")}");
+                    + $"{(el is null ? "UNREALIZED" : $"y={y:F0} h={el.Bounds.Height:F0} vis={el.IsVisible} op={el.Opacity:F2} " + $"el={el.GetType().Name} dc={el.DataContext?.GetType().Name ?? "null"} " + $"items={(el as ItemsControl)?.ItemCount.ToString() ?? "-"}")}");
             }
             return;
         }
@@ -1295,7 +1295,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        Console.WriteLine($"[wall] command: unrecognised '{text}'");
+        Console.WriteLine($"[wall] command: unrecognized '{text}'");
     }
 
     /// Panel geometry and scroll position in one line.
@@ -1843,7 +1843,7 @@ public partial class MainWindow : Window
         }, RoutingStrategies.Tunnel);
     }
 
-    private void Recolour(IBrush on)
+    private void Recolor(IBrush on)
     {
         foreach (var b in new Button[] { PrevButton, PlayPauseButton, NextButton })
             if (b.Content is Avalonia.Controls.Shapes.Path path)
@@ -1874,7 +1874,7 @@ public partial class MainWindow : Window
             : Glyph("M 2 0 L 12 7 L 2 14 Z");              // play
 
         if (_playingAlbum is not null)
-            Recolour(Palette.For(_playingAlbum.Album).OnLight);
+            Recolor(Palette.For(_playingAlbum.Album).OnLight);
     }
 
     /// Flags the playing track in the open panel, if the open panel happens to be
@@ -1900,7 +1900,7 @@ public partial class MainWindow : Window
     }
 
     /// Where the open panel currently sits relative to the top of the viewport,
-    /// or null if there is no panel or it is not realised.
+    /// or null if there is no panel or it is not realized.
     private double? PanelTopInView()
     {
         if (_panelAt <= 0 || _panelAt >= _rows.Count) return null;
@@ -2014,7 +2014,7 @@ public partial class MainWindow : Window
         // The transport takes a LIGHT tone from the playing album's art. It both
         // ties the bar to what is playing and breaks the window out of being one
         // temperature from top to bottom — the wall is deliberately near-neutral,
-        // so the colour has to live somewhere.
+        // so the color has to live somewhere.
         var palette = Palette.For(_playingAlbum.Album);
         Transport.Background = palette.Light;
         Transport.BorderBrush = palette.OnLightHover;
@@ -2031,8 +2031,8 @@ public partial class MainWindow : Window
         GainButton.BorderBrush = new SolidColorBrush(Color.Parse("#33000000"));
 
         // The glyphs are Paths whose stroke was fixed at build time; they have to
-        // be recoloured for the light bar.
-        Recolour(palette.OnLight);
+        // be recolored for the light bar.
+        Recolor(palette.OnLight);
 
         UpdatePosition();
     }
@@ -2098,7 +2098,7 @@ public partial class MainWindow : Window
         SaveSession();      // what is unfolded is part of where he was
     }
 
-    /// Collapses the realised panel element to nothing, then returns so the
+    /// Collapses the realized panel element to nothing, then returns so the
     /// caller can rebuild. If the panel is scrolled out of view there is no
     /// element to animate and nothing to wait for.
     private async Task FoldAwayAsync()
@@ -2109,7 +2109,7 @@ public partial class MainWindow : Window
         if (index < 0) return;
 
         var el = Wall.TryGetElement(index);
-        Console.WriteLine($"[wall] fold away: rowIndex={index} element={(el is null ? "NOT REALISED" : "ok")}");
+        Console.WriteLine($"[wall] fold away: rowIndex={index} element={(el is null ? "NOT REALIZED" : "ok")}");
         if (el is null) return;
 
         el.Transitions = Unfolding();
@@ -2155,7 +2155,7 @@ public partial class MainWindow : Window
     /// pixels, it is a row.
     ///
     /// The row is placed one row below the top of the viewport, so the album you
-    /// opened has its neighbours visible above it and its panel below, rather
+    /// opened has its neighbors visible above it and its panel below, rather
     /// than being jammed against the top edge.
     ///
     /// The target is recomputed on every tick rather than solved once, because
@@ -2205,14 +2205,14 @@ public partial class MainWindow : Window
     ///
     /// So the panel's foot is brought to the foot of the viewport, inside a range
     /// that always keeps the opened tile and its arrow on screen: never looser
-    /// than `lead` (a row of context — the old behaviour, which is exactly what a
+    /// than `lead` (a row of context — the old behavior, which is exactly what a
     /// short panel still gets) and never tighter than `MinLead` (the tile just
     /// clear of the top bar, which is what a tall one needs). The clamp IS the
     /// fix; the short-album case falls out of it unchanged.
     /// Where the wall should sit to show the album at `rowIndex`.
     ///
     /// ARITHMETIC NOW, NOT MEASUREMENT. The wall states the exact offset of any
-    /// row whether or not it has been built, so this needs no realised element,
+    /// row whether or not it has been built, so this needs no realized element,
     /// no TranslatePoint, and no walking towards a row hoping it appears. All of
     /// that existed to work around an estimated extent, and there is no estimate
     /// any more. See WallView.
@@ -2220,7 +2220,7 @@ public partial class MainWindow : Window
     /// The two cases are his: a panel too tall to fit takes the whole window and
     /// the album's own row goes off the top — "hide the row the album is in and
     /// maximize what we can see of the selected album" — and one that fits is
-    /// centred, because the thing you asked to look at belongs in the middle of
+    /// centered, because the thing you asked to look at belongs in the middle of
     /// the view rather than at one end of it.
     private double TargetOffset(int rowIndex)
     {
@@ -2293,8 +2293,8 @@ public partial class MainWindow : Window
             // be moving anything.
             //
             // One last correction before releasing: ItemsRepeater ESTIMATES the
-            // extent from the rows it has realised, and that estimate keeps moving
-            // as the unfold realises more of them — so the content slides a few
+            // extent from the rows it has realized, and that estimate keeps moving
+            // as the unfold realizes more of them — so the content slides a few
             // pixels under an offset that was exactly right when it was set. Recompute
             // against where things ended up, while the wall is still frozen.
             DispatcherTimer.RunOnce(() =>
@@ -2370,7 +2370,7 @@ public partial class MainWindow : Window
         }, DispatcherPriority.Loaded);
     }
 
-    /// Fired as the layout realises a container. This — not item creation — is
+    /// Fired as the layout realizes a container. This — not item creation — is
     /// the moment we know a cover is about to be visible.
     private void OnElementPrepared(object? sender, WallElementEventArgs e)
     {

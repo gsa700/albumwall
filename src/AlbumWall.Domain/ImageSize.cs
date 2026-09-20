@@ -11,7 +11,7 @@
 //     thousand images. The header is a few dozen bytes the scanner has in hand
 //     anyway.
 //
-// Returns null for anything it does not recognise, and callers treat null as
+// Returns null for anything it does not recognize, and callers treat null as
 // "unknown, behave as before" — never as "small".
 
 namespace AlbumWall.Domain;
@@ -62,7 +62,7 @@ public static class ImageSize
     ///   JPEG  FF D8 FF DB 00          | 43 00 <64 values> FF  loses 5 bytes
     ///
     /// The third is a JPEG with no JFIF header, which opens straight into a
-    /// quantisation table: length 0x43, table 0, 64 values, then the next
+    /// quantization table: length 0x43, table 0, 64 values, then the next
     /// marker — checked, since "43 00" alone proves nothing.
     ///
     /// Only these shapes are repaired, because only these can be restored with

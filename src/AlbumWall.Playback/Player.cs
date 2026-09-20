@@ -151,7 +151,7 @@ public sealed class Player : IDisposable
     /// the point: turning the music down so a notification can be heard over it
     /// should not touch anything else that is making noise.
     ///
-    /// NOT the same lever as ReplayGain. That normalises between records; this is
+    /// NOT the same lever as ReplayGain. That normalizes between records; this is
     /// how loud the app is playing right now.
     public int Volume
     {

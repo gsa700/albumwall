@@ -2,19 +2,19 @@
 //
 // The background hue is DERIVED FROM THE LIBRARY'S OWN COVER ART rather than
 // chosen. A hand-picked value is the designer's taste imposed on someone else's
-// records; a derived one is the collection's own colour, and it is right for
+// records; a derived one is the collection's own color, and it is right for
 // every library instead of just the one it was tuned against.
 //
 // Only the HUE is taken from the art. Saturation and lightness are held at fixed
 // low values, because an honest average of album covers is muddy — mean pixel
 // saturation across this library is 0.27 and mean lightness 0.41, which as a
-// background would be a grey-brown sludge that fights every cover on the wall.
+// background would be a gray-brown sludge that fights every cover on the wall.
 // Taking the hue and imposing our own restraint keeps the covers the brightest,
 // most saturated thing on screen, which is the whole point of the view.
 //
 // DELIBERATELY LIBRARY-WIDE, NOT PER-ALBUM. A ground that re-tinted as tiles
 // scrolled past would be in constant motion behind static art — the background
-// would become the thing you watch. Per-album colour belongs to the expansion
+// would become the thing you watch. Per-album color belongs to the expansion
 // panel, where it is tied to a deliberate click and to one album at a time; see
 // the spec, "Panel tint".
 
@@ -28,7 +28,7 @@ namespace AlbumWall.App;
 public static class Ground
 {
     /// Warm amber, used only when a library yields no usable hue at all — an
-    /// empty library, or art that is entirely greyscale.
+    /// empty library, or art that is entirely grayscale.
     public const double FallbackHue = 30.0;
 
     /// Held constant across the ramp.
@@ -38,7 +38,7 @@ public static class Ground
     /// regardless of what the lightness did.
     ///
     /// At 0.02 the hue is barely present — a warm cast on a neutral rather than a
-    /// colour in its own right. The library still chooses it, and on a wall of
+    /// color in its own right. The library still chooses it, and on a wall of
     /// album art that is the point: anything more competes with the covers.
     ///
     /// NOW ADJUSTABLE, because it is the lever that decides the brown question
@@ -83,7 +83,7 @@ public static class Ground
 
     public static readonly Chrome[] Chromes =
     [
-        // Furniture sinks below the wall and drains of colour: the wall becomes
+        // Furniture sinks below the wall and drains of color: the wall becomes
         // the lit object in the room. Closest to what Firefox's dark theme does.
         new("recede", -5, 0.05, +11),
         // Furniture rises as a neutral panel — a toolbar laid over the wall.
@@ -127,7 +127,7 @@ public static class Ground
     /// meaningless, and a few thousand of them would drown the real signal.
     ///
     /// Returns concentration alongside the hue: 0 means the covers agree on
-    /// nothing, 1 means they are all one colour. Below ~0.2 there is no real
+    /// nothing, 1 means they are all one color. Below ~0.2 there is no real
     /// consensus and the caller should not pretend otherwise.
     public static (double Hue, double Concentration) HueOf(IEnumerable<Domain.Album> albums,
                                                            int maxCovers = 200)
@@ -171,7 +171,7 @@ public static class Ground
         Bitmap? bmp = null;
         try
         {
-            // 16 px wide is plenty: we want the average colour of the artwork,
+            // 16 px wide is plenty: we want the average color of the artwork,
             // not its detail, and the downscale is itself the averaging.
             bmp = ArtCache.DecodeTiny(source, 16);
             if (bmp is null) return (0, 0, 0);
@@ -202,7 +202,7 @@ public static class Ground
 
                     // Discard the hue-blind ends of the lightness range and
                     // scale by saturation: what is left is pixels that actually
-                    // carry colour.
+                    // carry color.
                     var weight = sat * (1 - Math.Abs(2 * lig - 1));
                     if (weight <= 0) continue;
 
@@ -217,7 +217,7 @@ public static class Ground
         }
         catch
         {
-            // One unreadable cover must not cost us the ground colour.
+            // One unreadable cover must not cost us the ground color.
             return (0, 0, 0);
         }
         finally { bmp?.Dispose(); }

@@ -33,13 +33,13 @@
              Fluent draws tabs as large underlined text, which against a dark
              palette reads as a row of labels rather than tabs. Both templates
              are replaced to get real tab chrome: outlined, rounded on top, the
-             selected one filled with the panel's colour and pulled down 1px so
+             selected one filled with the panel's color and pulled down 1px so
              tab and panel merge into one shape.
 
-             The differences from the original are the colours, which here are
+             The differences from the original are the colors, which here are
              not fixed brushes: the sheet is furniture and moves with the ground
              he chose, so everything is a DynamicResource fed by ApplyGround.
-             And there is no accent colour to mark the selected tab with — this
+             And there is no accent color to mark the selected tab with — this
              app's only accents belong to the albums — so it is marked by weight
              and by being the one joined to the panel.
 

@@ -1,13 +1,13 @@
 // AlbumWall — window controls, built to the window manager's own preferences.
 //
 // Removing the system title bar means taking on the job it was doing, and the
-// easy version of that job is wrong: hard-coding minimise/maximise/close on the
+// easy version of that job is wrong: hard-coding minimize/maximize/close on the
 // right is the Windows convention asserted over everyone else's desktop. This
-// machine's GNOME is set to `appmenu:minimize,close` — no maximise button at
-// all, because maximising is a double-click on the title bar — and an app that
+// machine's GNOME is set to `appmenu:minimize,close` — no maximize button at
+// all, because maximizing is a double-click on the title bar — and an app that
 // draws one anyway is ignoring a preference its owner deliberately set.
 //
-// So: ask the desktop what it wants, honour the side and the order, and draw
+// So: ask the desktop what it wants, honor the side and the order, and draw
 // only the buttons it asked for. Every platform gets its own convention, and
 // nobody gets a button they turned off.
 //

@@ -90,7 +90,7 @@ likely they are to be wrong on a new platform:
 - DPI: the Fedora box is a 2x display. Whatever Hambench is, check the window
   restores to a sane size and the text is not tiny or enormous
 - Fonts: the UI uses Inter (embedded) and Consolas for the mono bits
-- Clicking an album opens a panel, centred; a box set fills the window instead
+- Clicking an album opens a panel, centered; a box set fills the window instead
 - Playback, and **gapless across a track boundary** — that is a hard
   requirement of this project, and it has only ever been verified on Linux
 - The volume slider (top right) changes only this app's loudness
@@ -99,7 +99,7 @@ likely they are to be wrong on a new platform:
 
 - ~~No media keys.~~ Written since: `Smtc.cs` registers with the System Media
   Transport Controls on Windows. `Mpris.StartAsync` still fails there, by
-  design and silently apart from one log line — that is correct behaviour, and
+  design and silently apart from one log line — that is correct behavior, and
   `[smtc] registered…` is the line to look for instead.
 - **No rounded window corners**, as above.
 - Tag editing is not built; the button is disabled on purpose.
@@ -129,7 +129,7 @@ also writes `<path>.prefs.png` — its content only; the title bar is the
 system's and cannot be drawn from inside the app.
 
 `trace` prints the wall's geometry — panel height, scroll offset, extent,
-viewport, and every row's realisation state. Every scroll bug in this project
+viewport, and every row's realization state. Every scroll bug in this project
 was found by reading that and finding two numbers that disagreed.
 
 ## Things not to do
@@ -144,6 +144,11 @@ was found by reading that and finding two numbers that disagreed.
   snapshot into a new repo, not a flip of this one.
 
 ## Conventions
+
+**US English, everywhere** — comments, docs, commit messages, the interface.
+His rule: "Always use US English." The repository was written in British
+spelling until 2026-09-19 and converted in one sweep; keep it that way. Quoting
+someone verbatim keeps their spelling.
 
 Commit messages: imperative subject line, then prose explaining **why**, with
 the reasoning and anything that cost time to discover. They are long here on

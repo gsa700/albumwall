@@ -44,7 +44,7 @@ public static class ArtCache
     private static long _bytes;
 
     /// How many covers are currently decoded and held. Surfaced in the status bar:
-    /// it is the honest way to see both that the wall is virtualising and that the
+    /// it is the honest way to see both that the wall is virtualizing and that the
     /// cache is staying inside its budget.
     public static int Decoded { get { lock (Gate) return Cache.Count; } }
 
@@ -145,7 +145,7 @@ public static class ArtCache
     /// than the bucket is now kept at its own size — which is also less memory —
     /// and the view decides how far it is prepared to stretch it.
     ///
-    /// An unrecognised header falls through to the old behaviour.
+    /// An unrecognized header falls through to the old behavior.
     private static Bitmap DecodeNoLarger(byte[] data, int bucket)
     {
         using var ms = new MemoryStream(data);
@@ -155,7 +155,7 @@ public static class ArtCache
     }
 
     /// A one-off tiny decode that deliberately BYPASSES the cache: it is used to
-    /// derive the ground colour at startup, and a 16 px thumbnail has no business
+    /// derive the ground color at startup, and a 16 px thumbnail has no business
     /// occupying a cache slot that a display-size cover will want.
     public static Bitmap? DecodeTiny(string source, int px) => Decode(source, px);
 

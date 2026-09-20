@@ -9,7 +9,7 @@
 // API, and because gapless playback is a hard requirement and mpv already does it
 // properly. Shipping GStreamer on Windows is unpleasant; this is not.
 //
-// LICENCE: mpv is GPLv2-or-later, so linking it from a GPLv3 application is fine
+// LICENSE: mpv is GPLv2-or-later, so linking it from a GPLv3 application is fine
 // via the "or later" clause. Verified from mpv's own Copyright file.
 
 using System.Runtime.InteropServices;

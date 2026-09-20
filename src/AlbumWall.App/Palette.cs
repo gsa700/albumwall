@@ -1,6 +1,6 @@
-// AlbumWall — per-album colour, for the expansion panel.
+// AlbumWall — per-album color, for the expansion panel.
 //
-// This is the point of the interaction. Opening an album has to visibly recolour
+// This is the point of the interaction. Opening an album has to visibly recolor
 // that part of the window, so it reads as THAT ALBUM opening rather than a themed
 // box appearing. See the spec, "Panel tint".
 //
@@ -9,7 +9,7 @@
 // because it sits behind everything permanently. A panel is temporary, occupies
 // a bounded area, and is the subject while it is open, so it can afford real
 // saturation. What both share is the refusal to use an honest average as-is:
-// the mean pixel of a cover is mud, and mud is not a colour worth showing.
+// the mean pixel of a cover is mud, and mud is not a color worth showing.
 
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
@@ -64,7 +64,7 @@ public static class Palette
         Neutral = Build(28, 0.10, 0.74);
     }
 
-    /// A neutral warm palette for art that yields no usable colour — greyscale
+    /// A neutral warm palette for art that yields no usable color — grayscale
     /// covers, or an album with no art at all.
     public static AlbumPalette Neutral { get; private set; } = Build(28, 0.10, 0.74);
 
@@ -74,7 +74,7 @@ public static class Palette
         if (key is null) return Neutral;
         return Cache.GetOrAdd(key, static k =>
         {
-            var (hue, sat, highlight) = Analyse(k);
+            var (hue, sat, highlight) = Analyze(k);
             return sat <= 0.02 ? Neutral : Build(hue, sat, highlight);
         });
     }
@@ -100,18 +100,18 @@ public static class Palette
             Panel:   new ImmutableSolidColorBrush(ground),
             PanelFade: Fade(ground),
             Surface: Solid(hue, s * 0.85,   Lit(0.20)),
-            // The accent carries the album's colour at full strength. It is used
+            // The accent carries the album's color at full strength. It is used
             // on small elements only, where saturation is legible rather than
             // overwhelming.
             Accent:  Solid(hue, Math.Clamp(s * 1.9, 0.40, 0.70), 0.62),
             // Text is tinted a few points toward the album hue rather than pure
-            // white: on a coloured panel, neutral white reads as a foreign layer.
+            // white: on a colored panel, neutral white reads as a foreign layer.
             Text:    Solid(hue, 0.08, 0.95),
             TextDim: Solid(hue, 0.10, 0.68),
 
             // The LIGHT tone comes from the bright end of the cover, not from
             // lightening the dark one — an album's highlights are a different
-            // colour from its shadows, and using them is what makes this read as
+            // color from its shadows, and using them is what makes this read as
             // taken from the art rather than computed from it.
             //
             // Lightness is still clamped, for the same reason as everywhere else
@@ -137,7 +137,7 @@ public static class Palette
 
     /// The panel's ground, dissolving to nothing at its lower edge.
     ///
-    /// Fading to TRANSPARENT rather than to the wall's colour is what makes this
+    /// Fading to TRANSPARENT rather than to the wall's color is what makes this
     /// work: the panel does not need to know what it is sitting on, so the same
     /// brush is correct whatever ground the library's art produced, and it stays
     /// correct if that ground ever changes underneath it.
@@ -158,13 +158,13 @@ public static class Palette
             endPoint: new RelativePoint(0, 1, RelativeUnit.Relative));
     }
 
-    /// Saturation- and population-weighted colour of one cover.
+    /// Saturation- and population-weighted color of one cover.
     ///
     /// The hue is a circular mean, for the same reason as in Ground: hue wraps,
     /// so a plain average of 350 and 10 degrees returns their opposite. The
     /// saturation returned is the weighted mean, which is what tells us whether
-    /// this album has a colour at all or is a black-and-white sleeve.
-    private static (double Hue, double Saturation, double Highlight) Analyse(string source)
+    /// this album has a color at all or is a black-and-white sleeve.
+    private static (double Hue, double Saturation, double Highlight) Analyze(string source)
     {
         Avalonia.Media.Imaging.Bitmap? bmp = null;
         try
@@ -223,7 +223,7 @@ public static class Palette
     /// Mean lightness of the cover's brightest quarter.
     ///
     /// The upper quartile rather than the maximum: one blown-out white pixel is
-    /// not a colour the album is made of, and a sleeve with a small specular
+    /// not a color the album is made of, and a sleeve with a small specular
     /// highlight would otherwise produce the same bar as a white sleeve.
     private static double Highlight(List<double> lightnesses)
     {

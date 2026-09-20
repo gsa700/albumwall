@@ -46,7 +46,7 @@
                                             Opacity="{Binding GroundOpacity}"/>
                                     <!-- The WHOLE cover, never cropped and never
                                          enlarged past CoverMax: a small or oblong
-                                         one sits centred on the ground above. -->
+                                         one sits centered on the ground above. -->
                                     <Image Classes="cover" Source="{Binding Cover}"
                                            Opacity="{Binding CoverOpacity}"
                                            Stretch="{Binding CoverStretch}"
@@ -92,7 +92,7 @@
             </ItemsControl>
         </DataTemplate>
 
-        <!-- The open album. Full wall width, coloured by its own artwork. -->
+        <!-- The open album. Full wall width, colored by its own artwork. -->
         <DataTemplate x:Key="PanelRowTemplate" DataType="app:PanelRow">
             <!-- ClipToBounds is load-bearing, not tidiness. The unfold animates
                  this element's HEIGHT, and without clipping the panel's contents
@@ -244,7 +244,7 @@
                           Fill="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"
                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"/>
 
-                    <!-- Two blocks rather than a converter: the "playing" colour
+                    <!-- Two blocks rather than a converter: the "playing" color
                          is the PANEL's accent, which differs per album, so there
                          is no single brush a converter could return. -->
                     <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="14"
@@ -264,7 +264,7 @@
         </DataTemplate>
 
         <!-- The single source of truth for tile geometry. Updating this at
-             runtime re-sizes every realised tile without touching bindings. -->
+             runtime re-sizes every realized tile without touching bindings. -->
         <sys:Double x:Key="CoverPx">185</sys:Double>
     </Window.Resources>
 
@@ -279,7 +279,7 @@
              the instant it decodes. A short fade makes loading read as the wall
              filling in rather than as flicker. -->
         <!-- The sleeve as a play target. Fluent puts its own background and
-             border on a hovered button, which would draw a grey box around the
+             border on a hovered button, which would draw a gray box around the
              art, so both are stripped from the content presenter as well. -->
         <Style Selector="Button.coverplay">
             <Setter Property="Background" Value="Transparent"/>
@@ -411,7 +411,7 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <!-- Fluent's sliders default to the system blue accent, which is the one
-             cold thing in a window whose every other colour comes from the
+             cold thing in a window whose every other color comes from the
              artwork. Warm neutrals sit correctly on both the chrome bar and an
              album-tinted transport without needing to know which. -->
         <Style Selector="Slider:horizontal /template/ RepeatButton#PART_DecreaseButton">
@@ -445,7 +445,7 @@
             <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="20"/>
         </Style>
-        <!-- Dark overlays, because the transport bar is now a LIGHT colour taken
+        <!-- Dark overlays, because the transport bar is now a LIGHT color taken
              from the album art. White-on-white would be invisible. -->
         <Style Selector="Button.transport /template/ ContentPresenter">
             <Setter Property="Background" Value="#18000000"/>
@@ -493,7 +493,7 @@
         </Style>
 
         <!-- The playing track wears the hover highlight permanently. A translucent
-             white wash rather than a colour, so it works against every album
+             white wash rather than a color, so it works against every album
              palette by construction — which a fixed blue did not, and which the
              album's own accent could not, since the disc headers use that. -->
         <Style Selector="Button.track.playing /template/ ContentPresenter">
@@ -541,7 +541,7 @@
                          For turning the music down so something else can be
                          heard over it — a notification, a call, someone at the
                          door — without touching anything else that is making
-                         noise. Its neighbour on the right is the menu, so it
+                         noise. Its neighbor on the right is the menu, so it
                          sits at the end of the row where a hand goes looking
                          for a control rather than a setting. -->
                     <StackPanel Orientation="Horizontal" Spacing="8"
@@ -579,7 +579,7 @@
         <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Background="#1C1915" BorderBrush="#2B2620"
                 BorderThickness="0,1,0,0" Height="50">
             <!-- Three columns with equal stars on the outside, so the search box
-                 sits at the TRUE centre of the window regardless of how long the
+                 sits at the TRUE center of the window regardless of how long the
                  text either side of it happens to be. -->
             <Panel>
             <!-- Scan progress: a line along the top edge of the bar, where it can
@@ -610,7 +610,7 @@
         <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="82"
                 BorderThickness="0,1,0,0" IsVisible="False">
             <!-- Title and progress SHARE the slack, weighted 1 : 1.6 in the
-                 progress bar's favour. A fixed width for either is wrong: a
+                 progress bar's favor. A fixed width for either is wrong: a
                  230 px title truncates real information, and a title given all
                  the slack leaves a progress bar too short to seek in on a wide
                  window. Proportions also survive resizing, which fixed widths
@@ -685,7 +685,7 @@
 
              The wall is a list of ROWS, not a grid. A uniform grid has no row to
              insert between, and the expansion panel has to push the rows after it
-             down. StackLayout still virtualises, by row instead of by tile. -->
+             down. StackLayout still virtualizes, by row instead of by tile. -->
         <ScrollViewer x:Name="WallScroller"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto"

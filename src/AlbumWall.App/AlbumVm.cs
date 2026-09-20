@@ -25,8 +25,8 @@ public sealed class AlbumVm : INotifyPropertyChanged
     {
         Album = album;
         OpenCommand = new Relay(() => OnOpen?.Invoke(this));
-        // A deterministic colour per album, so a cover that is missing or slow
-        // still reads as a distinct object on the wall rather than a grey hole.
+        // A deterministic color per album, so a cover that is missing or slow
+        // still reads as a distinct object on the wall rather than a gray hole.
         Placeholder = PlaceholderBrushFor(album);
     }
 
@@ -48,7 +48,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
         }
     }
 
-    /// The ring takes the album's OWN accent colour, so the selected tile is
+    /// The ring takes the album's OWN accent color, so the selected tile is
     /// visibly tied to the panel that opened below it.
     public Avalonia.Media.IBrush RingBrush => Palette.For(Album).Accent;
 
@@ -65,7 +65,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
     ///
     /// Do the best with what is available — his phrase, and the whole policy. A
     /// 150 px thumbnail stretched across a 278 px tile is a blur; the same image
-    /// at up to one and a half times its size, centred on the album's own
+    /// at up to one and a half times its size, centered on the album's own
     /// ground, is a small print on a mat, and reads as deliberate. 1.5 is where
     /// enlargement stops being invisible; most covers never get near it.
     private const double MaxEnlarge = 1.5;
@@ -93,12 +93,12 @@ public sealed class AlbumVm : INotifyPropertyChanged
             ? Avalonia.Media.Stretch.Uniform
             : Avalonia.Media.Stretch.UniformToFill;
 
-    /// The coloured ground is a stand-in for a cover, so it leaves when the cover
+    /// The colored ground is a stand-in for a cover, so it leaves when the cover
     /// arrives.
     ///
     /// It used to stay underneath, which nobody could see while every cover
     /// filled its tile. Once small and oblong covers were shown at their own
-    /// size it became a coloured border round them, in a hue hashed from the
+    /// size it became a colored border round them, in a hue hashed from the
     /// album's name and so unrelated to the artwork. His suggestion on seeing
     /// it: "how about transparency instead of the colored borders". A small
     /// cover now sits directly on the wall, and the only tiles that keep a
@@ -109,7 +109,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
     /// No picture to show: none in the files, or one that would not decode. The
     /// tile then carries the title and artist itself, so it reads as a plain
-    /// sleeve rather than a coloured hole. Known from the scan, not from the
+    /// sleeve rather than a colored hole. Known from the scan, not from the
     /// cover having failed to arrive yet — that would flash text under every
     /// cover on the wall while it loaded.
     public bool HasNoArt => !Album.HasArt || _artFailed;
@@ -120,7 +120,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
     private int _loadedBucket = -1;
 
-    /// Called when the tile is realised by the virtualising layout, so art is
+    /// Called when the tile is realized by the virtualizing layout, so art is
     /// only fetched for albums actually on screen.
     public async void EnsureCover(int displayPx)
     {
@@ -190,7 +190,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
     /// cap at all.
     ///
     /// Without this a 180 px cover in a 185-unit tile sat inside a 2 px frame of
-    /// its ground colour — the same stripe-as-fault problem as CoverStretch, met
+    /// its ground color — the same stripe-as-fault problem as CoverStretch, met
     /// from the other direction. A mat has to be wide enough to look meant. The
     /// view model cannot decide this alone because it does not know the slot:
     /// the same cover is shown in a tile and in the panel's sleeve.

@@ -45,7 +45,7 @@ public sealed class Album
     public string? ArtEmbeddedIn { get; set; }
 
     /// The cover's real size in pixels, read from its header at scan time, or
-    /// zero when there is no art or the format was not recognised. Zero means
+    /// zero when there is no art or the format was not recognized. Zero means
     /// UNKNOWN and must never be read as "small".
     public int ArtWidth { get; set; }
     public int ArtHeight { get; set; }

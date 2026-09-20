@@ -14,8 +14,8 @@
 // already owned, because "cover size is the control and the column count is a
 // consequence" was decided at design time.
 //
-// Virtualisation survives, and improves: StackLayout virtualises by row, so a
-// realised row realises its own covers. Roughly the same number of covers decode
+// Virtualization survives, and improves: StackLayout virtualizes by row, so a
+// realized row realizes its own covers. Roughly the same number of covers decode
 // as before, which the status bar counter confirms.
 
 namespace AlbumWall.App;
@@ -77,7 +77,7 @@ public sealed class PanelRow : WallItem
     /// does not replay it.
     public bool Unfolded { get; set; }
 
-    /// Left offset of the arrow's centre, measured from the panel's left edge.
+    /// Left offset of the arrow's center, measured from the panel's left edge.
     public double ArrowOffset => ArrowColumn * (CoverPx + Spacing) + CoverPx / 2;
 
     public string HeaderLine
@@ -169,7 +169,7 @@ public sealed class PanelRow : WallItem
     public IEnumerable<TrackLine> AllLines => LeftColumn.Concat(RightColumn);
 
     /// Offset of the arrow, as a margin. Half the arrow's 22 px width is taken
-    /// off so its POINT lands on the cover's centre, not its left corner.
+    /// off so its POINT lands on the cover's center, not its left corner.
     public Avalonia.Thickness ArrowMargin => new(ArrowOffset - 11, 0, 0, 0);
 
     private (IReadOnlyList<TrackLine> Left, IReadOnlyList<TrackLine> Right)? _split;

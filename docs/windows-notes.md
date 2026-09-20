@@ -31,7 +31,7 @@ What the bring-up list asked about:
   the sound is continuous across the boundary, not one lucky transition.
   Worth noting what that was tested on: M4A (AAC), not FLAC — lossy
   formats are the harder case, because the encoder pads each track and a
-  player has to honour the gapless metadata to trim it. So this passing says
+  player has to honor the gapless metadata to trim it. So this passing says
   more than the FLAC result on Linux did.
 - **Volume slider: correct, by ear.** His words: "volume slider only changes the
   app". The system volume is left alone.
