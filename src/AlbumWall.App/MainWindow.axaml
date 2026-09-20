@@ -3,7 +3,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         xmlns:app="clr-namespace:AlbumWall.App"
         x:Class="AlbumWall.App.MainWindow"
-        Title="Album Wall"
+        Title="AlbumWall"
         Width="1444" Height="1080"
         WindowStartupLocation="Manual"
         Background="Transparent"
