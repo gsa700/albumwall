@@ -551,7 +551,7 @@
                                     M 11 4.5 A 5.5 5.5 0 0 1 11 11.5"
                               Fill="#F3EEE6" Stroke="#F3EEE6" StrokeThickness="1.4"
                               VerticalAlignment="Center"/>
-                        <Slider x:Name="VolumeSlider" Width="88" VerticalAlignment="Center"
+                        <Slider x:Name="VolumeSlider" Width="132" VerticalAlignment="Center"
                                 Minimum="0" Maximum="100"
                                 TickFrequency="1" IsSnapToTickEnabled="True"
                                 ToolTip.Tip="How loud this app plays"/>
