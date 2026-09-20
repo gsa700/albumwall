@@ -168,3 +168,52 @@ Append what you find to this file, or add `docs/windows-notes.md`, and push.
 The Fedora side cannot see that machine, so anything you learn there only
 exists if you write it down. Particularly worth recording: what broke, what the
 DPI and chrome actually did, and whether gapless survived.
+
+## 2026-09-20 — our own libmpv for Windows needs testing there
+
+Until now Windows has played through the upstream mpv DLL that
+`get-libmpv.ps1` fetches: about 100 MB, the whole player, including H.264,
+HEVC and VVC decoders the app never calls. The Fedora side now builds an
+**audio-only `libmpv-2.dll` of 9.4 MB** from the same pinned recipe as the Linux
+library (`scripts/build-libmpv/`, cross-compiled with mingw — which is also how
+mpv's own Windows builds are made). Same mpv 0.41.0, same decoder list, one
+recipe for every platform.
+
+What was verifiable from Linux has been verified: it imports nothing but DLLs
+that are part of Windows (the build now FAILS if the mingw runtime leaks into
+the import table — an earlier attempt depended on `libstdc++-6.dll` and would
+have loaded nowhere), and it exports all 13 `mpv_*` functions `Mpv.cs` imports.
+What cannot be verified from here is everything that matters: that it loads,
+that WASAPI plays, and that **gapless still holds**.
+
+To try it (the repository is private, so this goes through `gh`):
+
+```powershell
+cd albumwall
+git pull
+Remove-Item native\win-x64\libmpv-2.dll          # the upstream one
+gh release download libmpv-0.41.0-1 --pattern "*win-x64*" --dir $env:TEMP
+Expand-Archive "$env:TEMP\libmpv-0.41.0-1-win-x64.zip" native\win-x64 -Force
+dotnet run --project src\AlbumWall.App
+```
+
+Keep a copy of the upstream DLL somewhere until this one has proved itself;
+putting it back is the whole rollback.
+
+Worth checking, in this order:
+
+1. **It plays at all.** If the panel opens and nothing happens when the sleeve
+   is pressed, the DLL did not load — look for `playback unavailable` in the
+   log.
+2. **MP3 and M4A both play.** The decoder list is short on purpose (FLAC, MP3,
+   AAC, ALAC, Vorbis, Opus, PCM) and that library is entirely the second and
+   third of those. On Linux all seven were played through the sibling build.
+3. **GAPLESS, by ear, on Dark Side** — the same test as before, because this is
+   a different ffmpeg from the one that passed it. This is the one that decides
+   whether the DLL ships.
+4. Volume still changes only the app, and the mixer should now name the
+   session **AlbumWall** rather than mpv (`audio-client-name`, new in `06c4868`).
+
+If it passes, `get-libmpv.ps1` should learn to fetch this release instead of
+SourceForge — that change belongs to the Windows side, where it can be run.
+Write what happens into `windows-notes.md`.
