@@ -81,7 +81,7 @@ is ahead, the history is for what is behind.
   `get-libmpv.ps1` should fetch our release instead of SourceForge. Wanted
   before the repository goes public; the upstream DLL is the rollback until then.
 
-- **The native libraries are release assets now**: tag `libmpv-0.41.0-1`, a
+- **The native libraries are release assets now**: tag `libmpv-0.41.0-2`, a
   PRE-release on purpose so `/releases/latest` (and with it the app's updater)
   never mistakes it for an app version. linux-x64 and win-x64 are there;
   **linux-arm64 is still to build**, natively on a Pi, with the same script. Bump

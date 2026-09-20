@@ -164,23 +164,28 @@ run libplacebo-setup meson setup /src/libplacebo/b /src/libplacebo "${MESON_COMM
 run libplacebo-build ninja -C /src/libplacebo/b install
 
 # libplacebo has one C++ file (number formatting, via std::to_chars), and mpv
-# links as a C program, so on mingw nothing pulls the C++ runtime in and the
-# final link fails on four undefined references. It has to be named AFTER
-# libplacebo on the link line — static libraries resolve left to right — which
-# rules out mpv's link args, because meson puts those first. Its own pkg-config
-# entry is the one place that lands in the right order.
+# links as a C program, so nothing pulls the C++ runtime in. It has to be named
+# AFTER libplacebo on the link line — static libraries resolve left to right —
+# which rules out mpv's link args, because meson puts those first. libplacebo's
+# own pkg-config entry is the one place that lands in the right order.
 #
 # BY FULL PATH TO THE STATIC ARCHIVE, not as -lstdc++. Given the short form,
-# meson resolves it to the import library and the DLL comes out depending on
-# libstdc++-6.dll — which exists on no Windows machine that lacks a mingw
-# install, so it would have failed to load everywhere but here. winpthread
-# rides along because this toolchain's libstdc++ is the posix-threads flavor;
-# a static archive only contributes the objects something actually uses.
+# meson resolves it to the shared library: on Windows the DLL came out
+# depending on libstdc++-6.dll, which no clean Windows machine has.
+#
+# ON LINUX THE SAME HOLE WAS INVISIBLE FOR A DAY. A shared library may be
+# linked with symbols left undefined, so the build succeeded, and the app
+# played music through it — because every .NET process already has libstdc++
+# loaded, and the missing symbols were resolved by accident from there. Loaded
+# into a clean process on a Pi it failed at once. A library that only works
+# inside a host that happens to bring its dependencies is not self-contained;
+# hence the -z defs and the clean-process load test further down.
 if [ "$TARGET" = win64 ]; then
-    STDCXX=$($CXX -print-file-name=libstdc++.a)
-    WINPTHREAD=$($CXX -print-file-name=libwinpthread.a)
-    sed -i "/^Libs:/ s|\$| $STDCXX $WINPTHREAD|" "$PREFIX/lib/pkgconfig/libplacebo.pc"
+    STDCXX="$($CXX -print-file-name=libstdc++.a) $($CXX -print-file-name=libwinpthread.a)"
+else
+    STDCXX=$(g++ -print-file-name=libstdc++.a)
 fi
+sed -i "/^Libs:/ s|\$| $STDCXX|" "$PREFIX/lib/pkgconfig/libplacebo.pc"
 
 # ffmpeg: start from nothing and add back the list at the top. mpv insists on
 # all six libraries being present, so swscale and avfilter stay, empty.
@@ -221,9 +226,12 @@ else
     # The three audio outputs a Linux desktop might be using. These are the
     # only things the result links against dynamically, on purpose — they must
     # match the daemon on the machine it runs on, so they can never be bundled.
+    #
+    # -z defs makes an undefined symbol a LINK ERROR instead of something that
+    # surfaces on someone else's machine.
     MPV_ARGS+=(-Dalsa=enabled -Dpulse=enabled -Dpipewire=enabled
-               "-Dc_link_args=-static-libgcc -static-libstdc++"
-               "-Dcpp_link_args=-static-libgcc -static-libstdc++")
+               "-Dc_link_args=-static-libgcc -Wl,-z,defs"
+               "-Dcpp_link_args=-static-libgcc -Wl,-z,defs")
 fi
 run mpv-setup meson setup /src/mpv/b /src/mpv "${MPV_ARGS[@]}"
 run mpv-build ninja -C /src/mpv/b
@@ -251,6 +259,15 @@ else
     cp "$LIB" /out/libmpv.so.2
     OUTFILE=/out/libmpv.so.2
     DEPS=$(readelf -d "$OUTFILE" | sed -nE 's/.*NEEDED.*\[(.*)\]/  \1/p' | sort)
+
+    # The test the first version of this script lacked: load the library into a
+    # process that has NOTHING else in it, binding every symbol now. python3 is
+    # already here for meson. If this fails, the build fails.
+    python3 -c "import ctypes, os; ctypes.CDLL('$OUTFILE', mode=os.RTLD_NOW)" \
+        || { echo "!! the library does not load into a clean process" >&2; exit 1; }
+    if echo "$DEPS" | grep -q 'libstdc++'; then
+        echo "!! the library depends on the host's libstdc++" >&2; exit 1
+    fi
 fi
 
 {

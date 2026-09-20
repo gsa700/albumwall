@@ -192,8 +192,8 @@ To try it (the repository is private, so this goes through `gh`):
 cd albumwall
 git pull
 Remove-Item native\win-x64\libmpv-2.dll          # the upstream one
-gh release download libmpv-0.41.0-1 --pattern "*win-x64*" --dir $env:TEMP
-Expand-Archive "$env:TEMP\libmpv-0.41.0-1-win-x64.zip" native\win-x64 -Force
+gh release download libmpv-0.41.0-2 --pattern "*win-x64*" --dir $env:TEMP
+Expand-Archive "$env:TEMP\libmpv-0.41.0-2-win-x64.zip" native\win-x64 -Force
 dotnet run --project src\AlbumWall.App
 ```
 
