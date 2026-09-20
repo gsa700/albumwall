@@ -40,7 +40,7 @@ is ahead, the history is for what is behind.
      shows `[mpv] library: ~/.net/AlbumWall/<hash>/libmpv.so.2`. All three
      platforms publish from one machine. The Windows exe (136 MB — the WinRT
      projection assembly is 24 MB of that) awaits its first run on Hambench:
-     pre-release `v0.1.0-test2`.
+     pre-release `v0.1.0-test3`.
   2. ~~The native libraries published as release assets of their own~~ —
      done, see the entry below. A release script should fetch them by tag.
   3. ~~`InstallService`~~ — done, ported from Shack Power into

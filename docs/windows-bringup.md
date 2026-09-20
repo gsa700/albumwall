@@ -198,7 +198,7 @@ Hambench therefore covers four unknowns at once: the exe starts, the DLL
 self-extracts and loads, WASAPI plays, and gapless holds.
 
 ```powershell
-gh release download v0.1.0-test2 --repo gsa700/albumwall --pattern "*win-x64*" --dir $env:TEMP
+gh release download v0.1.0-test3 --repo gsa700/albumwall --pattern "*win-x64*" --dir $env:TEMP
 Expand-Archive "$env:TEMP\AlbumWall-win-x64.zip" "$env:USERPROFILE\AlbumWall-test" -Force
 explorer.exe "$env:USERPROFILE\AlbumWall-test\AlbumWall.exe"    # through Explorer, per windows-notes
 ```
