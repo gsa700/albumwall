@@ -186,7 +186,30 @@ have loaded nowhere), and it exports all 13 `mpv_*` functions `Mpv.cs` imports.
 What cannot be verified from here is everything that matters: that it loads,
 that WASAPI plays, and that **gapless still holds**.
 
-To try it (the repository is private, so this goes through `gh`):
+**UPDATE, later the same night — test the single-file build instead; it proves
+more in one go.** The app now publishes as a true single file with libmpv
+folded inside (`PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`, the
+family's standard), and the Fedora box can publish all three platforms. On
+Linux this is verified end to end: the exe unpacks its library to
+`~/.net/AlbumWall.App/<hash>/` and the log shows `[mpv] library:` pointing
+there, not at the system's copy. The Windows exe was published from Fedora and
+contains our exact DLL, byte for byte — but it has never run. One test on
+Hambench therefore covers four unknowns at once: the exe starts, the DLL
+self-extracts and loads, WASAPI plays, and gapless holds.
+
+```powershell
+gh release download v0.1.0-test1 --repo gsa700/albumwall --pattern "*win-x64*" --dir $env:TEMP
+Expand-Archive "$env:TEMP\AlbumWall-win-x64.zip" "$env:USERPROFILE\AlbumWall-test" -Force
+explorer.exe "$env:USERPROFILE\AlbumWall-test\AlbumWall.App.exe"    # through Explorer, per windows-notes
+```
+
+It is a Release build: no trigger files, no snapshot. It uses the real
+`%AppData%\albumwall` settings, so it should come up on the usual library.
+Then the same checks as below — MP3 and M4A play, GAPLESS on Dark Side, volume
+and mixer name. If it misbehaves, the loose-DLL steps that follow isolate
+whether the DLL or the bundling is at fault.
+
+The original loose-DLL test (the repository is private, so this goes through `gh`):
 
 ```powershell
 cd albumwall

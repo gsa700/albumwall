@@ -28,6 +28,13 @@
     <TargetFramework Condition="'$(ForWindows)' != 'True'">net10.0</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Version>0.1.0</Version>
+    <!-- A release is a TRUE single file, the family's standard (see Shack Power):
+         the in-app updater replaces only the exe, so everything native — Skia,
+         HarfBuzz, and our own libmpv — MUST be inside it, not shipped loose
+         beside it. Applies on publish with a RID; ignored by build and run. -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
