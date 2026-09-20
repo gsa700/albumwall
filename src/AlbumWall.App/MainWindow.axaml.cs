@@ -1935,6 +1935,21 @@ public partial class MainWindow : Window
     {
         _sessionOver = true;
         SaveSession();      // nothing playing any more; an open panel still counts
+
+        // The record is over, or was stopped: nothing is loaded, so the play
+        // controls go, the track in the panel loses its mark, and the desktop's
+        // media controls are told. "Hidden entirely until something is playing"
+        // was only ever true of the time BEFORE the first play; afterwards the
+        // bar stayed up for good, showing the last track at 0:00 with a Play
+        // button that did nothing — "a row of dead controls taking up wall",
+        // which is the thing its own comment in the markup says it must not be.
+        //
+        // Unless something else has been started since this was posted, in which
+        // case the player is on a track again and all of this belongs to it.
+        if (_player is { Index: >= 0 }) return;
+        _playingAlbum = null;
+        UpdateNowPlaying();
+        MarkPlayingTrack();
     }
 
     private bool _resumeTried;

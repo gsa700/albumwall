@@ -252,16 +252,20 @@ public sealed class Player : IDisposable
         var hold = 1;
         Mpv.mpv_set_property(_ctx, "pause", Mpv.Format.Flag, ref hold);
 
-        Mpv.Command(_ctx, "stop");
-        foreach (var path in list)
-            Mpv.Command(_ctx, "loadfile", path, "append");
-
+        // Armed BEFORE the stop, not after it. The stop makes mpv idle for a
+        // moment, and the event pump tells that idle from a record ending by
+        // whether a request is in flight (see idle-active below). Armed
+        // afterwards, there was a window in which it could not tell.
         var wanted = Math.Clamp(start, 0, list.Count - 1);
         _pending = wanted;
         _pendingTries = 0;
         _pendingStarted = false;
         _pendingHold = paused;
         _pendingUntil = DateTime.UtcNow.AddSeconds(3);
+
+        Mpv.Command(_ctx, "stop");
+        foreach (var path in list)
+            Mpv.Command(_ctx, "loadfile", path, "append");
 
         _startArmed = at is { TotalSeconds: > 0.5 };
         Mpv.mpv_set_property_string(_ctx, "start",
@@ -330,6 +334,10 @@ public sealed class Player : IDisposable
 
     public void Stop()
     {
+        // No request is in flight any more, so the idle this causes is a real
+        // ending and must be reported as one (see idle-active in the pump) —
+        // even when Stop comes within the three seconds a Play() stays armed.
+        _pending = -1;
         Mpv.Command(_ctx, "stop");
         IsPlaying = false;
         StateChanged?.Invoke(this, EventArgs.Empty);
@@ -394,6 +402,21 @@ public sealed class Player : IDisposable
                         _startArmed = false;
                         Mpv.mpv_set_property_string(_ctx, "start", "none");
                     }
+
+                    // AND ASK WHERE IT IS, because the property observer will not
+                    // always say. mpv reports a property only when its value
+                    // differs from the last one it REPORTED, and Play() takes
+                    // playlist-pos from N to -1 to N faster than that is looked
+                    // at. So starting track 1 of one album while track 1 of
+                    // another was playing — pressing two sleeves in a row, the
+                    // most ordinary thing there is — produced no event at all:
+                    // three seconds of silence until the deadline above gave up
+                    // ("never reached 0; playing anyway"), then music with Index
+                    // still -1, so no play controls and no track marked. Measured
+                    // on Hambench 2026-09-20, on the build before this one. A file
+                    // having loaded is the one thing that always happens.
+                    if (Mpv.mpv_get_property(_ctx, "playlist-pos", Mpv.Format.Int64, out long at) == 0)
+                        OnPosition((int)at);
                     break;
             }
         }
@@ -414,54 +437,81 @@ public sealed class Player : IDisposable
                 break;
 
             case 4:     // playlist-pos
-                var pos = (int)Marshal.ReadInt64(prop.Data);
-                if (pos < 0) return;
-
-                if (_pending >= 0)
-                {
-                    if (DateTime.UtcNow >= _pendingUntil)
-                    {
-                        _pending = -1;              // window closed; whatever it is now, it is
-                    }
-                    else if (pos != _pending)
-                    {
-                        // Landed somewhere we did not ask for: put it back.
-                        if (_pendingTries++ < 5)
-                        {
-                            Console.WriteLine($"[mpv] drifted to {pos}, reasserting {_pending} "
-                                            + $"(attempt {_pendingTries})");
-                            Mpv.Command(_ctx, "playlist-play-index", _pending.ToString());
-                            return;
-                        }
-                        Console.WriteLine($"[mpv] gave up reasserting {_pending}; sitting at {pos}");
-                        _pending = -1;
-                    }
-                    else if (!_pendingStarted)
-                    {
-                        // On the requested track at last — let it be heard,
-                        // unless this is a restore, which arrives and waits.
-                        _pendingStarted = true;
-                        SetPaused(_pendingHold);
-                    }
-                    // A match does NOT disarm: it may still drift away afterwards.
-                }
-
-                if (pos == _index) return;
-                _index = pos;
-                lock (_gate)
-                    if (pos < _queue.Count)
-                        Console.WriteLine($"[mpv] playlist-pos -> {pos}  "
-                                        + $"{System.IO.Path.GetFileName(_queue[pos])}");
-                TrackChanged?.Invoke(this, new TrackChangedEventArgs(pos));
+                OnPosition((int)Marshal.ReadInt64(prop.Data));
                 break;
 
             case 5:     // idle-active — the playlist ran out
                 if (Marshal.ReadInt32(prop.Data) == 0) return;
+
+                // Or Play() has just said `stop`, which is idle too, for an
+                // instant. A request in flight means this is that, whatever
+                // Index says by the time the event is looked at.
+                if (_pending >= 0) return;
+
                 IsPlaying = false;
                 StateChanged?.Invoke(this, EventArgs.Empty);
                 Finished?.Invoke(this, EventArgs.Empty);
+
+                // AND THEN IT IS ON NO TRACK, which has to be said here because
+                // nothing else will say it. mpv does report playlist-pos -1 when
+                // the queue runs out, and OnPosition throws every negative
+                // position away — rightly, they also arrive in the middle of
+                // Play() — so Index went on naming the last track of a record
+                // that had finished, and the app, asking "is it on a track?",
+                // kept the play controls up over nothing: last title, 0:00, a
+                // Play button that played nothing. His report, 2026-09-20: "the
+                // control bar should disappear when there is no album playing".
+                //
+                // After Finished, not before: a listener can still see which
+                // track it ended on.
+                _index = -1;
                 break;
         }
+    }
+
+    /// Where mpv says it is. Reached from the playlist-pos observer and from
+    /// every file load, since the observer alone can miss one (see FileLoaded).
+    /// Safe to call twice with the same answer.
+    private void OnPosition(int pos)
+    {
+        if (pos < 0) return;
+
+        if (_pending >= 0)
+        {
+            if (DateTime.UtcNow >= _pendingUntil)
+            {
+                _pending = -1;              // window closed; whatever it is now, it is
+            }
+            else if (pos != _pending)
+            {
+                // Landed somewhere we did not ask for: put it back.
+                if (_pendingTries++ < 5)
+                {
+                    Console.WriteLine($"[mpv] drifted to {pos}, reasserting {_pending} "
+                                    + $"(attempt {_pendingTries})");
+                    Mpv.Command(_ctx, "playlist-play-index", _pending.ToString());
+                    return;
+                }
+                Console.WriteLine($"[mpv] gave up reasserting {_pending}; sitting at {pos}");
+                _pending = -1;
+            }
+            else if (!_pendingStarted)
+            {
+                // On the requested track at last — let it be heard,
+                // unless this is a restore, which arrives and waits.
+                _pendingStarted = true;
+                SetPaused(_pendingHold);
+            }
+            // A match does NOT disarm: it may still drift away afterwards.
+        }
+
+        if (pos == _index) return;
+        _index = pos;
+        lock (_gate)
+            if (pos < _queue.Count)
+                Console.WriteLine($"[mpv] playlist-pos -> {pos}  "
+                                + $"{System.IO.Path.GetFileName(_queue[pos])}");
+        TrackChanged?.Invoke(this, new TrackChangedEventArgs(pos));
     }
 
     public void Dispose()
