@@ -385,6 +385,13 @@ kept as the rollback and the control; `-Force` refetches. All four paths were
 run here under Windows PowerShell 5.1, and the DLL it leaves is byte-identical
 (SHA-256 `c2857e0e…`) to the one measured above.
 
+**And by ear, in the player, the same afternoon:** the development build
+rebuilt onto our DLL (the running process has the 9.5 MB `libmpv-2.dll` loaded,
+same SHA-256 as the measured one), Dark Side played through the joins that gave
+the "barely audible burp" in test3. His words: "gapless works on Dark Side with
+our DLL, perfect." So the measurement and the ears agree, in both directions:
+-2 failed both, -3 passes both.
+
 One trap it now steps around: the project copies the DLL to the output folder
 with `PreserveNewest`, which goes by date, and Copy-Item keeps the source's.
 Rolling back to a DLL BUILT EARLIER than the one in `bin` would therefore never
