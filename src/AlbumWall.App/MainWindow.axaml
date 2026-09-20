@@ -375,9 +375,13 @@
             <Setter Property="Height" Value="26"/>
             <Setter Property="CornerRadius" Value="13"/>
         </Style>
+        <!-- The height of the top bar less its rule, so the hover fills the bar
+             from edge to edge the way Windows' own caption buttons do. They were
+             38 in a bar of 60: "look at the window buttons there is a lot of
+             space around them and we really don't need that space." -->
         <Style Selector="Button.wbtn.square">
             <Setter Property="Width" Value="46"/>
-            <Setter Property="Height" Value="38"/>
+            <Setter Property="Height" Value="43"/>
             <Setter Property="CornerRadius" Value="0"/>
         </Style>
         <Style Selector="Button.wbtn /template/ ContentPresenter">
@@ -519,8 +523,12 @@
     <Panel>
     <DockPanel>
 
+        <!-- 44 tall. It was 60, sized when it also carried the tuning bench, and
+             nothing left in it is taller than 27 px. Windows 11 apps that draw
+             their own title bar run 40 to 48; the bottom bar here is 50. Anything
+             that needs this number reads TopBar.Height, not a copy of it. -->
         <Border x:Name="TopBar" DockPanel.Dock="Top" Background="#1C1915" BorderBrush="#2B2620"
-                BorderThickness="0,0,0,1" Height="60">
+                BorderThickness="0,0,0,1" Height="44">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="8,0,0,0">
                 <StackPanel Grid.Column="0" x:Name="LeftButtons" Orientation="Horizontal"
                             Margin="0,0,10,0" Spacing="6" VerticalAlignment="Center"/>
@@ -551,10 +559,35 @@
                                     M 11 4.5 A 5.5 5.5 0 0 1 11 11.5"
                               Fill="#F3EEE6" Stroke="#F3EEE6" StrokeThickness="1.4"
                               VerticalAlignment="Center"/>
+                        <!-- WHY THE RESOURCES. The Fluent slider is 62 px tall: a 32 px
+                             track row with 15 px reserved above and below it for tick
+                             marks this one does not have. In a bar of 60 that went
+                             unnoticed. In a bar of 44 the control is TALLER THAN THE
+                             BAR, and a control that does not fit is not centered at
+                             all - it is laid out from the top - so the thumb sat
+                             3.3 px under the speaker beside it. "the volume control
+                             slider needs to move up a bit though, it's not centered".
+                             A margin did nothing, for the same reason. Taking away the
+                             reserve makes it 32 px, which fits, which centers - the
+                             CONTROL. The thumb is another matter: the template puts
+                             its 21 px track row at the TOP of those 32, so the thumb's
+                             middle is 4.7 px above the control's (probed: thumb at
+                             y 1.3, 20 tall, in a box of 32). The top margin of 9 moves
+                             the control down 4.5 and puts the thumb on the speaker's
+                             center line, measured from a snapshot to half a pixel. -->
                         <Slider x:Name="VolumeSlider" Width="132" VerticalAlignment="Center"
+                                Margin="0,9,0,0"
                                 Minimum="0" Maximum="100"
                                 TickFrequency="1" IsSnapToTickEnabled="True"
-                                ToolTip.Tip="How loud this app plays"/>
+                                ToolTip.Tip="How loud this app plays">
+                            <Slider.Resources>
+                                <!-- GridLength, NOT x:Double: the theme uses these as row
+                                     heights, and a double here is an InvalidCastException
+                                     at startup, before the window exists. -->
+                                <GridLength x:Key="SliderPreContentMargin">0</GridLength>
+                                <GridLength x:Key="SliderPostContentMargin">0</GridLength>
+                            </Slider.Resources>
+                        </Slider>
                     </StackPanel>
 
                     <!-- Settings, straight to Preferences. Placed at the INNER
@@ -592,8 +625,11 @@
         </Border>
 
         <!-- SIZE is the control; column count and library length follow from it. -->
+        <!-- 44, to match the top bar: "lets shrink the bottom one to the same
+             height as the top". It was 50. The search box is the tallest thing in
+             it, at about 30. -->
         <Border x:Name="BottomBar" DockPanel.Dock="Bottom" Background="#1C1915" BorderBrush="#2B2620"
-                BorderThickness="0,1,0,0" Height="50">
+                BorderThickness="0,1,0,0" Height="44">
             <!-- Three columns with equal stars on the outside, so the search box
                  sits at the TRUE center of the window regardless of how long the
                  text either side of it happens to be. -->
@@ -633,86 +669,6 @@
             </Panel>
         </Border>
 
-        <!-- Transport. Declared after the controls bar so it docks ABOVE it, and
-             hidden entirely until something is playing: an empty transport is a
-             row of dead controls taking up wall. -->
-        <!-- It SLIDES in and out: the code animates Height between 0 and 82 and
-             this clips, so the controls are uncovered rather than squashed. See
-             ShowTransport. The 82 here is what the previewer sees. -->
-        <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="82" ClipToBounds="True"
-                BorderThickness="0,1,0,0" IsVisible="False">
-            <!-- Title and progress SHARE the slack, weighted 1 : 1.6 in the
-                 progress bar's favor. A fixed width for either is wrong: a
-                 230 px title truncates real information, and a title given all
-                 the slack leaves a progress bar too short to seek in on a wide
-                 window. Proportions also survive resizing, which fixed widths
-                 do not. -->
-            <Grid ColumnDefinitions="Auto,*,Auto,1.6*,Auto" Margin="26,0">
-
-                <!-- THE WAY BACK TO WHAT IS PLAYING.
-                     Nothing else in the app takes you there, and in a wall of a
-                     few hundred records you would otherwise go and look for it.
-                     The cover of the playing album is the obvious thing to
-                     press, for the same reason the panel's sleeve is: it is
-                     already a picture of where you want to go.
-
-                     The hover mark is an arrow, not a triangle — pressing this
-                     takes you somewhere, it does not start anything. -->
-                <Button Grid.Column="0" Classes="coverplay" VerticalAlignment="Center"
-                        Click="OnRevealPlaying">
-                    <Border Width="58" Height="58" CornerRadius="3" ClipToBounds="True">
-                        <Panel>
-                            <Image x:Name="TransportArt" Stretch="UniformToFill"/>
-                            <Panel x:Name="RevealOverlay">
-                                <Border Background="#3C000000"/>
-                                <Path Data="M 9 5 L 3 11 L 9 17 M 3 11 L 15 11 A 5 5 0 0 1 15 21"
-                                      Stroke="#F2FFFFFF" StrokeThickness="2.1"
-                                      StrokeLineCap="Round" StrokeJoin="Round"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Panel>
-                        </Panel>
-                    </Border>
-                </Button>
-
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,20,0"
-                            MinWidth="230" Spacing="2">
-                    <!-- The song is what you look down at the bar to read; the
-                         artist and album are context and stay quiet. -->
-                    <TextBlock x:Name="TransportTitle" FontSize="16" FontWeight="Medium"
-                               TextTrimming="CharacterEllipsis" MaxLines="1"/>
-                    <TextBlock x:Name="TransportArtist" Classes="dim" FontSize="11"
-                               TextTrimming="CharacterEllipsis" MaxLines="1"/>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
-                            VerticalAlignment="Center" Margin="16,0,16,0">
-                    <Button x:Name="PrevButton" Classes="transport" ToolTip.Tip="Previous"/>
-                    <Button x:Name="PlayPauseButton" Classes="transport big" ToolTip.Tip="Play / pause"/>
-                    <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"/>
-                </StackPanel>
-
-                <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
-                      MinWidth="260" VerticalAlignment="Center">
-                    <TextBlock Grid.Column="0" x:Name="ElapsedText" Classes="mono dim"
-                               FontSize="11" VerticalAlignment="Center" Width="46"
-                               TextAlignment="Right"/>
-                    <Slider Grid.Column="1" x:Name="PositionSlider" Classes="onlight"
-                            Minimum="0" Maximum="1"
-                            VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="2" x:Name="RemainingText" Classes="mono dim"
-                               FontSize="11" VerticalAlignment="Center" Width="52"/>
-                </Grid>
-
-                <!-- ReplayGain must be VISIBLE, never silently applied. Click to
-                     cycle: album gain keeps a record's own dynamics, track gain
-                     levels everything, off is off. -->
-                <Button Grid.Column="4" x:Name="GainButton" Classes="chrome"
-                        Margin="20,0,0,0" VerticalAlignment="Center"
-                        FontSize="10" Padding="10,5"
-                        ToolTip.Tip="ReplayGain — click to change"/>
-            </Grid>
-        </Border>
-
         <!-- Vertical scrolling only: width is fixed by the window.
 
              The wall is a list of ROWS, not a grid. A uniform grid has no row to
@@ -731,6 +687,104 @@
         </ScrollViewer>
 
     </DockPanel>
+
+    <!-- THE PLAY CONTROLS FLOAT OVER THE WALL. They are not in the DockPanel and
+         take no room from it.
+
+         They used to be docked, so showing them made the wall 82 px shorter. That
+         was tolerable while they appeared in a single frame, and fell apart the
+         moment they were made to slide (80ba5fa): the wall changed size on every
+         frame of the slide, every size change re-centers the open album
+         (8825766, written for window resizes), and the hold that keeps a panel
+         still fought it the whole way - "panel slid 706.7 in all, corrected" for
+         one 82 px slide. His diagnosis, exactly: "are we triggering a recenter
+         on the current album? that is what it looks like and its blocky and not
+         smooth. can we detach the control pane from the album display".
+
+         So: a slot the height of the bar, parked against the inside edge of the
+         bottom bar (or the title bar - see ApplyTransportPosition), clipping. The
+         bar inside it moves on a render transform from just outside the slot to
+         in it, which costs no layout at all. The wall never hears about it. What
+         the bar covers stays reachable because the scroller is given that much
+         extra padding on that edge while the bar is up (ShowTransport).
+
+         Hidden entirely until something is playing: an empty transport is a row
+         of dead controls. -->
+    <Border x:Name="TransportSlot" Height="82" ClipToBounds="True" IsVisible="False"
+            VerticalAlignment="Bottom" Margin="0,0,0,44">
+    <Border x:Name="Transport" Height="82" BorderThickness="0,1,0,0" RenderTransform="translateY(82px)">
+        <!-- Title and progress SHARE the slack, weighted 1 : 1.6 in the
+             progress bar's favor. A fixed width for either is wrong: a
+             230 px title truncates real information, and a title given all
+             the slack leaves a progress bar too short to seek in on a wide
+             window. Proportions also survive resizing, which fixed widths
+             do not. -->
+        <Grid ColumnDefinitions="Auto,*,Auto,1.6*,Auto" Margin="26,0">
+
+            <!-- THE WAY BACK TO WHAT IS PLAYING.
+                 Nothing else in the app takes you there, and in a wall of a
+                 few hundred records you would otherwise go and look for it.
+                 The cover of the playing album is the obvious thing to
+                 press, for the same reason the panel's sleeve is: it is
+                 already a picture of where you want to go.
+
+                 The hover mark is an arrow, not a triangle — pressing this
+                 takes you somewhere, it does not start anything. -->
+            <Button Grid.Column="0" Classes="coverplay" VerticalAlignment="Center"
+                    Click="OnRevealPlaying">
+                <Border Width="58" Height="58" CornerRadius="3" ClipToBounds="True">
+                    <Panel>
+                        <Image x:Name="TransportArt" Stretch="UniformToFill"/>
+                        <Panel x:Name="RevealOverlay">
+                            <Border Background="#3C000000"/>
+                            <Path Data="M 9 5 L 3 11 L 9 17 M 3 11 L 15 11 A 5 5 0 0 1 15 21"
+                                  Stroke="#F2FFFFFF" StrokeThickness="2.1"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Panel>
+                    </Panel>
+                </Border>
+            </Button>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,20,0"
+                        MinWidth="230" Spacing="2">
+                <!-- The song is what you look down at the bar to read; the
+                     artist and album are context and stay quiet. -->
+                <TextBlock x:Name="TransportTitle" FontSize="16" FontWeight="Medium"
+                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                <TextBlock x:Name="TransportArtist" Classes="dim" FontSize="11"
+                           TextTrimming="CharacterEllipsis" MaxLines="1"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                        VerticalAlignment="Center" Margin="16,0,16,0">
+                <Button x:Name="PrevButton" Classes="transport" ToolTip.Tip="Previous"/>
+                <Button x:Name="PlayPauseButton" Classes="transport big" ToolTip.Tip="Play / pause"/>
+                <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"/>
+            </StackPanel>
+
+            <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+                  MinWidth="260" VerticalAlignment="Center">
+                <TextBlock Grid.Column="0" x:Name="ElapsedText" Classes="mono dim"
+                           FontSize="11" VerticalAlignment="Center" Width="46"
+                           TextAlignment="Right"/>
+                <Slider Grid.Column="1" x:Name="PositionSlider" Classes="onlight"
+                        Minimum="0" Maximum="1"
+                        VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" x:Name="RemainingText" Classes="mono dim"
+                           FontSize="11" VerticalAlignment="Center" Width="52"/>
+            </Grid>
+
+            <!-- ReplayGain must be VISIBLE, never silently applied. Click to
+                 cycle: album gain keeps a record's own dynamics, track gain
+                 levels everything, off is off. -->
+            <Button Grid.Column="4" x:Name="GainButton" Classes="chrome"
+                    Margin="20,0,0,0" VerticalAlignment="Center"
+                    FontSize="10" Padding="10,5"
+                    ToolTip.Tip="ReplayGain — click to change"/>
+        </Grid>
+    </Border>
+    </Border>
 
     <!-- FIRST RUN ON A FRESH MACHINE IS AN EMPTY MUSIC FOLDER, and an empty wall
          with no explanation is indistinguishable from a broken app. This says

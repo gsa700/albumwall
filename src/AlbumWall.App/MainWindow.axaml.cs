@@ -119,7 +119,7 @@ public partial class MainWindow : Window
         // label and has no business running four times a second.
         DispatcherTimer.Run(() =>
         {
-            if (_player is not null && Transport.IsVisible) UpdatePosition();
+            if (_player is not null && _transportShown) UpdatePosition();
             return true;
         }, TimeSpan.FromMilliseconds(250));
         SetUpBench();
@@ -850,6 +850,25 @@ public partial class MainWindow : Window
             foreach (var kind in kinds)
                 panel.Children.Add(WindowButtons.Create(kind, () => Invoke(kind)));
 
+        // SQUARE BUTTONS GO TO THE EDGE. The markup spaces the buttons 6 apart and
+        // holds them 8 in from the side of the window, which is right for GNOME's
+        // round ones and wrong for Windows' square ones: every other window on
+        // his desktop has a close button that reaches the corner, and this one
+        // stopped short of it. "why doesn't the red close button go all the way to
+        // the edge of the window like other apps?" Because nothing had told it to.
+        // The red hover is then clipped by the window's own rounded corner, as it
+        // is on every Windows 11 title bar; Surface already clips to its radius.
+        if (!OperatingSystem.IsLinux())
+        {
+            LeftButtons.Spacing = RightButtons.Spacing = 0;
+            RightButtons.Margin = new Thickness(RightButtons.Margin.Left, 0, 0, 0);
+            if (left.Length > 0 && TopBar.Child is Grid bar)
+            {
+                bar.Margin = new Thickness(0);
+                LeftButtons.Margin = new Thickness(0, 0, LeftButtons.Margin.Right, 0);
+            }
+        }
+
         void Invoke(WindowButtons.Kind k)
         {
             switch (k)
@@ -981,20 +1000,22 @@ public partial class MainWindow : Window
     private void ApplyTransportPosition()
     {
         var top = TransportAtTop;
-        DockPanel.SetDock(Transport, top ? Dock.Top : Dock.Bottom);
+
+        // The slot parks against the inside edge of whichever bar it comes out
+        // from under, and the bar slides out of it AWAY from that edge: up from
+        // the bottom bar, down from the title bar.
+        TransportSlot.VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+        TransportSlot.Margin = top ? new Thickness(0, TopBar.Height, 0, 0) : new Thickness(0, 0, 0, BottomBar.Height);
         Transport.BorderThickness = top ? new Thickness(0, 0, 0, 1) : new Thickness(0, 1, 0, 0);
 
-        // Which way it slides. The controls keep their full height while the bar
-        // around them grows, pinned to the edge the bar grows AWAY from — so from
-        // the bottom they rise into view top first, and from under the title bar
-        // they drop into view bottom first. Pinned the other way the bar would
-        // open like a curtain over controls that never move, which is a wipe,
-        // not a slide.
-        if (Transport.Child is Control controls)
-        {
-            controls.Height = TransportHeight - 1;        // less the rule along one edge
-            controls.VerticalAlignment = top ? VerticalAlignment.Bottom : VerticalAlignment.Top;
-        }
+        // Changing sides with the bar up: it simply turns up on the other side,
+        // and the wall's padding follows it. With the bar down, it is re-parked
+        // beyond its new edge. Neither is animated; it is a setting, not an event.
+        var transitions = Transport.Transitions;
+        Transport.Transitions = null;
+        Transport.RenderTransform = Shifted(_transportShown ? 0 : TransportHiddenY);
+        Transport.Transitions = transitions;
+        if (_transportShown) SetWallInset(true);
     }
 
     private void ToggleMaximized() =>
@@ -1539,7 +1560,7 @@ public partial class MainWindow : Window
         {
             TransportAtTop = text.EndsWith("top", StringComparison.OrdinalIgnoreCase);
             Console.WriteLine($"[wall] transport at {(TransportAtTop ? "top" : "bottom")}, "
-                            + $"dock={DockPanel.GetDock(Transport)}");
+                            + $"slot={TransportSlot.VerticalAlignment} margin={TransportSlot.Margin}");
             return;
         }
 
@@ -2187,17 +2208,29 @@ public partial class MainWindow : Window
     private void OnPlaybackState(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); SaveSession(); });
 
-    /// The transport is the only thing that changes the wall's height while an
-    /// album is open, so it is the only place that has to hold the wall still.
+    /// Shows or hides the play controls, which SLIDE and which FLOAT.
     ///
-    /// IT SLIDES. "both work, bar switches and disappears correctly. but it's
-    /// kind of abrupt. can it sort of slide in and out?" It used to be a switch
-    /// of IsVisible: 82 px of wall gone or back in one frame. Now Height runs
-    /// between 0 and 82 on a transition and the wall's edge travels with it.
-    /// That is a real change of layout on every frame, not a picture moved over
-    /// the top, on purpose: the wall is what the bar displaces, and a bar that
-    /// slid over a wall which had already jumped would only be half the fix.
-    /// The hold below runs for the whole of it, for the reason it exists at all.
+    /// Slide: "it's kind of abrupt. can it sort of slide in and out?" Float: the
+    /// first slide (80ba5fa) animated the docked bar's Height, which resized the
+    /// wall on every frame, which re-centered the open album on every frame
+    /// (8825766 does that for any change of size, having been written for window
+    /// resizes), while the hold that used to live here pulled the other way —
+    /// "[hold] panel slid 706.7 in all, corrected", for an 82 px slide. He saw it
+    /// at once: "are we triggering a recenter on the current album? ... its
+    /// blocky and not smooth. can we detach the control pane from the album
+    /// display so that doesn't happen?"
+    ///
+    /// So the bar is an overlay (see TransportSlot in the markup) and moves on a
+    /// render transform. No layout happens, the wall's viewport never changes,
+    /// and nothing that watches the wall's size has anything to react to. The
+    /// hold is gone with the problem it was holding against.
+    ///
+    /// What the bar covers must still be reachable, or the last row of the
+    /// library could never be seen while music played. The scroller gets the
+    /// bar's height as extra padding on that edge for as long as the bar is up.
+    /// Below, that only lengthens the scroll range and moves nothing. Above, it
+    /// pushes the content down, so the offset goes with it and what is on screen
+    /// stays where it is.
     private void ShowTransport(bool visible)
     {
         if (_transportShown == visible) return;
@@ -2205,66 +2238,124 @@ public partial class MainWindow : Window
 
         if (Transport.Transitions is null)
         {
-            // First use. Collapsed without ceremony, THEN given its transition,
-            // or the first thing it would do is animate shut from the markup's 82.
-            Transport.Height = 0;
+            // First use. Parked out of sight without ceremony, THEN given its
+            // transition, or the first thing it would do is animate to there.
+            //
+            // The transition is on the control's RenderTransform, as transform
+            // OPERATIONS — the form Avalonia can interpolate. A transition hung on
+            // a TranslateTransform object's own Y was tried first and did nothing
+            // at all: the bar arrived in one frame, which the sampler below said
+            // plainly ("in: 0 0 0 0 ...").
+            Transport.RenderTransform = Shifted(TransportHiddenY);
             Transport.Transitions =
             [
-                new DoubleTransition
+                new TransformOperationsTransition
                 {
-                    Property = HeightProperty,
+                    Property = RenderTransformProperty,
                     Duration = TransportSlide,
                     Easing = new CubicEaseOut()
                 }
             ];
         }
 
-        var before = PanelTopInView();
         _transportGone?.Stop();
         _transportGone = null;
 
         if (visible)
         {
-            Transport.IsVisible = true;
-            Transport.Height = TransportHeight;
+            TransportSlot.IsVisible = true;
+            SetWallInset(true);
+            Transport.RenderTransform = Shifted(0);
         }
         else
         {
-            // Out of the layout altogether once it has closed, as before: a
-            // zero-height border still has a one-pixel rule along its edge.
-            Transport.Height = 0;
+            Transport.RenderTransform = Shifted(TransportHiddenY);
+
+            // The slot leaves once the bar has left it: an empty slot is still
+            // 82 px of wall that swallows clicks. The padding goes then too, not
+            // before, or at the very end of the library the last row would drop
+            // behind a bar that is still on its way out.
             _transportGone = new DispatcherTimer { Interval = TransportSlide + TimeSpan.FromMilliseconds(40) };
             _transportGone.Tick += (_, _) =>
             {
                 _transportGone?.Stop();
                 _transportGone = null;
-                if (!_transportShown) Transport.IsVisible = false;
+                if (_transportShown) return;
+                TransportSlot.IsVisible = false;
+                SetWallInset(false);
             };
             _transportGone.Start();
         }
 
-        KeepPanelInView(before, TransportSlide);
-
 #if DEBUG
-        // The snapshot rig takes two seconds a picture and cannot see a quarter
-        // second of movement, so the slide says for itself that it happened: the
-        // bar's height as laid out, a few times on the way. One line.
-        var heights = new List<string>();
+        // The snapshot rig takes two seconds a picture and cannot see half a
+        // second of movement, so the slide says for itself that it happened: how
+        // far out of its slot the bar is, a few times on the way, and whether the
+        // wall's viewport moved at all — which it must not. One line.
+        var seen = new List<string>();
         var ticks = 0;
+        var viewBefore = WallScroller.Viewport.Height;
         var sampler = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
         sampler.Tick += (_, _) =>
         {
-            heights.Add($"{Transport.Bounds.Height:0}");
-            if (++ticks < 9) return;
+            seen.Add($"{Transport.RenderTransform?.Value.M32:0}");
+            if (++ticks < TransportSlide.TotalMilliseconds / 40 + 3) return;     // the slide and a little after
             sampler.Stop();
-            Console.WriteLine($"[transport] {(visible ? "in" : "out")}: {string.Join(" ", heights)}");
+            Console.WriteLine($"[transport] {(visible ? "in" : "out")}: {string.Join(" ", seen)}"
+                            + $"  · wall viewport {viewBefore:0} -> {WallScroller.Viewport.Height:0}");
         };
         sampler.Start();
 #endif
     }
 
+    /// Gives the scroller the bar's height as padding on the bar's edge, or takes
+    /// it back. Idempotent, and safe to call when the bar changes sides.
+    private void SetWallInset(bool on)
+    {
+        var want = on ? (TransportAtTop ? Dock.Top : Dock.Bottom) : (Dock?)null;
+        if (want == _wallInset) return;
+
+        // Undo whatever is there, then apply what is wanted, keeping the content
+        // still on screen through both: padding above moves the content, so the
+        // offset moves by the same amount in the same breath.
+        var offsetBy = 0.0;
+        if (_wallInset == Dock.Top) offsetBy -= TransportHeight;
+        if (want == Dock.Top) offsetBy += TransportHeight;
+        _wallInset = want;
+
+        WallScroller.Padding = new Thickness(
+            WallPadding.Left,
+            WallPadding.Top + (want == Dock.Top ? TransportHeight : 0),
+            WallPadding.Right,
+            WallPadding.Bottom + (want == Dock.Bottom ? TransportHeight : 0));
+
+        if (offsetBy == 0) return;
+        WallScroller.UpdateLayout();        // the new extent first, or the offset is clamped to the old one
+        var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
+        WallScroller.Offset = WallScroller.Offset.WithY(Math.Clamp(WallScroller.Offset.Y + offsetBy, 0, max));
+    }
+
+    /// The scroller's padding as the markup has it, before any inset.
+    private static readonly Thickness WallPadding = new(26, 20, 26, 0);
+    private Dock? _wallInset;
+
+    /// How much of the wall's viewport the play controls are covering, and so not
+    /// available for showing an album in: TargetOffset centers in what is left.
+    private double CoveredByTransport => _transportShown ? TransportHeight : 0;
+
+    private double TransportHiddenY => TransportAtTop ? -TransportHeight : TransportHeight;
+
+    private static Avalonia.Media.Transformation.TransformOperations Shifted(double y) =>
+        Avalonia.Media.Transformation.TransformOperations.Parse(
+            $"translateY({y.ToString(System.Globalization.CultureInfo.InvariantCulture)}px)");
+
     private const double TransportHeight = 82;
-    private static readonly TimeSpan TransportSlide = TimeSpan.FromMilliseconds(240);
+
+    // 240 at first, which measured fine and looked wrong: "it's too fast, lets
+    // double it to start". Then, once it floated and could be judged at all:
+    // "MUCH better. lets make it even slower, like another 30% or so". Only a
+    // person watching can set this one.
+    private static readonly TimeSpan TransportSlide = TimeSpan.FromMilliseconds(620);
     private bool _transportShown;
     private DispatcherTimer? _transportGone;
 
@@ -2374,64 +2465,6 @@ public partial class MainWindow : Window
         if (_panelAt <= 0 || _panelAt >= _rows.Count) return null;
         return Wall.TryGetElement(_panelAt)?.TranslatePoint(default, WallScroller)?.Y;
     }
-
-    /// Puts the open panel back where it was on screen after something changed
-    /// the wall's geometry underneath it.
-    ///
-    /// SHOWING OR HIDING THE TRANSPORT CHANGES THE VIEWPORT'S HEIGHT, which makes
-    /// the ItemsRepeater re-estimate its extent — and the scroll offset is an
-    /// absolute number into that estimate. It stays put while the content slides
-    /// under it, so the album you just started playing walks off the top of the
-    /// window: measured at 453 px for a 16-track album, and worse further down
-    /// the library, because the error grows with distance from the top.
-    ///
-    /// His report: "I clicked on the first track, it started playing and then the
-    /// window disapeared... if I scroll up it will be there."
-    ///
-    /// Correcting by the DIFFERENCE in the panel's on-screen position, rather
-    /// than by any absolute figure, is what makes this independent of whatever
-    /// the estimate happens to be doing.
-    ///
-    /// `during` is how long the geometry goes on changing — the transport's
-    /// slide — and the hold outlasts it by the half second it always ran for.
-    private void KeepPanelInView(double? before, TimeSpan during = default)
-    {
-        if (before is null) return;
-
-        // HOLD IT, do not correct once. The viewport change, the re-measure and
-        // the repeater's new extent estimate do not all land in the same layout
-        // pass, so a single correction runs before the content has finished
-        // sliding, measures a delta of nothing, and congratulates itself.
-        _panelHold?.Stop();
-        var until = DateTime.UtcNow + during + TimeSpan.FromMilliseconds(500);
-        var corrected = 0.0;
-
-        _panelHold = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _panelHold.Tick += (_, _) =>
-        {
-            if (DateTime.UtcNow > until)
-            {
-                _panelHold?.Stop();
-                _panelHold = null;
-                // Once, at the end. It used to say so on every tick, which was one
-                // line when the bar appeared in a frame and is fifteen now.
-                if (Math.Abs(corrected) >= 0.5) Console.WriteLine($"[hold] panel slid {corrected:F1} in all, corrected");
-                return;
-            }
-            if (PanelTopInView() is not { } after) return;
-
-            var delta = after - before.Value;
-            if (Math.Abs(delta) < 0.5) return;
-
-            var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
-            WallScroller.Offset = WallScroller.Offset
-                .WithY(Math.Clamp(WallScroller.Offset.Y + delta, 0, max));
-            corrected += delta;
-        };
-        _panelHold.Start();
-    }
-
-    private DispatcherTimer? _panelHold;
 
     /// Takes the wall to the album that is playing, and opens it.
     ///
@@ -2704,8 +2737,12 @@ public partial class MainWindow : Window
     /// the view rather than at one end of it.
     private double TargetOffset(int rowIndex)
     {
-        var view = WallScroller.Viewport.Height;
-        var max = Math.Max(0, WallScroller.Extent.Height - view);
+        // What can be SEEN, which is less than the viewport while the play
+        // controls are floating over one edge of it. With them above, the content
+        // has been padded down by the same amount, so the two cancel and the
+        // arithmetic below is the same either way.
+        var view = WallScroller.Viewport.Height - CoveredByTransport;
+        var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
 
         // Closing: no panel, so keep a row of context above the album that was
         // folded away and leave the eye where it was.
