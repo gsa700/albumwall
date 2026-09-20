@@ -44,10 +44,10 @@ is ahead, the history is for what is behind.
   1. ~~The single-file publish with libmpv folded INSIDE it~~ — done. The
      bundler recognizes our library as native on its own (it sniffs ELF and PE
      files), and the resolver finds the self-extracted copy: on Linux the log
-     shows `[mpv] library: ~/.net/AlbumWall.App/<hash>/libmpv.so.2`. All three
+     shows `[mpv] library: ~/.net/AlbumWall/<hash>/libmpv.so.2`. All three
      platforms publish from one machine. The Windows exe (136 MB — the WinRT
      projection assembly is 24 MB of that) awaits its first run on Hambench:
-     pre-release `v0.1.0-test1`.
+     pre-release `v0.1.0-test2`.
   2. ~~The native libraries published as release assets of their own~~ —
      done, see the entry below. A release script should fetch them by tag.
   3. `InstallService` — which also fixes the entry below, and whose Linux half

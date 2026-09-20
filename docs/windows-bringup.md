@@ -191,17 +191,25 @@ more in one go.** The app now publishes as a true single file with libmpv
 folded inside (`PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`, the
 family's standard), and the Fedora box can publish all three platforms. On
 Linux this is verified end to end: the exe unpacks its library to
-`~/.net/AlbumWall.App/<hash>/` and the log shows `[mpv] library:` pointing
+`~/.net/AlbumWall/<hash>/` and the log shows `[mpv] library:` pointing
 there, not at the system's copy. The Windows exe was published from Fedora and
 contains our exact DLL, byte for byte — but it has never run. One test on
 Hambench therefore covers four unknowns at once: the exe starts, the DLL
 self-extracts and loads, WASAPI plays, and gapless holds.
 
 ```powershell
-gh release download v0.1.0-test1 --repo gsa700/albumwall --pattern "*win-x64*" --dir $env:TEMP
+gh release download v0.1.0-test2 --repo gsa700/albumwall --pattern "*win-x64*" --dir $env:TEMP
 Expand-Archive "$env:TEMP\AlbumWall-win-x64.zip" "$env:USERPROFILE\AlbumWall-test" -Force
-explorer.exe "$env:USERPROFILE\AlbumWall-test\AlbumWall.App.exe"    # through Explorer, per windows-notes
+explorer.exe "$env:USERPROFILE\AlbumWall-test\AlbumWall.exe"    # through Explorer, per windows-notes
 ```
+
+**The executable is now `AlbumWall.exe`, not `AlbumWall.App.exe`** — "drop the
+.App", the family's convention (ShackPower.exe). The project folder and the
+namespace keep their names; only what lands on disk changed, so a development
+build is now `bin\Debug\net10.0-windows10.0.19041.0\AlbumWall.exe`. An existing
+Start Menu shortcut still points at the old name: the About tab will notice
+and offer to re-point it. Anything in `windows-notes.md` that says
+`AlbumWall.App.exe` predates this.
 
 It is a Release build: no trigger files, no snapshot. It uses the real
 `%AppData%\albumwall` settings, so it should come up on the usual library.
