@@ -112,6 +112,7 @@ public partial class MainWindow : Window
         TopBar.PointerPressed += OnTitleBarPressed;
         BuildWindowButtons();
         BuildTransport();
+        ApplyTransportPosition();
 
         // Position ticks on its own, faster and far cheaper than the full
         // now-playing refresh, which recomputes the palette and rewrites every
@@ -891,6 +892,35 @@ public partial class MainWindow : Window
         BeginMoveDrag(e);
     }
 
+    /// Whether the play controls sit above the wall or below it.
+    ///
+    /// The DockPanel does the work: docking the transport Top while it still sits
+    /// AFTER the bottom bar in child order puts it directly under the title bar,
+    /// because a DockPanel gives each child a strip of what is left in the order
+    /// the children are declared. The bottom bar keeps its place either way.
+    ///
+    /// The separator line moves with it. Docked at the bottom the rule belongs on
+    /// its top edge, docked at the top it belongs on its bottom edge, or the
+    /// transport ends up with a line on the side facing nothing.
+    public bool TransportAtTop
+    {
+        get => _settings.TransportAtTop == true;
+        set
+        {
+            if (TransportAtTop == value) return;
+            _settings.TransportAtTop = value;
+            _settings.Save();
+            ApplyTransportPosition();
+        }
+    }
+
+    private void ApplyTransportPosition()
+    {
+        var top = TransportAtTop;
+        DockPanel.SetDock(Transport, top ? Dock.Top : Dock.Bottom);
+        Transport.BorderThickness = top ? new Thickness(0, 0, 0, 1) : new Thickness(0, 1, 0, 0);
+    }
+
     private void ToggleMaximized() =>
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
@@ -1429,6 +1459,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        // The play controls' side of the window, so the option can be checked by
+        // a script the way the window state can.
+        if (text.Equals("transport top", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("transport bottom", StringComparison.OrdinalIgnoreCase))
+        {
+            TransportAtTop = text.EndsWith("top", StringComparison.OrdinalIgnoreCase);
+            Console.WriteLine($"[wall] transport at {(TransportAtTop ? "top" : "bottom")}, "
+                            + $"dock={DockPanel.GetDock(Transport)}");
+            return;
+        }
+
         // Window state, so that the corner squaring and the un-maximize geometry
         // can be checked by a script instead of by remembering what last night
         // looked like. Both were reported by eye on 2026-09-20.
@@ -1498,7 +1539,9 @@ public partial class MainWindow : Window
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(honest: true); return; }
         if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
-        if (text.Equals("prefs colors", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Colors); return; }
+        if (text.Equals("prefs appearance", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("prefs colors", StringComparison.OrdinalIgnoreCase))   // the tab's old name
+        { ShowPrefs(PrefsWindow.Tab.Appearance); return; }
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.About); return; }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }

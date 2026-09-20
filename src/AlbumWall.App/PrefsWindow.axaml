@@ -103,7 +103,7 @@
 
              Everything applies as it moves. Nobody ever chose one of these
              numbers except by looking at it. -->
-        <TabItem Header="Colors">
+        <TabItem Header="Appearance">
             <StackPanel Spacing="16">
                 <!-- WHAT THE COLOR IS, BEFORE HOW TO CHANGE IT. The first version of
                      this tab was three controls with a caption each, and it read
@@ -165,6 +165,18 @@
 
                 <Button x:Name="ResetColors" Classes="panel" Content="Back to the defaults"
                         Margin="70,2,0,0"/>
+
+                <!-- Not a color, but the same kind of thing: something about the
+                     look of the window that only the person looking at it can
+                     decide. It lives here rather than in a tab of its own, which
+                     is why the tab is no longer called Colors. -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Layout" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                    <CheckBox x:Name="TransportTop" Content="Play controls above the wall"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="Off, they sit along the bottom, under the wall. The search box and the library counts stay at the bottom either way."/>
+                </StackPanel>
             </StackPanel>
         </TabItem>
 

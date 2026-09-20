@@ -9,7 +9,7 @@ namespace AlbumWall.App;
 public partial class PrefsWindow : Window
 {
     /// In the order they appear. About stays last.
-    public enum Tab { Library, Startup, Colors, About }
+    public enum Tab { Library, Startup, Appearance, About }
 
     private readonly MainWindow? _host;
 
@@ -55,6 +55,15 @@ public partial class PrefsWindow : Window
             if (_filling) return;
             host.AppSettings.AutoPlay = AutoPlay.IsChecked == true;
             host.AppSettings.Save();
+        };
+
+        // Applies as it moves, like the rest of this tab: the point of the option
+        // is to see which way round you prefer, and that cannot be done from a
+        // checkbox that only takes effect next launch.
+        TransportTop.IsCheckedChanged += (_, _) =>
+        {
+            if (_filling) return;
+            host.TransportAtTop = TransportTop.IsChecked == true;
         };
 
         Light.Minimum = Ground.MinLightness;
@@ -163,6 +172,7 @@ public partial class PrefsWindow : Window
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;
         AutoPlay.IsChecked = _host.AppSettings.AutoPlay == true;
         AutoPlay.IsEnabled = Resume.IsChecked == true;
+        TransportTop.IsChecked = _host.TransportAtTop;
         Light.Value = _host.ColorLightness;
         Tint.Value = _host.ColorTint;
         Bars.SelectedIndex = _host.ColorChrome;

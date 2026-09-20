@@ -40,6 +40,11 @@ public sealed class Settings
     public bool? ResumeSession { get; set; }
     public bool? AutoPlay { get; set; }
 
+    /// Whether the play controls sit above the wall instead of below it. Off is
+    /// the layout everything else was designed around, and stays the default:
+    /// "default to bottom as now but make it an option in settings."
+    public bool? TransportAtTop { get; set; }
+
     /// Where the music lives. Null means the platform's own Music folder, which
     /// is the right default everywhere and the only one that needs no setup.
     ///
