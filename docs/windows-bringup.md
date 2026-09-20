@@ -248,3 +248,41 @@ Worth checking, in this order:
 If it passes, `get-libmpv.ps1` should learn to fetch this release instead of
 SourceForge — that change belongs to the Windows side, where it can be run.
 Write what happens into `windows-notes.md`.
+
+## 2026-09-20 — the installer needs its Windows half tested
+
+`InstallService` is ported from Shack Power (`src/AlbumWall.App/Install/`) and
+verified end to end on Linux. **None of the Windows code in it has ever run.**
+Test it with the single-file exe from the newest `v0.1.0-test*` pre-release —
+only a single-file build installs; a development build says so in the About
+tab and is never offered.
+
+Run the downloaded `AlbumWall.exe` from wherever it was unzipped (through
+Explorer). It should offer to install. Accept, and check:
+
+1. It copies itself to `%LocalAppData%\Programs\AlbumWall\AlbumWall.exe`,
+   relaunches from there, and the loose copy exits.
+2. **Settings → Apps → Installed apps lists AlbumWall**, with the icon, version
+   and publisher. That entry is ONE `reg import` (the family's hard-won rule),
+   verified and retried once. `%AppData%\albumwall\registration.log` has a line
+   per attempt — if the entry is missing, that log says what reg.exe returned.
+3. **The Start Menu shortcut exists and carries the AppUserModelID** — it is
+   written by `WindowsShell.WriteShortcut`, not Windows Script Host, for exactly
+   that reason. Pin it to the taskbar: the running window should group with the
+   pin rather than appearing beside it.
+4. A desktop shortcut appears, once. Delete it and start the app again: it
+   comes back (never overwrites, but does recreate — the family's behavior).
+5. Every later start logs `[install] startup: ok` — registration is re-asserted
+   at every launch, never check-and-skipped.
+6. **Uninstall from Installed apps** runs `--uninstall --quiet`: program, entry
+   and shortcuts go; settings stay. Then install again and try
+   `AlbumWall.exe --uninstall` without `--quiet`: it should ask, with a checkbox
+   for the settings. The removal itself is a detached PowerShell helper that
+   waits for the app to exit — check nothing is left in
+   `%LocalAppData%\Programs\AlbumWall` a few seconds later.
+7. About tab: says "Installed in …" with an Uninstall button, and the old
+   "Add to the Start Menu" section is hidden (the installer owns that shortcut
+   now; it still shows for loose and development copies).
+
+Remember the sandbox trap from `windows-notes.md`: launch through Explorer, or
+the tool shell's private `%AppData%` will make all of this look broken.

@@ -36,6 +36,19 @@ GPL project, and vendoring it would mean shipping their source alongside ours;
 the script fetches the official build instead. The project copies it next to
 the executable when you build.
 
+## Installing
+
+A release is one file. Run it from wherever you unzipped it and it offers to
+install itself — per user, no administrator rights: into
+`%LocalAppData%\Programs\AlbumWall` on Windows (listed in Installed apps, with a
+Start Menu shortcut), or `~/.local/share/albumwall` on Linux (in your
+applications menu, plus an `albumwall` command). `--install` and `--uninstall`
+do the same from a terminal; add `--quiet` for scripts. Uninstalling keeps your
+settings unless you say otherwise, and never touches your music.
+
+To run it from a folder or a USB stick and leave no trace on the machine, put
+an empty file named `portable.txt` beside it.
+
 ## Your music
 
 It scans your **Music** folder — `~/Music`, or `%USERPROFILE%\Music` — and

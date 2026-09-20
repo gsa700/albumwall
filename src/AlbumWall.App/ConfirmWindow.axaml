@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AlbumWall.App.ConfirmWindow"
+        Title="AlbumWall"
+        Icon="/Assets/app.ico"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        RequestedThemeVariant="Dark"
+        Background="{DynamicResource SheetBg}"
+        Foreground="#F3EEE6"
+        ShowInTaskbar="False">
+
+    <!-- The family's confirm dialog (ConfirmWindow in the station tools), in the
+         format PrefsWindow set down: the system's own title bar, SheetBg behind so
+         it moves with the ground he chose. Used where the app is about to change
+         the MACHINE rather than itself — installing, uninstalling — which is the
+         one kind of thing that should stop and ask. -->
+    <StackPanel Margin="22,20" Spacing="16">
+        <TextBlock x:Name="MessageText" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <!-- The consequences of the choice; collapsed unless there are some to state. -->
+        <TextBlock x:Name="DetailText" Classes="dim" FontSize="13" LineHeight="20"
+                   TextWrapping="Wrap" IsVisible="False"/>
+        <!-- One optional choice that rides along with the answer. -->
+        <CheckBox x:Name="OptionBox" FontSize="13" IsVisible="False"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="9">
+            <Button x:Name="NegativeButton" Classes="panel" Content="Cancel" MinWidth="96"/>
+            <Button x:Name="AffirmativeButton" Classes="panel" Content="Continue" MinWidth="96"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

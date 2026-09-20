@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
@@ -35,9 +35,106 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            var window = new MainWindow();
+            desktop.MainWindow = window;
+
+            window.Opened += async (_, _) =>
+            {
+                // This run exists only to uninstall: ask, act, and go.
+                if (Program.PendingUninstall)
+                {
+                    await RunUninstallAsync(window);
+                    return;
+                }
+
+                // Re-asserted at EVERY start, never check-and-skip — the family's
+                // rule, learned when a lost registration stayed lost. A no-op
+                // unless this copy is the installed one.
+                Install.InstallService.EnsureRegistered();
+
+                // A release sitting wherever it was unzipped offers to install
+                // itself. Never a development build (see InstallService), and
+                // never a test run with its settings redirected.
+                var testRun = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR"));
+                if (Install.InstallService.ShouldOfferInstall && !testRun)
+                    await OfferInstallAsync(window);
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// Offer to install a loose copy. If accepted, hands over to the installed
+    /// copy and closes this one.
+    public static async Task OfferInstallAsync(Avalonia.Controls.Window owner)
+    {
+        var where = Install.InstallService.InstallDirectory;
+        var lists = OperatingSystem.IsWindows()
+            ? "lists it in Settings \u2192 Apps \u2192 Installed apps, with a Start Menu shortcut"
+            : "adds it to your applications menu";
+
+        var accepted = await new ConfirmWindow(
+            $"Install {DisplayName}",
+            $"Install {DisplayName} on this computer?",
+            affirmative: "Install", negative: "Not now",
+            detail: $"Copies the program to {where} and {lists}. Your music, your settings and "
+                  + "everything else are untouched either way.\n\n"
+                  + "To run from here permanently without being asked again, put a file named "
+                  + $"{Install.InstallLayout.PortableMarker} beside the program.")
+            .ShowDialog<bool>(owner);
+        if (!accepted) return;
+
+        try
+        {
+            var installed = Install.InstallService.Install();
+
+            // Installed but not listed is a real outcome, not a detail: the program
+            // works, yet the usual way to remove it is missing. Say so here rather
+            // than leave it to be discovered.
+            if (!installed.Registered)
+            {
+                await new ConfirmWindow("Installed, with one problem",
+                    $"{DisplayName} is installed in {where} and will run normally, but it could "
+                    + "not register itself with the desktop.",
+                    affirmative: "OK", negative: null,
+                    detail: "Starting the installed copy again usually fixes it. Failing that, run "
+                          + "it once with --install from a terminal.")
+                    .ShowDialog<bool>(owner);
+            }
+
+            Install.InstallService.LaunchDetached(installed.ExePath);
+
+            // Closing runs the normal save path on purpose, so the session carries
+            // over to the installed copy, which reads the same data directory.
+            owner.Close();
+        }
+        catch (Exception ex)
+        {
+            await new ConfirmWindow("Could not install", ex.Message,
+                affirmative: "OK", negative: null).ShowDialog<bool>(owner);
+        }
+    }
+
+    /// The interactive uninstall: say what goes, ask about the settings, then go.
+    /// <param name="asked">
+    /// True when a person chose Uninstall from inside the running app, false when
+    /// the whole run was started only to uninstall. The difference is what a
+    /// "Cancel" means: from the app it means carry on; from --uninstall the run
+    /// has nothing else to do and ends.
+    /// </param>
+    public static async Task RunUninstallAsync(Avalonia.Controls.Window owner, bool asked = false)
+    {
+        var dialog = new ConfirmWindow(
+            $"Uninstall {DisplayName}",
+            $"Remove {DisplayName} from this computer?",
+            affirmative: "Uninstall", negative: "Cancel",
+            detail: "Removes the program and its menu entries. Your music is never touched.",
+            option: "Also remove my settings and the saved session");
+
+        var accepted = await dialog.ShowDialog<bool>(owner);
+        if (accepted)
+            Install.InstallService.Uninstall(new Install.UninstallOptions(dialog.OptionChecked));
+
+        if (accepted || !asked) owner.Close();
     }
 }

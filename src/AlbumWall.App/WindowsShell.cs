@@ -1,4 +1,4 @@
-// AlbumWall — who Windows thinks this program is, and where to find it.
+﻿// AlbumWall — who Windows thinks this program is, and where to find it.
 //
 // A program that arrives through the Store is given an identity. One that is
 // just an exe in a folder has none, and Windows makes one up from the file
@@ -94,6 +94,24 @@ public static class WindowsShell
         {
             Console.WriteLine($"[shell] shortcut failed: {ex.Message}");
             return $"Could not create the shortcut: {ex.Message}";
+        }
+    }
+
+    /// Writes a shortcut at `lnkPath` pointing at `exePath`, carrying the app's
+    /// AppUserModelID. For the installer, which points shortcuts at the INSTALLED
+    /// copy rather than at whatever is running. Null on success, or a sentence.
+    public static string? WriteShortcut(string lnkPath, string exePath)
+    {
+        if (!OperatingSystem.IsWindows()) return "Only Windows has shortcuts of this kind.";
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(lnkPath)!);
+            Write(lnkPath, exePath);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
         }
     }
 

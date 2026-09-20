@@ -1,4 +1,4 @@
-// AlbumWall — the Preferences window. See the note in the markup for the
+﻿// AlbumWall — the Preferences window. See the note in the markup for the
 // format, which the file-properties window is meant to follow.
 
 using Avalonia;
@@ -82,6 +82,15 @@ public partial class PrefsWindow : Window
             Fill();
         };
 
+        InstallButton.Click += async (_, _) =>
+        {
+            if (_host is null) return;
+            if (Install.InstallService.Mode == Install.InstallMode.Installed)
+                await App.RunUninstallAsync(_host, asked: true);
+            else
+                await App.OfferInstallAsync(_host);
+        };
+
         ShortcutAdd.Click += (_, _) => { _shortcutNote = WindowsShell.AddShortcut(); Fill(); };
         ShortcutRemove.Click += (_, _) => { _shortcutNote = WindowsShell.RemoveShortcut(); Fill(); };
 
@@ -145,8 +154,11 @@ public partial class PrefsWindow : Window
         TintValue.Text = _host.ColorTint.ToString();
         BarsAbout.Text = AboutBars(_host.ColorChrome);
 
-        ShortcutSection.IsVisible = OperatingSystem.IsWindows();
-        if (OperatingSystem.IsWindows())
+        FillInstall();
+
+        var installed = Install.InstallService.Mode == Install.InstallMode.Installed;
+        ShortcutSection.IsVisible = OperatingSystem.IsWindows() && !installed;
+        if (ShortcutSection.IsVisible)
         {
             var has = WindowsShell.HasShortcut;
             var current = WindowsShell.ShortcutIsCurrent;
@@ -202,5 +214,45 @@ public partial class PrefsWindow : Window
             return;
         }
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
+    }
+
+    /// Says how this copy is running, in words, and offers the one action that
+    /// fits. Four cases, because there are four: installed; a release sitting
+    /// loose wherever it was unzipped; one pinned as portable; and a development
+    /// build, which is many files and cannot be installed by copying one.
+    private void FillInstall()
+    {
+        var dir = Install.InstallService.ExeDirectory;
+
+        switch (Install.InstallService.Mode)
+        {
+            case Install.InstallMode.Installed:
+                InstallStatus.Text = $"Installed in {dir}.";
+                InstallButton.Content = "Uninstall\u2026";
+                InstallButton.IsVisible = true;
+                break;
+
+            case Install.InstallMode.Portable:
+                InstallStatus.Text = $"Portable: runs from {dir} and registers nothing with this computer "
+                                   + $"({Install.InstallLayout.PortableMarker} is beside the program).";
+                InstallButton.IsVisible = false;
+                break;
+
+            default:
+                if (Install.InstallService.IsSingleFile)
+                {
+                    InstallStatus.Text = $"Running from {dir}, not installed. Installing copies it to "
+                                       + $"{Install.InstallService.InstallDirectory} and adds it to your menus.";
+                    InstallButton.Content = "Install\u2026";
+                    InstallButton.IsVisible = true;
+                }
+                else
+                {
+                    InstallStatus.Text = "A development build, running from its build folder. "
+                                       + "Only a published release can install itself.";
+                    InstallButton.IsVisible = false;
+                }
+                break;
+        }
     }
 }

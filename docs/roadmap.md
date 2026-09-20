@@ -27,13 +27,6 @@ is ahead, the history is for what is behind.
   are already application-wide for this reason. Presumably reached from the
   right-click menu above.
 
-- **The same for Linux: a `.desktop` entry with the icon.** Windows has its
-  half (see `WindowsShell.cs` and the About tab). `Assets/app-icon.png` is
-  the 256 px frame of the icon, there for exactly this; the station tools
-  write `~/.local/share/applications/<name>.desktop` and the icon into the
-  hicolor theme from their own Setup windows, and the About tab is where a
-  matching button would go. The MPRIS `DesktopEntry` is already "albumwall".
-
 - **RELEASES — decided 2026-09-19: "I'd like to get to the release stage soon...
   I see no reason to hold any longer."** The shape is the family's, ported from
   Shack Power (`InstallService` + `UpdateService`): a single-file self-contained
@@ -50,8 +43,16 @@ is ahead, the history is for what is behind.
      pre-release `v0.1.0-test2`.
   2. ~~The native libraries published as release assets of their own~~ —
      done, see the entry below. A release script should fetch them by tag.
-  3. `InstallService` — which also fixes the entry below, and whose Linux half
-     is the `.desktop` entry above.
+  3. ~~`InstallService`~~ — done, ported from Shack Power into
+     `src/AlbumWall.App/Install/`. The app installs itself per-user
+     (`%LocalAppData%\Programs\AlbumWall`, `~/.local/share/albumwall`), offers to
+     when a release is run loose, re-asserts its registration at every start,
+     and removes itself with `--uninstall`. Verified end to end on Linux —
+     install, run, uninstall, settings kept. **The Windows half has never run**:
+     the one-`reg import` installed-apps entry, the Start Menu and desktop
+     shortcuts through `WindowsShell`, and the PowerShell uninstall helper all
+     need Hambench. Only a single-file release installs; a development build
+     says so in About and is never offered.
   4. `UpdateService` — built now, switched on later: it reads
      `/releases/latest` unauthenticated, which a private repository answers
      with 404. It goes live with the public snapshot.
@@ -91,13 +92,6 @@ is ahead, the history is for what is behind.
   never mistakes it for an app version. linux-x64 and win-x64 are there;
   **linux-arm64 is still to build**, natively on a Pi, with the same script. Bump
   the trailing number when the recipe changes without the mpv version changing.
-
-- **An installed copy, separate from the build folder.** The Start Menu
-  shortcut points at wherever the app is running from, which today is
-  `bin/Debug`. That works, but it means the player he is listening to has to be
-  closed before every rebuild. The station tools copy themselves to
-  `%LocalAppData%/Programs` and update in place (`InstallService` in FlexPad);
-  worth porting once there are releases to install.
 
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.

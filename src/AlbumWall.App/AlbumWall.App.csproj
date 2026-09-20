@@ -72,6 +72,11 @@
   <!-- And the same icon as a resource, for the windows' own title bars. -->
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!-- Also embedded plainly: the Linux installer writes this icon into the XDG
+         icon theme for the .desktop entry, and the install switch runs before
+         Avalonia is initialized, so the Avalonia asset loader is not available
+         to read it. Generated from icon.svg by tools/make_icon.py. -->
+    <EmbeddedResource Include="Assets\app-icon.png" LogicalName="app-icon.png" />
   </ItemGroup>
 
   <ItemGroup>
