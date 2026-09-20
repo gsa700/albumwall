@@ -425,12 +425,68 @@ public partial class MainWindow : Window
     private Domain.LibraryWatcher? _watcher;
     private CancellationTokenSource? _scan;
 
+    /// Whether this platform skips files the index recognizes, or opens every one.
+    ///
+    /// WINDOWS TRUSTS IT, LINUX DOES NOT, and the reason is one measurement on his
+    /// two machines, same app, same code:
+    ///
+    ///                       every file opened      index trusted
+    ///   Linux,   3,337 files        ~190 ms              ~56 ms
+    ///   Windows, 15,531 files    ~158,000 ms             ~166 ms
+    ///
+    /// On Windows the cost of a scan is one Defender pass per file OPENED, and the
+    /// index is the difference between an app you can use and one you cannot. On
+    /// Linux it buys about an eighth of a second — and charges for it in the only
+    /// coin this library cannot spare, because the index cannot see an edit that
+    /// preserves size AND modified time, and `metaflac --preserve-modtime` is in
+    /// daily use here. That exact blind spot has already cost him once, in
+    /// Lollypop's scanner.
+    ///
+    /// So: trust the index where opening files is expensive, and open the files
+    /// where it is cheap. On Linux this is not a new cost — it is what AlbumWall
+    /// did every launch of its life until the index landed on 2026-09-20, without
+    /// anyone ever remarking on startup.
+    ///
+    /// WHEN TO REVISIT: a NAS-backed root. Opening 3,337 files over the network is
+    /// nothing like opening them off NVMe, and at that point the honest answer is
+    /// to add the inode change time (statx) to the index's key, which `--preserve-
+    /// modtime` cannot forge. Held in reserve deliberately: it is a Linux-only
+    /// P/Invoke with hand-rolled struct layouts, which is a poor trade for 135 ms
+    /// and a fair one for seconds. Growth alone does not trigger it — this library
+    /// is replacing ~1,100 lossy albums with FLAC over years, and five times its
+    /// present size is still about a second.
+    private static bool TrustsIndex => OperatingSystem.IsWindows();
+
     /// What the scanner read last time, so that an unchanged file is not opened
     /// again — see LibraryIndex for why opening is the cost. Beside the settings,
     /// so a scratch ALBUMWALL_CONFIG_DIR gets a scratch index. Loaded on first
     /// use, which is on the scan's thread and not this one.
-    private readonly Lazy<Domain.LibraryIndex> _index = new(() =>
-        Domain.LibraryIndex.Open(Path.Combine(Path.GetDirectoryName(Settings.Path)!, "index.db")));
+    ///
+    /// Null where the index is not trusted: an index nobody reads is not a cache,
+    /// it is a second copy of the library to keep in step and a file to explain.
+    private readonly Lazy<Domain.LibraryIndex?> _index = new(() =>
+    {
+        var path = Path.Combine(Path.GetDirectoryName(Settings.Path)!, "index.db");
+        if (TrustsIndex) return Domain.LibraryIndex.Open(path);
+
+        // Left behind by a build that did trust it, or by the same config
+        // directory having been used on the other platform. It is a pure cache —
+        // nothing anyone made lives in it — so a copy nobody will ever read again
+        // is just a megabyte of confusion for whoever looks next.
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                Console.WriteLine($"[index] not used on this platform; removed stale {path}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[index] could not remove stale {path}: {ex.Message}");
+        }
+        return null;
+    });
 
     /// What the wall is currently showing, as (root, fingerprint of the scan).
     /// A rescan that comes back identical is dropped rather than shown.
@@ -670,7 +726,7 @@ public partial class MainWindow : Window
         {
             _watcher = new Domain.LibraryWatcher(root,
                 () => Dispatcher.UIThread.Post(() => ScanLibrary(asked: false)),
-                path => _index.Value.Touch(path));
+                path => _index.Value?.Touch(path));
             Console.WriteLine($"[watch] watching {root}");
         }
         catch (Exception ex)

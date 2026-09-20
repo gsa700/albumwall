@@ -163,15 +163,23 @@ public partial class PrefsWindow : Window
         // only claimed on Windows.
         var n = _host.LibraryTrackCount;
         var every = n > 0 ? $"all {n:N0} tracks" : "every track";
-        RescanAbout.Text =
-            $"{App.DisplayName} notices music that is added, changed or removed by itself, and remembers what it "
-          + $"has read so that it opens quickly. This sets that memory aside and opens {every} again. "
-          + (OperatingSystem.IsWindows()
-                ? "Windows Security checks each file as it is opened, so it can take several minutes. "
-                : "On a big library, or one on a network drive, that can take several minutes. ")
-          + "You can keep listening while it runs, and stop it whenever you like.\n\n"
-          + "You should only need it when a tag edit has not shown up. That can happen if a tool changed a file "
-          + $"while keeping its size and date the same, and {App.DisplayName} was closed at the time.";
+        // Two different stories, because the app genuinely behaves differently on
+        // the two platforms — see MainWindow.TrustsIndex. Promising a Linux user
+        // that this is how a missed tag edit gets picked up would be describing a
+        // problem he cannot have.
+        RescanAbout.Text = OperatingSystem.IsWindows()
+            ? $"{App.DisplayName} notices music that is added, changed or removed by itself, and remembers what it "
+            + $"has read so that it opens quickly. This sets that memory aside and opens {every} again. "
+            + "Windows Security checks each file as it is opened, so it can take several minutes. "
+            + "You can keep listening while it runs, and stop it whenever you like.\n\n"
+            + "You should only need it when a tag edit has not shown up. That can happen if a tool changed a file "
+            + $"while keeping its size and date the same, and {App.DisplayName} was closed at the time."
+
+            : $"{App.DisplayName} notices music that is added, changed or removed by itself, and opens {every} "
+            + "every time it scans — so a tag edit always shows up, whatever tool made it and whether or not "
+            + $"{App.DisplayName} was running at the time. This scans again now, which you should rarely need.\n\n"
+            + "On a big library, or one on a network drive, it can take a while. You can keep listening while it "
+            + "runs, and stop it whenever you like.";
 
         // Resume is on unless turned off; auto-play is off unless turned on.
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;

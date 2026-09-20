@@ -140,7 +140,27 @@ file is the entire cost on Windows. What stands in for it:
   which no tool can put back; .NET exposes neither. Options for Techbench:
   P/Invoke `statx` on Linux and add ctime to the key there, or have the app
   not trust the index on Linux at all, where opening files is cheap and only a
-  NAS-backed root would miss it. Not decided here — it can't be tested here.
+  NAS-backed root would miss it. ~~Not decided here — it can't be tested here.~~
+
+  **DECIDED ON TECHBENCH 2026-09-20, his call: the index is not trusted on
+  Linux.** `MainWindow.TrustsIndex` is `OperatingSystem.IsWindows()`. The
+  measurement that settled it, same app, same code, each machine's own library:
+
+  |            | every file opened | index trusted |
+  |---|---|---|
+  | Linux, 3,337 files   | ~190 ms      | ~56 ms  |
+  | Windows, 15,531 files| ~158,000 ms  | ~166 ms |
+
+  The index is the difference between usable and unusable on Windows and worth
+  about an eighth of a second on Linux, where it would be paid for in the one
+  currency that library cannot spare. **Nothing about Windows changes.** `statx`
+  is held in reserve for a NAS-backed root, which is the only case where the
+  Linux saving would be large enough to earn a hand-rolled P/Invoke; growth
+  alone does not trigger it, since five times that library is still about a
+  second. Proved end to end on a `--preserve-modtime` edit with the file's size
+  and mtime identical afterwards: trusting, the second launch opened 0 files and
+  still showed the old title; not trusting, it opened all 3 and showed the new
+  one.
 - **A trap for whoever next changes the scanner:** an indexed file is never
   re-read, so a new fallback rule or `ImageSize.Repair` shape reaches no file
   already indexed until `LibraryIndex.Version` is bumped. Both files say so at
