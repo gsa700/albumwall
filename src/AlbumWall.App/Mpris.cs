@@ -294,7 +294,7 @@ public sealed class Mpris : IPathMethodHandler
     {
         "CanQuit" or "CanRaise" => VariantValue.Bool(true),
         "HasTrackList" => VariantValue.Bool(false),
-        "Identity" => VariantValue.String("AlbumWall"),
+        "Identity" => VariantValue.String(App.DisplayName),
         "DesktopEntry" => VariantValue.String("albumwall"),
         "SupportedUriSchemes" or "SupportedMimeTypes" => VariantValue.Array(System.Array.Empty<string>()),
 

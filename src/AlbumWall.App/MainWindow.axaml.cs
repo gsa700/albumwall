@@ -81,6 +81,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // The markup says "AlbumWall" so the previewer has something to show;
+        // what he actually sees comes from one place. See App.DisplayName.
+        Title = App.DisplayName;
+        AppName.Text = App.DisplayName;
+
         // Size before the window is shown; position after, once the screens are
         // known. Both come back from last time — see RestorePosition.
         if (_settings.WindowWidth is > 320) Width = _settings.WindowWidth.Value;

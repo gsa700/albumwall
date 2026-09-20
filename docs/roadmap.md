@@ -35,15 +35,8 @@ is ahead, the history is for what is behind.
   name an unpackaged program: without it the media flyout labels the player
   `AlbumWall.App.exe`, and the taskbar cannot group or pin it properly. There
   is no icon yet either — the windows have none. His other tools install
-  themselves with an `install.ps1`; the same shape would suit. **Wait for the
-  name to be locked before baking it into an ID** — see below.
-
-- **The name is not locked.** `AlbumWall` is the front-runner and he is living
-  with it on purpose ("lets keep rockin it for a while more"); do not push him
-  to decide. If it stays there is no rename work: folder, solution, assemblies,
-  namespaces, settings folder and the header already say it. The full history
-  is in the Techbench project notes. Settled regardless: any companion tool is
-  called **Deadwax**.
+  themselves with an `install.ps1`; the same shape would suit. This was waiting
+  on the name, and the name is settled now (see Decided), so nothing blocks it.
 
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.
@@ -51,6 +44,16 @@ is ahead, the history is for what is behind.
 - **A seek bar in the Windows media flyout.** `Smtc.cs` tells Windows what is
   playing and takes its buttons, but does not send timeline properties, so the
   flyout shows the track without a position. Nobody has asked.
+
+## Decided
+
+- **The name is AlbumWall.** Settled 2026-09-19, in his words: "let's mark this
+  settled: AlbumWall is the name." It was the working name all along, so there
+  is no rename work; the one thing left is on the Techbench side, which is to
+  strike "working title" from the spec. The candidates it beat, and why, are in
+  the commit that settled it. Do not reopen this unless he does.
+- **Any companion tool is called Deadwax.** "If this thing ever gets a companion
+  app for any reason: we name it deadwax no question."
 
 ## Decided against, for now
 

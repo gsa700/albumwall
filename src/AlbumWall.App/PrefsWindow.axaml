@@ -45,7 +45,7 @@
 
         <TabItem Header="Startup">
             <StackPanel Spacing="14">
-                <TextBlock Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
+                <TextBlock x:Name="WhenItOpens" Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
                 <StackPanel Spacing="4">
                     <CheckBox x:Name="Resume" Content="Pick up where I left off"/>
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"

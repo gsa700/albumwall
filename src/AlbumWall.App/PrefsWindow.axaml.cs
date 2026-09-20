@@ -24,6 +24,8 @@ public partial class PrefsWindow : Window
     public PrefsWindow(MainWindow host) : this()
     {
         _host = host;
+        Title = $"{App.DisplayName} \u2014 Preferences";
+        WhenItOpens.Text = $"When {App.DisplayName} opens";
 
         ChooseFolder.Click += async (_, _) => { await host.ChooseLibraryFolder(this); Fill(); };
         UseDefault.Click += (_, _) => { host.UseDefaultLibrary(); Fill(); };
@@ -114,7 +116,7 @@ public partial class PrefsWindow : Window
         BarsAbout.Text = AboutBars(_host.ColorChrome);
 
         var v = typeof(PrefsWindow).Assembly.GetName().Version;
-        AboutVersion.Text = $"AlbumWall {v?.Major}.{v?.Minor}.{v?.Build}";
+        AboutVersion.Text = $"{App.DisplayName} {v?.Major}.{v?.Minor}.{v?.Build}";
         AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }
 
