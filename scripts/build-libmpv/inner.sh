@@ -26,9 +26,17 @@ TARGET=${1:-linux}
 
 # ---- Pinned. Change these deliberately, together, and re-test gapless. --------
 # mpv matches what Fedora 44 ships, which is what gapless was verified against.
-# ffmpeg stays on the 8.x line: mpv 0.41 predates ffmpeg 9 and its API removals.
+#
+# ffmpeg MUST be 9.x. On the 8.x line mov.c reads the iTunSMPB tag, takes the
+# priming count from it and IGNORES the end padding, so every AAC track plays
+# its encoder filler: the burp at the track change that Hambench heard on
+# 2026-09-20. ffmpeg da04251772a3 ("avformat/mov: export information about the
+# last actual sample in a stream", 2026-06-16) sets first/last_discard_sample
+# from the tag's remainder and fixes it. It is in 9.0 and was never backported
+# -- not in n8.1.2, not in n8.2-dev. tools/gapless-check.cs is the test; do not
+# move this pin back to 8.x without running it.
 MPV=v0.41.0
-FFMPEG=n8.1.2
+FFMPEG=n9.0.2
 LIBPLACEBO=v7.360.1
 LIBASS=0.17.5
 FREETYPE=VER-2-14-3

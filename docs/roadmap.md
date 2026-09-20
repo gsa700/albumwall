@@ -80,18 +80,22 @@ is ahead, the history is for what is behind.
   list as the Linux library, replacing an upstream DLL of about 100 MB that
   carries H.264, HEVC and VVC decoders the app never calls. Verified from Linux:
   it imports only Windows system DLLs and exports everything `Mpv.cs` uses.
-  Gapless through the LINUX sibling of this build was confirmed by ear on
-  2026-09-20 ("gapless is FB here"), which is the same mpv and the same ffmpeg.
-  **What is left is on Hambench: that it loads, plays, and stays GAPLESS** — the
-  test is at the end of `docs/windows-bringup.md`. When it passes,
-  `get-libmpv.ps1` should fetch our release instead of SourceForge. Wanted
-  before the repository goes public; the upstream DLL is the rollback until then.
+  It loads and plays on Hambench (v0.1.0-test3, 2026-09-20). It was NOT gapless:
+  the by-ear check on Linux had only ever been run on FLAC, which has no padding
+  and cannot fail. `tools/gapless-check.cs` measured it, and the cause was the
+  ffmpeg pin — see `docs/windows-notes.md`. **Fixed by `FFMPEG=n9.0.2`**, which
+  now measures PASS on iTunes AAC, matching the upstream DLL's score exactly.
+  **What is left: rebuild linux-arm64 on a Pi, publish `libmpv-0.41.0-3`, and
+  run a test4 on Hambench.** When that passes, `get-libmpv.ps1` should fetch our
+  release instead of SourceForge. Wanted before the repository goes public; the
+  upstream DLL is the rollback until then.
 
 - **The native libraries are release assets now**: tag `libmpv-0.41.0-2`, a
   PRE-release on purpose so `/releases/latest` (and with it the app's updater)
-  never mistakes it for an app version. linux-x64 and win-x64 are there;
-  **linux-arm64 is still to build**, natively on a Pi, with the same script. Bump
-  the trailing number when the recipe changes without the mpv version changing.
+  never mistakes it for an app version. All three are there. Bump the trailing
+  number when the recipe changes without the mpv version changing — **the ffmpeg
+  9 pin makes the next one `libmpv-0.41.0-3`, and linux-arm64 has to be rebuilt
+  natively on a Pi before it can be published.**
 
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.

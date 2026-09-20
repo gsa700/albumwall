@@ -290,6 +290,47 @@ Windows and half a second. Until then test builds are not gapless on AAC, and
 the development build with the upstream DLL in `native/win-x64` still is —
 so `get-libmpv.ps1` stays pointed at SourceForge for now.
 
+#### FIXED THE SAME DAY on Fedora: the pin is ffmpeg 9
+
+`FFMPEG=n9.0.2`. The guess above was close but named the wrong commit. The one
+that matters is **`da04251772a3`, "avformat/mov: export information about the
+last actual sample in a stream" (2026-06-16)**: it is what sets
+`first_discard_sample` / `last_discard_sample` from the iTunSMPB *remainder*,
+and its diff updates exactly the FATE refs you would expect —
+`gaplessinfo-itunes1/2` and `gaplessenc-itunes-to-ipod-aac`. `bfcf9fcb37`, the
+commit these notes guessed at, is a later refactor that only moves the parsing
+into a helper `mp3dec` can share; it is not in 9.0.x at all.
+
+**The fix is in 9.0 and was NEVER backported** — not in `n8.1.1`, `n8.1.2`,
+`n8.2-dev` or `release/8.1`, all four checked. Side by side, n8.1.2 sets
+`sc->start_pad = priming` and does nothing whatever with `remainder`; 9.0 adds
+the discard-sample block. So there was no way to stay on the 8.x line short of
+carrying a patch.
+
+**The recipe's warning that "mpv 0.41 predates ffmpeg 9 and its API removals"
+was wrong** — or at least not true of an audio-only build. mpv `v0.41.0`
+compiles clean against `n9.0.2`; its meson only ever states a MINIMUM libav*
+version and mpv has landed no "support ffmpeg 9" commit since 0.41.0. Only the
+pin moved. Same dependency list, 8.3 MB -> 8.5 MB.
+
+Measured on Techbench with the same three Dark Side tracks, copied from the
+Navidrome library on NASBOX (`NASBOX:/NAS/data/MusicFolder`) — the same rip,
+the same `676 + 336 + 8` end padding this page reports from Hambench:
+
+| libmpv | versions | result |
+|---|---|---|
+| `libmpv-0.41.0-2` | mpv 0.41.0, ffmpeg n8.1.2 | **+1,026 samples — FAIL** |
+| rebuilt | mpv 0.41.0, ffmpeg **n9.0.2** | **+6 samples — PASS** |
+
+**+6 is the identical number the upstream SourceForge DLL scored**, which is
+the strongest form the check can give: our build now agrees with a known-good
+one to a tenth of a millisecond. FLAC is unaffected — both libraries decode the
+same three FLAC tracks to 37,274,502 samples exactly.
+
+Still to do before a test4: **linux-arm64 must be rebuilt natively on a Pi**
+(qemu binfmt is not set up here), and the new libs published as
+`libmpv-0.41.0-3`.
+
 ### UNINSTALL did not remove the program — and the app put itself back
 
 His report: "i uninstalled from the about, the app closed and presumably
