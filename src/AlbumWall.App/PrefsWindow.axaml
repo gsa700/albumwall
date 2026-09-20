@@ -3,7 +3,7 @@
         x:Class="AlbumWall.App.PrefsWindow"
         Title="AlbumWall — Preferences"
         Icon="/Assets/app.ico"
-        Width="580" Height="460" CanResize="False"
+        Width="580" Height="580" CanResize="False"
         RequestedThemeVariant="Dark"
         Background="{DynamicResource SheetBg}"
         Foreground="#F3EEE6"
@@ -73,6 +73,29 @@
              numbers except by looking at it. -->
         <TabItem Header="Colors">
             <StackPanel Spacing="16">
+                <!-- WHAT THE COLOR IS, BEFORE HOW TO CHANGE IT. The first version of
+                     this tab was three controls with a caption each, and it read
+                     as a theme picker: choose a lightness, choose a tint. That is
+                     exactly backwards. The app has no color scheme; the hue is
+                     worked out from his own covers, and the controls only decide
+                     what is done with it. His words: "more clearly explain that
+                     the colors of the window are derived from the individual's
+                     actual collection and the sliders alter THAT relationship".
+                     So it opens by showing him the color it found and saying
+                     where it came from, and every caption below is written as
+                     something done TO that color. -->
+                <Border CornerRadius="6" Padding="14,12" Background="{DynamicResource SheetBg}">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Border x:Name="HueSwatch" Width="18" Height="18" CornerRadius="9"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock x:Name="HueLine" FontSize="14" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock x:Name="HueAbout" Classes="dim" FontSize="13" LineHeight="20"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
                 <StackPanel Spacing="2">
                     <Grid ColumnDefinitions="70,*,34">
                         <TextBlock Grid.Column="0" Text="Light" FontSize="14" FontWeight="SemiBold"
@@ -81,8 +104,8 @@
                         <TextBlock Grid.Column="2" x:Name="LightValue" Classes="dim mono" FontSize="12"
                                    HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
-                    <TextBlock Classes="dim" FontSize="13" Margin="70,0,0,0"
-                               Text="How light the room is."/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="70,0,0,0"
+                               Text="How light or dark the window is. The color stays your collection's; only its brightness moves."/>
                 </StackPanel>
 
                 <StackPanel Spacing="2">
@@ -94,8 +117,8 @@
                         <TextBlock Grid.Column="2" x:Name="TintValue" Classes="dim mono" FontSize="12"
                                    HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
-                    <TextBlock Classes="dim" FontSize="13" TextWrapping="Wrap" Margin="70,0,0,0"
-                               Text="How much of your library's own color shows in the background. The color itself comes from your covers."/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="70,0,0,0"
+                               Text="How much of your collection's color comes through. At 0 the window is a plain neutral; turn it up and more of that color shows."/>
                 </StackPanel>
 
                 <StackPanel Spacing="6">

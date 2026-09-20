@@ -502,6 +502,7 @@ public partial class MainWindow : Window
                         _ramp = new Ground.Ramp(h, concentration, _lightness,
                                                 Ground.Chromes[_chrome]);
                         ApplyGround();
+                        _prefs?.Fill();     // the Colors tab shows the hue just found
                     });
                 });
             });
@@ -937,6 +938,13 @@ public partial class MainWindow : Window
             Retune();
         }
     }
+
+    /// The hue the window is built from, and whether it really came from the
+    /// covers or is the fallback — a library whose art agrees on nothing, or an
+    /// empty one. Read-only: this is the one thing about the colors that is
+    /// not his to set, and the Colors tab says so.
+    internal double ColorHue => _ramp.Hue;
+    internal bool ColorIsFromLibrary => _ramp.Concentration >= 0.2;
 
     internal int ColorChrome
     {

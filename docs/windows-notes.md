@@ -160,10 +160,12 @@ So, on Hambench:
 
 The icon is drawn by `tools/make_icon.py` (needs Pillow; the outputs in
 `Assets/` are committed). The app claims the AppUserModelID `gsa700.AlbumWall`
-at startup, and **Preferences > About > Add to the Start Menu** writes a
-shortcut carrying the same ID — it takes both for Windows to call the program
-AlbumWall rather than `AlbumWall.App.exe` in the media flyout, and to pin it
-properly. The ID is permanent: existing shortcuts carry it.
+at startup, and that alone is enough for the media flyout to call it AlbumWall
+rather than `AlbumWall.App.exe` — I had written that it also took a shortcut,
+and he found otherwise by not making one. **Preferences > About > Add to the
+Start Menu** writes a shortcut carrying the same ID, which is what lets Start
+search find it and a pinned taskbar button group with the running window. The
+ID is permanent: existing shortcuts carry it.
 
 The button is in the app, not in a script, on purpose. The Start Menu folder
 is under `%AppData%`, which the Claude tool shell sees a private copy of (see

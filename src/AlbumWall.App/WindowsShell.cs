@@ -5,16 +5,21 @@
 // name: the media flyout says "AlbumWall.App.exe", and the taskbar cannot pin
 // the running window and a shortcut to it as the same thing.
 //
-// The identity is an AppUserModelID, and it needs saying twice to count:
+// The identity is an AppUserModelID, and it is said in two places:
 //
 //   * by the PROCESS, at startup, before any window exists; and
 //   * on a Start Menu SHORTCUT, as a property of the .lnk file.
 //
-// Windows finds the shortcut whose ID matches the running process and takes
-// the name and icon from it. Either half alone does nothing, which is why this
-// file does both and why the shortcut cannot be made with WScript.Shell — that
-// can set a target and an icon, but not the property. It takes IShellLink and
-// IPropertyStore.
+// I wrote at first that either half alone does nothing. That was wrong, and he
+// found it by not doing what I said: with only the first half in place the
+// media flyout already showed the right name ("flyout already has the right
+// name, no shortcut required I guess" — Windows 11, build 26200). So the
+// process's claim is what names it there. The shortcut is for the other things
+// an identity buys: being found by Start search, and a pinned taskbar button
+// that the running window groups with instead of sitting beside. It carries
+// the same ID so Windows knows they are the same program, which is why it
+// cannot be made with WScript.Shell — that can set a target and an icon, but
+// not the property. It takes IShellLink and IPropertyStore.
 //
 // Nothing here throws outward. No shortcut is an inconvenience and must never be
 // the reason a music player does not start.

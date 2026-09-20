@@ -118,6 +118,29 @@ public partial class PrefsWindow : Window
         Bars.SelectedIndex = _host.ColorChrome;
         _filling = false;
 
+        // The color it found, shown at a strength nobody would want as a
+        // background — this is the hue itself, so he can see what the sliders
+        // are working with.
+        var hue = _host.ColorHue;
+        HueSwatch.Background = new Avalonia.Media.SolidColorBrush(
+            new Avalonia.Media.HslColor(1, hue, 0.60, 0.52).ToRgb());
+        if (_host.ColorIsFromLibrary)
+        {
+            HueLine.Text = $"Your collection leans {HueName(hue)}";
+            HueAbout.Text = $"{App.DisplayName} has no color scheme of its own. It looks at the covers in your "
+                          + "library, finds the color they lean toward, and builds the window from that — so it "
+                          + "is different for every collection, and changes if yours does. The controls below "
+                          + "do not pick a color. They decide what is done with yours.";
+        }
+        else
+        {
+            HueLine.Text = "Your covers do not lean any one way";
+            HueAbout.Text = $"{App.DisplayName} builds its colors from the covers in your library. Yours are spread "
+                          + "evenly around the color wheel, or there are none yet, so it is using a neutral warm "
+                          + "amber instead. That will change by itself as the collection does. The controls below "
+                          + "decide what is done with the color.";
+        }
+
         LightValue.Text = _host.ColorLightness.ToString();
         TintValue.Text = _host.ColorTint.ToString();
         BarsAbout.Text = AboutBars(_host.ColorChrome);
@@ -130,7 +153,7 @@ public partial class PrefsWindow : Window
             ShortcutAdd.Content = !has ? "Add to the Start Menu" : current ? "Re-create the shortcut" : "Point the shortcut here";
             ShortcutRemove.IsVisible = has;
             ShortcutStatus.Text = _shortcutNote
-                ?? (!has ? "No shortcut yet. With one, Windows calls this AlbumWall instead of naming it after its exe, and you can pin it."
+                ?? (!has ? "No shortcut yet. With one, Start search finds it and you can pin it to the taskbar."
                     : current ? "In the Start Menu, and pointing at this copy."
                     : "There is a shortcut, but it points at a different copy of the program — one that was moved or rebuilt somewhere else.");
         }
@@ -139,6 +162,21 @@ public partial class PrefsWindow : Window
         AboutVersion.Text = $"{App.DisplayName} {v?.Major}.{v?.Minor}.{v?.Build}";
         AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }
+
+    /// A plain word for a hue, in degrees. Only ever shown beside the swatch, so
+    /// it has to be right, not precise.
+    private static string HueName(double hue) => (((hue % 360) + 360) % 360) switch
+    {
+        < 15 => "red",
+        < 45 => "orange",
+        < 70 => "yellow",
+        < 160 => "green",
+        < 200 => "teal",
+        < 255 => "blue",
+        < 290 => "violet",
+        < 335 => "pink",
+        _ => "red"
+    };
 
     /// What each way of separating the bars from the wall actually does, in the
     /// words Ground.cs uses to justify them.
