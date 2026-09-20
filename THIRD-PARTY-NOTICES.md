@@ -103,10 +103,18 @@ this one; the versions below are the ones a release carries.
   License: SIL Open Font License 1.1.
   Source: https://github.com/rsms/inter
 
-## Before this is published
+## The audio engine's source
 
-This page names every license and says where every source is. A public release
-also has to carry the license TEXTS themselves, word for word, and the source
-archives for the audio engine attached to the same release as the binaries.
-Both are on the release checklist in `docs/roadmap.md`; neither is done yet,
-and AlbumWall has not been distributed to anyone.
+The licenses of the audio engine give you the right to the exact source it was
+built from. It is attached to the same `libmpv-*` release as the library itself:
+one archive per project, taken from the tag named above, together with the
+recipe in `scripts/build-libmpv/` that turns them into this library.
+
+## The license texts
+
+Each license named above is in the `licenses/` folder of AlbumWall's source,
+exactly as its project ships it — fetched from the project's own repository by
+`tools/fetch-licenses.py`, never typed or edited, and listed with its SHA-256 in
+`licenses/README.md`. They are inside the program as well: in the app, they
+follow this page, each behind its own fold. SQLite is in the public domain and
+ships no license file.

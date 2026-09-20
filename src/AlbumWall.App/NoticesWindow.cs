@@ -15,6 +15,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 
 namespace AlbumWall.App;
 
@@ -37,6 +38,17 @@ public sealed class NoticesWindow : Window
         _open.Activate();
     }
 
+    /// For the snapshot rig: opens the first fold whose name contains `part` and
+    /// brings it into view.
+    public void OpenFold(string part)
+    {
+        var fold = this.GetVisualDescendants().OfType<Expander>()
+            .FirstOrDefault(e => (e.Header as TextBlock)?.Text?.Contains(part, StringComparison.OrdinalIgnoreCase) == true);
+        if (fold is null) return;
+        fold.IsExpanded = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => fold.BringIntoView(), Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
     private NoticesWindow()
     {
         Title = $"{App.DisplayName} — What's inside";
@@ -51,8 +63,19 @@ public sealed class NoticesWindow : Window
         this[!BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
 
         var column = new StackPanel { Spacing = 4, Margin = new Thickness(26, 20, 30, 26) };
+
+        // The folds in the sheet's colors and at a height meant for a list of
+        // twenty-one. The theme's own are near-black slabs 48 px tall, which on
+        // this panel read as a wall of buttons rather than a list of documents.
+        column.Resources["ExpanderMinHeight"] = 34.0;
+        foreach (var key in new[] { "ExpanderHeaderBackground", "ExpanderHeaderBackgroundPointerOver",
+                                    "ExpanderHeaderBackgroundPressed" })
+            column.Resources[key] = Application.Current!.Resources["SheetBg"];
+        column.Resources["ExpanderContentBackground"] = Brushes.Transparent;
         foreach (var block in Read())
             column.Children.Add(block);
+        foreach (var fold in LicenseTexts())
+            column.Children.Add(fold);
 
         var panel = new Border
         {
@@ -69,6 +92,49 @@ public sealed class NoticesWindow : Window
         panel[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetField");
         panel[!Border.BorderBrushProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetEdge");
         Content = panel;
+    }
+
+    /// The license texts themselves, which the notices end by promising: every file
+    /// under Assets/licenses, one fold each, closed. They are other people's words
+    /// and are shown exactly as they came — monospaced, because most of them are
+    /// laid out for an 80-column page. A text is only read out of the exe when its
+    /// fold is first opened: there are twenty-one and the GPL alone is 35 KB.
+    private static IEnumerable<Control> LicenseTexts()
+    {
+        var folder = new Uri("avares://AlbumWall/Assets/licenses");
+        List<Uri> files;
+        try { files = AssetLoader.GetAssets(folder, null).OrderBy(u => u.AbsolutePath, StringComparer.OrdinalIgnoreCase).ToList(); }
+        catch { yield break; }
+
+        foreach (var file in files)
+        {
+            var name = Uri.UnescapeDataString(file.AbsolutePath[(file.AbsolutePath.LastIndexOf('/') + 1)..]);
+            var fold = new Expander
+            {
+                Header = new TextBlock { Text = name, FontSize = 13 },
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            fold.Expanded += (_, _) =>
+            {
+                if (fold.Content is not null) return;
+                string text;
+                try
+                {
+                    using var reader = new StreamReader(AssetLoader.Open(file));
+                    text = reader.ReadToEnd();
+                }
+                catch (Exception ex) { text = $"Could not be read: {ex.Message}"; }
+
+                fold.Content = new SelectableTextBlock
+                {
+                    Text = text.Replace("\r", "").Replace("\f", "").TrimStart('\uFEFF'),
+                    FontFamily = new FontFamily("Consolas, DejaVu Sans Mono, monospace"),
+                    FontSize = 11, LineHeight = 15, TextWrapping = TextWrapping.Wrap, Opacity = 0.86
+                };
+            };
+            yield return fold;
+        }
     }
 
     /// The little of Markdown the notices file uses, and no more: two levels of

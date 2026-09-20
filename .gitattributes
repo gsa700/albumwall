@@ -4,3 +4,7 @@
 * text=auto eol=lf
 *.png binary
 *.jpg binary
+
+# Other people's license texts, fetched verbatim (tools/fetch-licenses.py) and listed
+# with their SHA-256 in licenses/README.md. Not ours to normalise: stored as they came.
+licenses/** -text

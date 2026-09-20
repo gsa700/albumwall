@@ -76,6 +76,10 @@
          for such a file, carried INSIDE the exe so that they travel with it: the
          About tab's "What's inside" shows this copy. One file, two homes. -->
     <AvaloniaResource Include="..\..\THIRD-PARTY-NOTICES.md" Link="Assets\THIRD-PARTY-NOTICES.md" />
+    <!-- And the license TEXTS, verbatim from each upstream (tools/fetch-licenses.py), plus our
+         own. "What's inside" lists them under the notices, each behind its own fold. -->
+    <AvaloniaResource Include="..\..\licenses\*" Exclude="..\..\licenses\README.md" Link="Assets\licenses\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\..\LICENSE" Link="Assets\licenses\AlbumWall-LICENSE.GPLv3.txt" />
     <!-- Also embedded plainly: the Linux installer writes this icon into the XDG
          icon theme for the .desktop entry, and the install switch runs before
          Avalonia is initialized, so the Avalonia asset loader is not available

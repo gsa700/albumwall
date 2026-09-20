@@ -67,14 +67,15 @@ is ahead, the history is for what is behind.
   engineering.** We distribute other people's GPL and LGPL code inside the
   exe, and that carries obligations that are easy to meet and embarrassing to
   miss:
-  - **Notices.** HALF DONE (2026-09-20): `THIRD-PARTY-NOTICES.md` exists, names
-    every bundled component with what it does, its license and its source, is
-    carried inside the exe, and opens from the About tab as "What's inside".
-    STILL OWED: the license TEXTS themselves, verbatim from each upstream — not
-    typed from memory — in a `licenses/` folder the notices point at. The About
-    tab's other links (source, license, the audio engine's releases, issues) all
-    hang off `App.ProjectUrl`, which moves once, to the public snapshot.
-    The original item: the license texts and credits for everything bundled, in a
+  - **Notices.** DONE (2026-09-20). `THIRD-PARTY-NOTICES.md` names every bundled
+    component with what it does, its license and its source; `licenses/` holds
+    the license TEXTS, fetched verbatim from each upstream at the pinned version
+    by `tools/fetch-licenses.py` (never typed), with origin and SHA-256 in
+    `licenses/README.md`. Both are carried inside the exe and open from the About
+    tab as "What's inside", the texts each behind a fold. RUN THE SCRIPT AGAIN
+    WHEN A PIN MOVES. The About tab's other links (source, license, the audio
+    engine's releases, issues) all hang off `App.ProjectUrl`, which moves once,
+    to the public snapshot. The original item: the license texts and credits for everything bundled, in a
     third-party notices file and reachable from the About tab: mpv (GPLv2+),
     FFmpeg (LGPLv2.1+ as we configure it — never add `--enable-gpl` or
     `--enable-nonfree` without revisiting this), libplacebo and FriBidi
@@ -82,6 +83,12 @@ is ahead, the history is for what is behind.
     HarfBuzz (MIT), zlib; and on the .NET side Avalonia, TagLib#, Tmds.DBus and
     the Inter font.
   - **Corresponding source, attached to the same release as the binaries.**
+    DONE for `libmpv-0.41.0-3` (2026-09-20): one archive per pinned project, plus
+    the recipe, built by `scripts/build-libmpv/source-archives.sh` and uploaded
+    beside the libraries with `SHA256SUMS-sources`. The script checks each archive
+    against `licenses/` and refuses to finish if they differ — it has to, because
+    `git archive` applies `core.autocrlf`, and on Windows the first set came out
+    CRLF throughout and looked fine. EVERY NEW `libmpv-*` RELEASE NEEDS ITS OWN.
     Pointing at upstream tags is common practice, but the distributor is the
     one responsible and upstream can vanish. The source tarballs for the exact
     pinned versions go up next to the native-library assets. The build recipe

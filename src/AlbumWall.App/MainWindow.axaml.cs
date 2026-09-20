@@ -1640,6 +1640,14 @@ public partial class MainWindow : Window
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.About); return; }
         if (text.Equals("notices", StringComparison.OrdinalIgnoreCase)) { NoticesWindow.ShowFrom(this); return; }
+        if (text.StartsWith("notices open ", StringComparison.OrdinalIgnoreCase))
+        {
+            // Opens the fold whose file name contains the text and scrolls to it, so a
+            // license text can be photographed: "notices open libass".
+            NoticesWindow.ShowFrom(this);
+            NoticesWindow.Current?.OpenFold(text["notices open ".Length..].Trim());
+            return;
+        }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }
 
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))

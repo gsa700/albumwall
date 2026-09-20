@@ -496,12 +496,38 @@ good the whole time" — that is, since test3 and through today's reinstalls ove
 it. So the AppUserModelID claimed at startup and the one written into the
 shortcut agree, and a pin made from one build carries over to the next.
 
-NOT tested, because they need eyes or a hand: the About tab's appearance in
-installed mode, and "delete the desktop shortcut and it must not come back".
+**The installed copy, driven by him, that evening:** closed the development
+build, started the installed one from his taskbar pin — "FB" — and its About tab
+reads "Installed in …" with the Uninstall button, as it should. With that, every
+item on the bring-up doc's installer checklist has been seen on Windows except
+one: "delete the desktop shortcut and it must not come back".
 
 Left installed at the end: today's build (5082e79 plus the log fix), so the
 taskbar pin — which had been pointing at test3 — starts a good copy. It shares
 the real settings with the development build; one at a time.
+
+### Release paperwork, done from Hambench (same evening)
+
+Both "a release does not go out without these" items, which need no Fedora:
+
+- **License texts**: `tools/fetch-licenses.py` → `licenses/`, 20 files, each the
+  file its project ships at the pinned version, with origin and SHA-256 indexed.
+  `.gitattributes` marks the folder `-text`, or `* text=auto eol=lf` would
+  quietly normalize someone else's license. Carried in the exe; "What's inside"
+  shows them behind folds.
+- **Source archives**: `scripts/build-libmpv/source-archives.sh` → seven project
+  archives and the recipe, 73 MB, attached to `libmpv-0.41.0-3`.
+
+**THE TRAP, and it is a Windows one.** `git archive` is not immune to the
+platform: it runs contents through the same end-of-line conversion as a
+checkout, and Git for Windows installs with `core.autocrlf=true`. The first set
+of archives had CRLF in every text file — thousands of files per project that
+were not what upstream ships — and nothing about them looked wrong. It showed
+only because the license file inside each archive was compared with the copy
+`fetch-licenses.py` had fetched from the same tag over HTTPS: seven out of seven
+DIFFERENT, identical apart from carriage returns. The script now archives with
+`-c core.autocrlf=false -c core.eol=lf` and does that comparison itself, exiting
+non-zero on a mismatch. On the Fedora box none of this would ever have shown.
 
 ### The mixer said "song title - mpv"
 
