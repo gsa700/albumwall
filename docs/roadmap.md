@@ -45,10 +45,8 @@ is ahead, the history is for what is behind.
      (`IncludeNativeLibrariesForSelfExtract`), and proof that the resolver in
      `Mpv.cs` finds a self-extracted library. The updater swaps one file, so
      libmpv has to be in that file.
-  2. The native libraries published as release assets of their own (a tag like
-     `libmpv-0.41.0-1`), so whichever machine cuts an app release downloads
-     them instead of building them. linux-arm64 still has to be built, natively
-     on a Pi, with the same script.
+  2. ~~The native libraries published as release assets of their own~~ —
+     done, see the entry below. A release script should fetch them by tag.
   3. `InstallService` — which also fixes the entry below, and whose Linux half
      is the `.desktop` entry above.
   4. `UpdateService` — built now, switched on later: it reads
@@ -72,19 +70,22 @@ is ahead, the history is for what is behind.
     pinned versions go up next to the native-library assets. The build recipe
     is part of that source and is already in the repository.
 
-- **Our own audio-only libmpv for WINDOWS too — decided 2026-09-20.** "we don't
-  need any of that extra stuff, lets leave it out." The upstream DLL that
-  `get-libmpv.ps1` fetches is the full player: around 100 MB, and it carries
-  H.264, HEVC and VVC decoders — the codecs with the most aggressive patent
-  pools there are — which every release would distribute and never call. The
-  Linux build already proves the recipe; mpv supports mingw cross-compilation,
-  so this is the same container script with a second target, and the result
-  should be around 8 MB like its sibling. It also finishes "keep them the same
-  when we can": one recipe, one set of pins, one set of decoders, three
-  platforms. **Wanted before the repository goes public.** Private releases can
-  ride on the upstream DLL until then; `get-libmpv.ps1` stays as the
-  development convenience either way. Gapless on Windows was verified against
-  the upstream build, so it needs his ears again after the swap.
+- **Our own audio-only libmpv for Windows: BUILT, NOT YET PROVEN.** "we don't
+  need any of that extra stuff, lets leave it out." `scripts/build-libmpv/build.sh
+  win-x64` cross-compiles a 9.4 MB `libmpv-2.dll` from the same pins and decoder
+  list as the Linux library, replacing an upstream DLL of about 100 MB that
+  carries H.264, HEVC and VVC decoders the app never calls. Verified from Linux:
+  it imports only Windows system DLLs and exports everything `Mpv.cs` uses.
+  **What is left is on Hambench: that it loads, plays, and stays GAPLESS** — the
+  test is at the end of `docs/windows-bringup.md`. When it passes,
+  `get-libmpv.ps1` should fetch our release instead of SourceForge. Wanted
+  before the repository goes public; the upstream DLL is the rollback until then.
+
+- **The native libraries are release assets now**: tag `libmpv-0.41.0-1`, a
+  PRE-release on purpose so `/releases/latest` (and with it the app's updater)
+  never mistakes it for an app version. linux-x64 and win-x64 are there;
+  **linux-arm64 is still to build**, natively on a Pi, with the same script. Bump
+  the trailing number when the recipe changes without the mpv version changing.
 
 - **An installed copy, separate from the build folder.** The Start Menu
   shortcut points at wherever the app is running from, which today is
