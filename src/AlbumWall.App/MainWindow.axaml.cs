@@ -110,7 +110,6 @@ public partial class MainWindow : Window
         // behaviors the system one provided: drag to move, double-click to
         // maximize, and the buttons the desktop asked for.
         TopBar.PointerPressed += OnTitleBarPressed;
-        TopBar.DoubleTapped += (_, _) => ToggleMaximized();
         BuildWindowButtons();
         BuildTransport();
 
@@ -862,8 +861,34 @@ public partial class MainWindow : Window
         // Only a press on the bar's own background starts a drag. A press that
         // landed on the search box or a window button belongs to that control.
         if (e.Source is not Border) return;
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            BeginMoveDrag(e);
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+        // The SECOND press of a double click must not start a move drag.
+        //
+        // Maximizing was on TopBar.DoubleTapped, which fires after the second
+        // press — by which time this handler had already called BeginMoveDrag
+        // for it, and once for the first press too. Handing the window manager
+        // an interactive move and then changing WindowState inside the same
+        // gesture leaves it half way through both, which is what he saw on
+        // 2026-09-20: "I am double clicking the title bar to transition ... it
+        // made a little effort and failed." His desktop has no maximize button,
+        // so this is the ONLY way he maximizes, and it is the one path the
+        // scripted rig never took — it sets WindowState directly and always
+        // came back cleanly.
+        //
+        // So the double click is handled here, where the click count is known,
+        // instead of in a separate DoubleTapped handler that cannot stop the
+        // drag that has already begun.
+        if (e.ClickCount == 2)
+        {
+            ToggleMaximized();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ClickCount > 2) return;
+
+        BeginMoveDrag(e);
     }
 
     private void ToggleMaximized() =>
