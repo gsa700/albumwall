@@ -983,6 +983,18 @@ public partial class MainWindow : Window
         var top = TransportAtTop;
         DockPanel.SetDock(Transport, top ? Dock.Top : Dock.Bottom);
         Transport.BorderThickness = top ? new Thickness(0, 0, 0, 1) : new Thickness(0, 1, 0, 0);
+
+        // Which way it slides. The controls keep their full height while the bar
+        // around them grows, pinned to the edge the bar grows AWAY from — so from
+        // the bottom they rise into view top first, and from under the title bar
+        // they drop into view bottom first. Pinned the other way the bar would
+        // open like a curtain over controls that never move, which is a wipe,
+        // not a slide.
+        if (Transport.Child is Control controls)
+        {
+            controls.Height = TransportHeight - 1;        // less the rule along one edge
+            controls.VerticalAlignment = top ? VerticalAlignment.Bottom : VerticalAlignment.Top;
+        }
     }
 
     private void ToggleMaximized() =>
@@ -2177,13 +2189,84 @@ public partial class MainWindow : Window
 
     /// The transport is the only thing that changes the wall's height while an
     /// album is open, so it is the only place that has to hold the wall still.
+    ///
+    /// IT SLIDES. "both work, bar switches and disappears correctly. but it's
+    /// kind of abrupt. can it sort of slide in and out?" It used to be a switch
+    /// of IsVisible: 82 px of wall gone or back in one frame. Now Height runs
+    /// between 0 and 82 on a transition and the wall's edge travels with it.
+    /// That is a real change of layout on every frame, not a picture moved over
+    /// the top, on purpose: the wall is what the bar displaces, and a bar that
+    /// slid over a wall which had already jumped would only be half the fix.
+    /// The hold below runs for the whole of it, for the reason it exists at all.
     private void ShowTransport(bool visible)
     {
-        if (Transport.IsVisible == visible) return;
+        if (_transportShown == visible) return;
+        _transportShown = visible;
+
+        if (Transport.Transitions is null)
+        {
+            // First use. Collapsed without ceremony, THEN given its transition,
+            // or the first thing it would do is animate shut from the markup's 82.
+            Transport.Height = 0;
+            Transport.Transitions =
+            [
+                new DoubleTransition
+                {
+                    Property = HeightProperty,
+                    Duration = TransportSlide,
+                    Easing = new CubicEaseOut()
+                }
+            ];
+        }
+
         var before = PanelTopInView();
-        Transport.IsVisible = visible;
-        KeepPanelInView(before);
+        _transportGone?.Stop();
+        _transportGone = null;
+
+        if (visible)
+        {
+            Transport.IsVisible = true;
+            Transport.Height = TransportHeight;
+        }
+        else
+        {
+            // Out of the layout altogether once it has closed, as before: a
+            // zero-height border still has a one-pixel rule along its edge.
+            Transport.Height = 0;
+            _transportGone = new DispatcherTimer { Interval = TransportSlide + TimeSpan.FromMilliseconds(40) };
+            _transportGone.Tick += (_, _) =>
+            {
+                _transportGone?.Stop();
+                _transportGone = null;
+                if (!_transportShown) Transport.IsVisible = false;
+            };
+            _transportGone.Start();
+        }
+
+        KeepPanelInView(before, TransportSlide);
+
+#if DEBUG
+        // The snapshot rig takes two seconds a picture and cannot see a quarter
+        // second of movement, so the slide says for itself that it happened: the
+        // bar's height as laid out, a few times on the way. One line.
+        var heights = new List<string>();
+        var ticks = 0;
+        var sampler = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+        sampler.Tick += (_, _) =>
+        {
+            heights.Add($"{Transport.Bounds.Height:0}");
+            if (++ticks < 9) return;
+            sampler.Stop();
+            Console.WriteLine($"[transport] {(visible ? "in" : "out")}: {string.Join(" ", heights)}");
+        };
+        sampler.Start();
+#endif
     }
+
+    private const double TransportHeight = 82;
+    private static readonly TimeSpan TransportSlide = TimeSpan.FromMilliseconds(240);
+    private bool _transportShown;
+    private DispatcherTimer? _transportGone;
 
     private bool _draggingPosition;
 
@@ -2308,7 +2391,10 @@ public partial class MainWindow : Window
     /// Correcting by the DIFFERENCE in the panel's on-screen position, rather
     /// than by any absolute figure, is what makes this independent of whatever
     /// the estimate happens to be doing.
-    private void KeepPanelInView(double? before)
+    ///
+    /// `during` is how long the geometry goes on changing — the transport's
+    /// slide — and the hold outlasts it by the half second it always ran for.
+    private void KeepPanelInView(double? before, TimeSpan during = default)
     {
         if (before is null) return;
 
@@ -2317,12 +2403,21 @@ public partial class MainWindow : Window
         // pass, so a single correction runs before the content has finished
         // sliding, measures a delta of nothing, and congratulates itself.
         _panelHold?.Stop();
-        var until = DateTime.UtcNow.AddMilliseconds(500);
+        var until = DateTime.UtcNow + during + TimeSpan.FromMilliseconds(500);
+        var corrected = 0.0;
 
         _panelHold = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _panelHold.Tick += (_, _) =>
         {
-            if (DateTime.UtcNow > until) { _panelHold?.Stop(); _panelHold = null; return; }
+            if (DateTime.UtcNow > until)
+            {
+                _panelHold?.Stop();
+                _panelHold = null;
+                // Once, at the end. It used to say so on every tick, which was one
+                // line when the bar appeared in a frame and is fifteen now.
+                if (Math.Abs(corrected) >= 0.5) Console.WriteLine($"[hold] panel slid {corrected:F1} in all, corrected");
+                return;
+            }
             if (PanelTopInView() is not { } after) return;
 
             var delta = after - before.Value;
@@ -2331,7 +2426,7 @@ public partial class MainWindow : Window
             var max = Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height);
             WallScroller.Offset = WallScroller.Offset
                 .WithY(Math.Clamp(WallScroller.Offset.Y + delta, 0, max));
-            Console.WriteLine($"[hold] panel slid {delta:F1}, corrected");
+            corrected += delta;
         };
         _panelHold.Start();
     }

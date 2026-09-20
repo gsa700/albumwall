@@ -636,7 +636,10 @@
         <!-- Transport. Declared after the controls bar so it docks ABOVE it, and
              hidden entirely until something is playing: an empty transport is a
              row of dead controls taking up wall. -->
-        <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="82"
+        <!-- It SLIDES in and out: the code animates Height between 0 and 82 and
+             this clips, so the controls are uncovered rather than squashed. See
+             ShowTransport. The 82 here is what the previewer sees. -->
+        <Border x:Name="Transport" DockPanel.Dock="Bottom" Height="82" ClipToBounds="True"
                 BorderThickness="0,1,0,0" IsVisible="False">
             <!-- Title and progress SHARE the slack, weighted 1 : 1.6 in the
                  progress bar's favor. A fixed width for either is wrong: a
