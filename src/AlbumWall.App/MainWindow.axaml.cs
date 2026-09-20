@@ -876,9 +876,55 @@ public partial class MainWindow : Window
     private void ApplyCorners() =>
         Surface.CornerRadius = new CornerRadius(WindowState == WindowState.Normal ? 12 : 0);
 
+    /// Puts the window back to the size it had before it was maximized, when the
+    /// window manager has not done it.
+    ///
+    /// Maximizing overwrites Width and Height with the maximized size — Avalonia
+    /// assigns them from the platform on every resize. So by the time the window
+    /// is un-maximized, the size the APP is asking for IS the maximized one, and
+    /// it wins over whatever geometry the window manager had remembered. The
+    /// window leaves the maximized state and stays screen-sized, which from the
+    /// other side of the screen is: "it made a little effort and failed."
+    ///
+    /// Only applied when the window really did come back screen-sized, so that a
+    /// platform which restores correctly by itself is never fought with.
+    private void PutBackNormalGeometry()
+    {
+        if (_normalGeometry is not { } g) return;
+
+        // Checked repeatedly rather than once. How long the window manager takes
+        // to settle after an un-maximize is not knowable from here — on the rig
+        // the size is already back within a frame or two, while the report this
+        // was written for had it never come back at all. A single timed look
+        // would either fire when it should not or miss the case it exists for.
+        var tries = 0;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        timer.Tick += (_, _) =>
+        {
+            if (++tries > 6 || WindowState != WindowState.Normal) { timer.Stop(); return; }
+
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (screen is null) { timer.Stop(); return; }
+            var scale = screen.Scaling > 0 ? screen.Scaling : RenderScaling;
+            var area = screen.WorkingArea;
+
+            // Came back on its own: nothing to repair, and nothing to fight.
+            if (Width * scale < area.Width || Height * scale < area.Height) { timer.Stop(); return; }
+
+            timer.Stop();
+            Console.WriteLine($"[wall] un-maximize left the window at {Width}x{Height}; "
+                            + $"putting back {g.W}x{g.H} at {g.X},{g.Y}");
+            Width = g.W;
+            Height = g.H;
+            Position = new PixelPoint(g.X, g.Y);
+        };
+        timer.Start();
+    }
+
     private void OnWindowStateChanged(WindowState state)
     {
         ApplyCorners();
+        if (state == WindowState.Normal) PutBackNormalGeometry();
 
         // Logged because the other half of the 2026-09-20 report — "it maximized
         // but wouldn't return to the normal window size", and then the window
