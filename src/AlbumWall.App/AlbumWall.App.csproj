@@ -72,6 +72,10 @@
   <!-- And the same icon as a resource, for the windows' own title bars. -->
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!-- The third-party notices, from the root of the repository where people look
+         for such a file, carried INSIDE the exe so that they travel with it: the
+         About tab's "What's inside" shows this copy. One file, two homes. -->
+    <AvaloniaResource Include="..\..\THIRD-PARTY-NOTICES.md" Link="Assets\THIRD-PARTY-NOTICES.md" />
     <!-- Also embedded plainly: the Linux installer writes this icon into the XDG
          icon theme for the .desktop entry, and the install switch runs before
          Avalonia is initialized, so the Avalonia asset loader is not available

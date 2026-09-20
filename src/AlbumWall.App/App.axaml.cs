@@ -49,7 +49,15 @@ public partial class App : Application
     ///
     /// Written as an escape on purpose: in plenty of editor fonts an alpha and an
     /// "a" are hard to tell apart, and this line should not look like a typo.
-    public const string Wordmark = "αlbumWall";
+    public const string Wordmark = "\u03b1lbumWall";
+
+    /// Where the project lives. ONE PLACE, because it is going to change: the
+    /// repository is private today, and going public is planned as a fresh
+    /// snapshot repository rather than flipping this one — so the address the
+    /// About tab sends people to will move, once, and must move everywhere at
+    /// the same moment. Until then these open for him and for nobody else, which
+    /// is correct: nobody else has a copy.
+    public const string ProjectUrl = "https://github.com/gsa700/albumwall";
 
     /// Draws the wordmark into a TextBlock, the alpha in the collection's own
     /// color (WordmarkInk, set by ApplyGround from the hue of his covers) and the

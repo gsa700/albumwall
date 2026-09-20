@@ -248,8 +248,15 @@
                 </StackPanel>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                            Text="A player for a music library you own, built around seeing the whole collection at once."/>
-                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="Licensed under the GNU General Public License v3 or later. Audio by libmpv (GPLv2 or later). Tags by TagLib#."/>
+                <!-- LINKS THAT SAY WHAT THEY ARE FOR. "lets make the about page have
+                     direct links clearly describing what they are for." This was one
+                     sentence — "Licensed under the GNU GPL v3 or later. Audio by
+                     libmpv. Tags by TagLib#." — which named three things and linked
+                     to none of them. Each row is the link, then in plain words what
+                     is at the other end of it; the address itself is the tooltip.
+                     Built in code (FillAboutLinks) since the addresses hang off
+                     App.ProjectUrl, which will change once. -->
+                <StackPanel x:Name="AboutLinks" Spacing="7" Margin="0,4,0,2"/>
                 <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
                            TextWrapping="Wrap"/>
 

@@ -1639,6 +1639,7 @@ public partial class MainWindow : Window
         { ShowPrefs(PrefsWindow.Tab.Appearance); return; }
         if (text.Equals("prefs", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("about", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.About); return; }
+        if (text.Equals("notices", StringComparison.OrdinalIgnoreCase)) { NoticesWindow.ShowFrom(this); return; }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }
 
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
@@ -1729,6 +1730,18 @@ public partial class MainWindow : Window
                 shot.Render(prefs);
                 shot.Save(Path.ChangeExtension(trigger, null) + ".prefs.png");
                 Console.WriteLine($"[wall] snapshot of preferences {pw}x{ph} at {prefs.Position}");
+            }
+
+            // And "What's inside", which hangs off the About tab.
+            if (NoticesWindow.Current is { } notices)
+            {
+                var nw = (int)Math.Ceiling(notices.ClientSize.Width * notices.RenderScaling);
+                var nh = (int)Math.Ceiling(notices.ClientSize.Height * notices.RenderScaling);
+                var ndpi = 96 * notices.RenderScaling;
+                using var shot = new Avalonia.Media.Imaging.RenderTargetBitmap(
+                    new PixelSize(nw, nh), new Vector(ndpi, ndpi));
+                shot.Render(notices);
+                shot.Save(Path.ChangeExtension(trigger, null) + ".notices.png");
             }
         }
         catch (Exception ex)

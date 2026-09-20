@@ -127,6 +127,63 @@ public partial class PrefsWindow : Window
 
     public void Select(Tab tab) => Tabs.SelectedIndex = (int)tab;
 
+    /// The About tab's links: what each is called, what is at the other end in
+    /// plain words, and where it goes. A null address opens the notices window,
+    /// which is inside the program and needs no network.
+    private void FillAboutLinks()
+    {
+        (string Name, string WhatFor, string? Url)[] links =
+        [
+            ("Source code",
+             $"Everything {App.DisplayName} is made from, and its history. On GitHub.",
+             App.ProjectUrl),
+            ("The license",
+             "GNU GPL version 3 or later: use it, share it, change it, and pass the same freedom on.",
+             "https://www.gnu.org/licenses/gpl-3.0.html"),
+            ("What's inside",
+             "Every library built into this program: what it does here, its license, where its source is.",
+             null),
+            ("The audio engine",
+             "The libmpv this plays through, built by this project: its releases, and the source they were built from.",
+             App.ProjectUrl + "/releases?q=libmpv"),
+            ("Report a problem",
+             "Something wrong, or something missing. Opens the project's issue list.",
+             App.ProjectUrl + "/issues")
+        ];
+
+        foreach (var (name, whatFor, url) in links)
+        {
+            var link = new Button
+            {
+                Classes = { "link" },
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                Content = new TextBlock
+                {
+                    Text = name, FontSize = 13,
+                    TextDecorations = Avalonia.Media.TextDecorations.Underline
+                }
+            };
+            ToolTip.SetTip(link, url ?? "Opens here, in a window of its own");
+            link.Click += async (_, _) =>
+            {
+                if (url is null) { NoticesWindow.ShowFrom(this); return; }
+                try { await Launcher.LaunchUriAsync(new Uri(url)); }
+                catch (Exception ex) { Console.WriteLine($"[about] could not open {url}: {ex.Message}"); }
+            };
+
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("132,*") };
+            row.Children.Add(link);
+            var about = new TextBlock
+            {
+                Text = whatFor, FontSize = 13, LineHeight = 19, Classes = { "dim" },
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+            };
+            Grid.SetColumn(about, 1);
+            row.Children.Add(about);
+            AboutLinks.Children.Add(row);
+        }
+    }
+
     /// A scan is running and has something to show. `mine` is the one started
     /// from the button here, which is the one the button can stop.
     public void ShowScan(double fraction, string detail, bool mine)
@@ -238,6 +295,7 @@ public partial class PrefsWindow : Window
 
         var v = typeof(PrefsWindow).Assembly.GetName().Version;
         if (AboutWordmark.Inlines is not { Count: > 0 }) App.DrawWordmark(AboutWordmark);
+        if (AboutLinks.Children.Count == 0) FillAboutLinks();
         AboutVersion.Text = $"Version {v?.Major}.{v?.Minor}.{v?.Build}";
         AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }

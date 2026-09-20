@@ -64,7 +64,14 @@ is ahead, the history is for what is behind.
   engineering.** We distribute other people's GPL and LGPL code inside the
   exe, and that carries obligations that are easy to meet and embarrassing to
   miss:
-  - **Notices.** The license texts and credits for everything bundled, in a
+  - **Notices.** HALF DONE (2026-09-20): `THIRD-PARTY-NOTICES.md` exists, names
+    every bundled component with what it does, its license and its source, is
+    carried inside the exe, and opens from the About tab as "What's inside".
+    STILL OWED: the license TEXTS themselves, verbatim from each upstream — not
+    typed from memory — in a `licenses/` folder the notices point at. The About
+    tab's other links (source, license, the audio engine's releases, issues) all
+    hang off `App.ProjectUrl`, which moves once, to the public snapshot.
+    The original item: the license texts and credits for everything bundled, in a
     third-party notices file and reachable from the About tab: mpv (GPLv2+),
     FFmpeg (LGPLv2.1+ as we configure it — never add `--enable-gpl` or
     `--enable-nonfree` without revisiting this), libplacebo and FriBidi

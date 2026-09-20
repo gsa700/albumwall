@@ -128,7 +128,7 @@ Set `ALBUMWALL_SNAP` to a path before launching. Then:
   (`Set-Content "$env:ALBUMWALL_SNAP.cmd" "open dirt" -NoNewline`):
   `open <text>` (substring match on artist or album), `close`, `play <n>`,
   `search <text>` (bare `search` clears), `scroll <px>`, `volume <n>`, `rescan`, `rescan stop`,
-  `reveal`, `prefs`, `prefs stats`, `prefs startup`, `about`, `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
+  `reveal`, `prefs`, `prefs stats`, `prefs startup`, `about`, `notices`, `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
   `hover` / `hover transport`, `trace`.
 
 `prefs`, `prefs startup`, `prefs colors` and `about` open the Preferences window at that tab and
