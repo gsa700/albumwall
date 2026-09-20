@@ -55,6 +55,37 @@ is ahead, the history is for what is behind.
      `/releases/latest` unauthenticated, which a private repository answers
      with 404. It goes live with the public snapshot.
 
+  **A release does not go out without these two, and they are paperwork, not
+  engineering.** We distribute other people's GPL and LGPL code inside the
+  exe, and that carries obligations that are easy to meet and embarrassing to
+  miss:
+  - **Notices.** The license texts and credits for everything bundled, in a
+    third-party notices file and reachable from the About tab: mpv (GPLv2+),
+    FFmpeg (LGPLv2.1+ as we configure it — never add `--enable-gpl` or
+    `--enable-nonfree` without revisiting this), libplacebo and FriBidi
+    (LGPLv2.1+), libass (ISC), FreeType (FTL, which asks for a credit),
+    HarfBuzz (MIT), zlib; and on the .NET side Avalonia, TagLib#, Tmds.DBus and
+    the Inter font.
+  - **Corresponding source, attached to the same release as the binaries.**
+    Pointing at upstream tags is common practice, but the distributor is the
+    one responsible and upstream can vanish. The source tarballs for the exact
+    pinned versions go up next to the native-library assets. The build recipe
+    is part of that source and is already in the repository.
+
+- **Our own audio-only libmpv for WINDOWS too — decided 2026-09-20.** "we don't
+  need any of that extra stuff, lets leave it out." The upstream DLL that
+  `get-libmpv.ps1` fetches is the full player: around 100 MB, and it carries
+  H.264, HEVC and VVC decoders — the codecs with the most aggressive patent
+  pools there are — which every release would distribute and never call. The
+  Linux build already proves the recipe; mpv supports mingw cross-compilation,
+  so this is the same container script with a second target, and the result
+  should be around 8 MB like its sibling. It also finishes "keep them the same
+  when we can": one recipe, one set of pins, one set of decoders, three
+  platforms. **Wanted before the repository goes public.** Private releases can
+  ride on the upstream DLL until then; `get-libmpv.ps1` stays as the
+  development convenience either way. Gapless on Windows was verified against
+  the upstream build, so it needs his ears again after the swap.
+
 - **An installed copy, separate from the build folder.** The Start Menu
   shortcut points at wherever the app is running from, which today is
   `bin/Debug`. That works, but it means the player he is listening to has to be
@@ -78,6 +109,20 @@ is ahead, the history is for what is behind.
   the commit that settled it. Do not reopen this unless he does.
 - **Any companion tool is called Deadwax.** "If this thing ever gets a companion
   app for any reason: we name it deadwax no question."
+
+- **AAC stays in the build.** It is the one codec we ship with a live patent
+  question: the base AAC-LC patents (1997-2000) have largely aged out, but the
+  HE-AAC extensions (SBR and Parametric Stereo, 2003-2006) may still be live in
+  places for a few more years, and FFmpeg's decoder handles all of it. Fedora's
+  answer is a decoder stripped to LC only. Ours is to ship it, as VLC and mpv
+  have for two decades: decode-only, free, non-commercial, from an individual
+  is not a profile patent pools pursue, and his Windows library is 6,876 M4A
+  files. Everything else in the build — FLAC, Vorbis, Opus, ALAC, PCM, and MP3
+  since its patents expired in 2017 — is clean. The conservative lever exists
+  and is one line: drop `aac,aac_latm` from the decoder list in
+  `scripts/build-libmpv/inner.sh`. **Revisit with an actual attorney if the app
+  ever becomes commercial.** None of this is legal advice; it is the reasoning,
+  written down so it does not have to be reconstructed.
 
 ## Decided against, for now
 
