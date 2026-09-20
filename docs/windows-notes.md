@@ -446,6 +446,58 @@ installs, and those come from Fedora.
 A taskbar pin is the user's, not the app's, and survives an uninstall by
 design; with the exe gone Windows offers to remove it.
 
+### THE INSTALLER, RUN FOR REAL (same day, late afternoon)
+
+"only a single-file build installs, and those come from Fedora" was wrong in its
+second half: the roadmap says any machine can publish every platform, and it is
+true. `dotnet publish src\AlbumWall.App -c Release -r win-x64` on Hambench gives
+one 137 MB `AlbumWall.exe` in six seconds, with our `libmpv-0.41.0-3` inside.
+So the whole cycle was run here, against the real Programs folder, registry and
+shortcuts, with today's code (the uninstall fix, c7b545f, included).
+
+How, since it matters for whoever repeats it: every step ran through a one-off
+scheduled task, because the tool shell sees a private AppData; and every
+install/uninstall command ran with `ALBUMWALL_CONFIG_DIR` pointed at a throwaway
+folder, so that the settings an uninstall removes — and the `index.db` it
+rightly always removes — were stand-ins and not his. His daily player (the
+development build) was closed only for the half minute the installed copy ran,
+since the two share the real settings.
+
+| step | result |
+|---|---|
+| `--install --quiet` over test3 | exit 0; exe replaced (hash = the published one); `reg import exit 0; start menu ok` |
+| Installed-apps entry | real: name, version 0.1.0, publisher, icon, both uninstall strings, size |
+| Start Menu + Desktop shortcuts | both point at the installed exe, working folder set |
+| run it from the Start Menu shortcut | `[install] startup: ok`; index used (**0 files opened, 166 ms**); session resumed; libmpv loaded from `%TEMP%\.net\AlbumWall\<hash>\` — ours, from inside the exe |
+| **quiet uninstall** (the registered `QuietUninstallString`, run verbatim) | exit 0 in 1.1 s; **install folder GONE 1.1 s after**; registry entry gone; both shortcuts gone; extraction cache gone (test3's stale one with it); test folder: `index.db` removed, `settings.json` KEPT |
+| **interactive uninstall**, "Also remove my settings and the saved session" TICKED | dialog driven through UI Automation (`OptionBox`, `AffirmativeButton` — Avalonia exposes `x:Name` as the automation id); **folder gone 0.5 s after the button**; settings, session, index, logs removed; a file that was not the app's, planted beside them, LEFT ALONE |
+| reinstall after each | clean; desktop shortcut "created", as a fresh install should |
+
+So the fix holds on the real thing, both ways in, and the helper is fast: the
+ten-second retry budget is insurance, not the normal case.
+
+Two things it turned up:
+
+- **`albumwall.log.1` survived "remove my settings."** The previous run's log,
+  which `LogFile` keeps beside the current one, was not on the list of named
+  files to remove. It is now.
+- **A comment and the bring-up doc had the two uninstall strings the wrong way
+  round.** Both are registered. The Uninstall button in Settings › Installed
+  apps runs `UninstallString` — plain `--uninstall`, which comes up far enough
+  to ASK — and it is silent removers (winget, management agents) that run
+  `QuietUninstallString`. So item 6 of the bring-up checklist, "Uninstall from
+  Installed apps runs `--uninstall --quiet`", describes the wrong button. The
+  strings were read back out of the registry; the Settings button itself was
+  not pressed, because its command line is the one the interactive test ran.
+
+NOT tested, because they need eyes or a hand: whether the running window groups
+under the taskbar pin, the About tab's appearance in installed mode, and
+"delete the desktop shortcut and it must not come back".
+
+Left installed at the end: today's build (5082e79 plus the log fix), so the
+taskbar pin — which had been pointing at test3 — starts a good copy. It shares
+the real settings with the development build; one at a time.
+
 ### The mixer said "song title - mpv"
 
 `audio-client-name` (06c4868) is what PulseAudio, PipeWire and JACK read.

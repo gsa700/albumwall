@@ -607,7 +607,12 @@ public static class InstallService
 
         if (!options.RemoveSettings) yield break;
 
-        foreach (var name in new[] { "settings.json", "session.json", "albumwall.log", "registration.log" })
+        // albumwall.log.1 is the previous run's log, which LogFile keeps beside the current one. It
+        // was missing from this list, and the first real "also remove my settings" on Windows
+        // (2026-09-20, driven through UI Automation against a throwaway folder) left exactly that
+        // one file behind in an otherwise emptied folder.
+        foreach (var name in new[] { "settings.json", "session.json", "albumwall.log", "albumwall.log.1",
+                                     "registration.log" })
         {
             var path = Path.Combine(DataDir, name);
             if (File.Exists(path)) yield return path;

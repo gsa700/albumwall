@@ -17,9 +17,16 @@ class Program
         LogFile.Start();
 
         // --install and --uninstall, the family's switches. Handled here, before
-        // Avalonia, because the quiet forms must work with no display at all: the
-        // Windows "Installed apps" entry runs `--uninstall --quiet`, and a script
+        // Avalonia, because the quiet forms must work with no display at all: a
+        // tool that removes programs silently (winget, a management agent) runs
+        // the registered QuietUninstallString, `--uninstall --quiet`, and a script
         // setting up a jukebox runs `--install --quiet`.
+        //
+        // NOT the Uninstall button in Settings > Installed apps, as this comment
+        // used to say. Both strings are registered, and that button runs the
+        // other one: UninstallString, plain `--uninstall`, which comes up far
+        // enough to ask about the settings. Read back out of the registry on
+        // Hambench, 2026-09-20, when both were run for real.
         var request = Install.InstallCommandLine.Parse(args);
         try
         {

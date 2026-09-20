@@ -51,10 +51,13 @@ is ahead, the history is for what is behind.
      (`%LocalAppData%\Programs\AlbumWall`, `~/.local/share/albumwall`), offers to
      when a release is run loose, re-asserts its registration at every start,
      and removes itself with `--uninstall`. Verified end to end on Linux —
-     install, run, uninstall, settings kept. **The Windows half has never run**:
-     the one-`reg import` installed-apps entry, the Start Menu and desktop
-     shortcuts through `WindowsShell`, and the PowerShell uninstall helper all
-     need Hambench. Only a single-file release installs; a development build
+     install, run, uninstall, settings kept. **And on Windows, for real, on
+     2026-09-20** — quiet install, the installed-apps entry, both shortcuts, a
+     run from the Start Menu, the quiet uninstall and the interactive one with
+     the settings box ticked: all pass, with a build published on Hambench
+     itself. The table is in `docs/windows-notes.md`. Not yet looked at: taskbar
+     pin grouping, the About tab in installed mode, and the desktop shortcut
+     staying deleted. Only a single-file release installs; a development build
      says so in About and is never offered.
   4. `UpdateService` — built now, switched on later: it reads
      `/releases/latest` unauthenticated, which a private repository answers
