@@ -85,17 +85,19 @@ is ahead, the history is for what is behind.
   and cannot fail. `tools/gapless-check.cs` measured it, and the cause was the
   ffmpeg pin — see `docs/windows-notes.md`. **Fixed by `FFMPEG=n9.0.2`**, which
   now measures PASS on iTunes AAC, matching the upstream DLL's score exactly.
-  **What is left: rebuild linux-arm64 on a Pi, publish `libmpv-0.41.0-3`, and
-  run a test4 on Hambench.** When that passes, `get-libmpv.ps1` should fetch our
-  release instead of SourceForge. Wanted before the repository goes public; the
-  upstream DLL is the rollback until then.
+  Both Linux libraries now measure PASS; `libmpv-0.41.0-3` is published.
+  **What is left: run `gapless-check` against the new DLL on Hambench, then a
+  test4.** When that passes, `get-libmpv.ps1` should fetch our release instead
+  of SourceForge. Wanted before the repository goes public; the upstream DLL is
+  the rollback until then.
 
 - **The native libraries are release assets now**: tag `libmpv-0.41.0-2`, a
   PRE-release on purpose so `/releases/latest` (and with it the app's updater)
-  never mistakes it for an app version. All three are there. Bump the trailing
-  number when the recipe changes without the mpv version changing — **the ffmpeg
-  9 pin makes the next one `libmpv-0.41.0-3`, and linux-arm64 has to be rebuilt
-  natively on a Pi before it can be published.**
+  never mistakes it for an app version. Bump the trailing number when the recipe
+  changes without the mpv version changing. **Current: `libmpv-0.41.0-3`** (the
+  ffmpeg 9 pin), all three platforms. linux-arm64 has no cross-build here — it
+  is built natively on the Pi 5 at Pi5-POE, which is also the only arm64
+  machine that can run the gapless check.
 
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.

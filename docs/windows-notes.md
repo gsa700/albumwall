@@ -327,9 +327,15 @@ the strongest form the check can give: our build now agrees with a known-good
 one to a tenth of a millisecond. FLAC is unaffected — both libraries decode the
 same three FLAC tracks to 37,274,502 samples exactly.
 
-Still to do before a test4: **linux-arm64 must be rebuilt natively on a Pi**
-(qemu binfmt is not set up here), and the new libs published as
-`libmpv-0.41.0-3`.
+**linux-arm64 was rebuilt the same day**, natively on the Pi 5 at Pi5-POE
+(qemu binfmt is not set up on Techbench), and measures **PASS at +6 samples
+too — the identical 40,874,826 total the x64 library produced.** All three
+platforms are published as **`libmpv-0.41.0-3`** (pre-release, as always).
+
+**What is left is on Hambench:** the Windows DLL is rebuilt from the same pins
+but nothing on the Linux side can run it, so `gapless-check` has to be run
+there once more against `libmpv-0.41.0-3-win-x64.zip`. When it passes,
+`get-libmpv.ps1` can finally point at our release instead of SourceForge.
 
 ### UNINSTALL did not remove the program — and the app put itself back
 
