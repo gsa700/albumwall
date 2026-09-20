@@ -481,6 +481,26 @@ public static class InstallService
         : File.Exists(DesktopFilePath);
 
     /// <summary>
+    /// Where the .NET single-file host unpacks this app's native libraries — libmpv, here. It is
+    /// the host's choice, not ours, and it differs by platform: <c>%TEMP%\.net\AlbumWall</c> on
+    /// Windows, <c>~/.net/AlbumWall</c> on Linux, or under <c>DOTNET_BUNDLE_EXTRACT_BASE_DIR</c> if
+    /// that is set. This used to be the Linux path on both, so on Windows the uninstall looked in
+    /// the home folder, found nothing, and left the cache behind. (LP-100A, 2026-09-09.)
+    /// </summary>
+    private static string ExtractionRoot
+    {
+        get
+        {
+            var root = Environment.GetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR");
+            if (string.IsNullOrEmpty(root))
+                root = OperatingSystem.IsWindows()
+                    ? Path.Combine(Path.GetTempPath(), ".net")
+                    : Path.Combine(HomeDirectory, ".net");
+            return Path.Combine(root, "AlbumWall");
+        }
+    }
+
+    /// <summary>
     /// Remove the registrations, then hand off to a detached helper that deletes the install
     /// directory once this process has exited. The caller must exit immediately after.
     /// </summary>
@@ -498,8 +518,7 @@ public static class InstallService
 
         // The single-file build unpacks its native libraries here. It is a cache and would be
         // recreated, so it goes with the program whatever was decided about the settings.
-        var extracted = Path.Combine(HomeDirectory, ".net", "AlbumWall");
-        if (Directory.Exists(extracted)) toDelete.Add(extracted);
+        if (Directory.Exists(ExtractionRoot)) toDelete.Add(ExtractionRoot);
 
         var pid = Environment.ProcessId;
 
@@ -510,8 +529,24 @@ public static class InstallService
             {
                 $"while (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ Start-Sleep -Milliseconds 300 }}",
             };
+            // Retried for up to ten seconds rather than attempted once. The wait loop above sees
+            // the process id vanish a moment before the executable's mapping is released, and a
+            // single Remove-Item in that gap fails on the locked exe — silently, because the helper
+            // has no window and no one to tell.
+            //
+            // THIS IS NOT THEORY. The first uninstall on Windows (test3, 2026-09-20) did exactly
+            // that: shortcuts and the Installed-apps entry went, the 137 MB exe stayed, and when he
+            // clicked his pinned taskbar icon it started — and, because registration is re-asserted
+            // at every launch, put everything back. "I uninstalled ... then I clicked on the pinned
+            // icon and it opened up?" The family already knew: LP-100A learned it on 2026-09-04 and
+            // FlexPad carries the fix. This installer was ported from Shack Power, which does not.
             lines.AddRange(toDelete.Select(p =>
-                $"Remove-Item -LiteralPath '{p.Replace("'", "''")}' -Recurse -Force -ErrorAction SilentlyContinue"));
+            {
+                var q = p.Replace("'", "''");
+                return $"for ($i = 0; $i -lt 40 -and (Test-Path -LiteralPath '{q}'); $i++) {{ " +
+                       $"Remove-Item -LiteralPath '{q}' -Recurse -Force -ErrorAction SilentlyContinue; " +
+                       $"if (Test-Path -LiteralPath '{q}') {{ Start-Sleep -Milliseconds 250 }} }}";
+            }));
             lines.Add($"Remove-Item -LiteralPath '{script.Replace("'", "''")}' -Force -ErrorAction SilentlyContinue");
             File.WriteAllText(script, string.Join("\n", lines) + "\n");
 
@@ -521,6 +556,13 @@ public static class InstallService
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{script}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                // The helper must not inherit this process's working directory: an installed copy
+                // runs with its own folder as the working directory (the shortcut sets it), and
+                // Windows will not remove a directory that is any live process's current directory
+                // — including the one doing the removing. Without this the helper deletes the files
+                // and then fails on the folder itself, every time, from inside it. (LP-100A,
+                // 2026-09-04, by way of FlexPad.)
+                WorkingDirectory = Path.GetTempPath(),
             });
         }
         else

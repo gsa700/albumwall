@@ -133,7 +133,15 @@ public partial class App : Application
 
         var accepted = await dialog.ShowDialog<bool>(owner);
         if (accepted)
+        {
             Install.InstallService.Uninstall(new Install.UninstallOptions(dialog.OptionChecked));
+
+            // A backstop, from LP-100A: the helper is now waiting on this process id, and nothing
+            // in this process is worth preserving. If closing the window below does not end it —
+            // a close made from inside a dialog's click has left a windowless process running
+            // before — this does, and the uninstall completes either way.
+            _ = Task.Delay(TimeSpan.FromSeconds(3)).ContinueWith(_ => Environment.Exit(0));
+        }
 
         if (accepted || !asked) owner.Close();
     }

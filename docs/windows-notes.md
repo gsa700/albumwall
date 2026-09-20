@@ -221,6 +221,50 @@ Windows and half a second. Until then test builds are not gapless on AAC, and
 the development build with the upstream DLL in `native/win-x64` still is —
 so `get-libmpv.ps1` stays pointed at SourceForge for now.
 
+### UNINSTALL did not remove the program — and the app put itself back
+
+His report: "i uninstalled from the about, the app closed and presumably
+uninstalled. then I clicked on the pinned icon and it opened up?"
+
+Read from outside the sandbox afterwards: the shortcuts and the Installed-apps
+entry HAD been removed (the next start logged `desktop shortcut created`, not
+`already there`), but `AlbumWall.exe` was still in `%LocalAppData%/Programs/
+AlbumWall`, untouched. His taskbar pin points at it, so it started, and since
+registration is re-asserted at every launch it re-registered everything: a
+complete, silent re-install. The helper script had deleted ITSELF, so it ran
+to the end; its one `Remove-Item` had failed with `-ErrorAction
+SilentlyContinue` and nobody to tell.
+
+The family already knew all of this. LP-100A's CLAUDE.md lists "three rules
+the uninstall path learned on 2026-09-04, each from a real failure", and
+FlexPad carries them. This installer was ported from **Shack Power, which does
+not** — it still has the one-shot delete. All three are now ported here:
+
+1. **Retry the delete for ten seconds.** The wait loop sees the process id
+   vanish a moment before the exe's mapping is released; one Remove-Item in
+   that gap fails on the locked file.
+2. **Give the helper its own working directory** (`%TEMP%`). An installed copy
+   runs with its install folder as its working directory — the shortcut sets
+   it — the helper inherited it, and Windows will not remove a directory that
+   is any live process's current directory.
+3. **`Environment.Exit(0)` three seconds after cleanup**, as a backstop for a
+   close made from inside a dialog's click leaving a windowless process.
+
+Plus the extraction cache: the uninstall looked for it at `~/.net/AlbumWall`
+on both platforms. On Windows the host unpacks to `%TEMP%/.net/AlbumWall`
+(that is where test3's 9.3 MB libmpv actually was), so it was never found and
+never removed. Now `ExtractionRoot`, as in LP-100A, honoring
+`DOTNET_BUNDLE_EXTRACT_BASE_DIR`.
+
+Checked in isolation, since his installed copy is the player he is using: a
+throwaway program run from its own folder, removed by the old helper and the
+new one. Old: folder and exe still there. New: removed completely. **The real
+thing is untested until the next published build** — only a single-file build
+installs, and those come from Fedora.
+
+A taskbar pin is the user's, not the app's, and survives an uninstall by
+design; with the exe gone Windows offers to remove it.
+
 ### The mixer said "song title - mpv"
 
 `audio-client-name` (06c4868) is what PulseAudio, PipeWire and JACK read.
