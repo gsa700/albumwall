@@ -23,6 +23,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.Reactive;
 
 namespace AlbumWall.App;
 
@@ -124,7 +125,10 @@ public partial class MainWindow : Window
         SetUpBench();
         ApplyGround();
 
-        Opened += (_, _) => { _restored = true; RestorePosition(); };
+        // Seeded here, not left to the first resize: a window that is opened,
+        // maximized and closed never fires a size change while it is Normal, and
+        // without a seed its geometry would never be written down at all.
+        Opened += (_, _) => { _restored = true; RestorePosition(); RememberNormalGeometry(); };
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
@@ -139,8 +143,17 @@ public partial class MainWindow : Window
         // Saving ONLY on close loses the window setup to anything that is not a
         // clean exit — a crash, a logout, or a SIGTERM. Geometry is cheap to
         // write, so it is persisted shortly after it settles instead.
-        PositionChanged += (_, _) => ScheduleSave();
-        SizeChanged += (_, _) => ScheduleSave();
+        PositionChanged += (_, _) => { RememberNormalGeometry(); ScheduleSave(); };
+        SizeChanged += (_, _) => { RememberNormalGeometry(); ScheduleSave(); };
+
+        // A maximized window has to square its corners off. The rounding lives on
+        // the Surface border rather than the Window (see MainWindow.axaml), and a
+        // transparent window shows the DESKTOP wherever that border does not
+        // reach — so a maximized window kept 12 px of desktop showing in each
+        // screen corner. Reported 2026-09-20: "maximizing doesn't fill the
+        // corners in, they stay rounded and you can see desktop behind them".
+        this.GetObservable(WindowStateProperty).Subscribe(new AnonymousObserver<WindowState>(OnWindowStateChanged));
+        ApplyCorners();
 
         Loaded += OnLoaded;
 
@@ -272,6 +285,42 @@ public partial class MainWindow : Window
     private bool _restored;
     private DispatcherTimer? _saveDebounce;
 
+    /// The last geometry the window had while it was genuinely a floating window.
+    ///
+    /// SaveSettings used to read Width/Height/Position at the moment the debounce
+    /// fired, and guard it with a WindowState test taken at that same moment. That
+    /// is a race: un-maximizing flips WindowState to Normal on request, while the
+    /// SIZE only arrives when the window manager gets round to it, so a save
+    /// landing in between writes the maximized size down as the normal one. The
+    /// window then "maximizes" to the whole screen and un-maximizes to the whole
+    /// screen, which is precisely the 2026-09-20 report: "it maximized but
+    /// wouldn't return to the normal window size."
+    ///
+    /// So the geometry is captured as it happens, when the state and the size are
+    /// known to agree, and the save just writes down what was captured.
+    private (double W, double H, int X, int Y)? _normalGeometry;
+
+    private void RememberNormalGeometry()
+    {
+        if (!_restored || WindowState != WindowState.Normal) return;
+        if (double.IsNaN(Width) || double.IsNaN(Height)) return;
+        if (Width <= 320 || Height <= 240) return;
+
+        // A "normal" window the size of the working area is not a window the user
+        // sized: it is a maximized one whose state has not caught up, or one the
+        // window manager tiled. Restoring to it is indistinguishable from never
+        // un-maximizing, so it is not worth remembering.
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (screen is not null)
+        {
+            var scale = screen.Scaling > 0 ? screen.Scaling : RenderScaling;
+            var area = screen.WorkingArea;
+            if (Width * scale >= area.Width && Height * scale >= area.Height) return;
+        }
+
+        _normalGeometry = (Width, Height, Position.X, Position.Y);
+    }
+
     /// Coalesces a drag or resize into one write once it stops. Both events fire
     /// continuously while the mouse is down, and writing a file per frame would
     /// be absurd.
@@ -299,13 +348,15 @@ public partial class MainWindow : Window
 
         // Only record geometry from a normal window. Saving a maximized or
         // minimized window's bounds means restoring to something that was never
-        // deliberately chosen.
-        if (WindowState == WindowState.Normal)
+        // deliberately chosen. Taken from the running capture rather than read
+        // here, so that a save landing mid-transition cannot write down a size
+        // the user never chose — see RememberNormalGeometry.
+        if (_normalGeometry is { } g)
         {
-            _settings.WindowWidth = Width;
-            _settings.WindowHeight = Height;
-            _settings.WindowX = Position.X;
-            _settings.WindowY = Position.Y;
+            _settings.WindowWidth = g.W;
+            _settings.WindowHeight = g.H;
+            _settings.WindowX = g.X;
+            _settings.WindowY = g.Y;
         }
 
         _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
@@ -820,6 +871,23 @@ public partial class MainWindow : Window
             ? WindowState.Normal
             : WindowState.Maximized;
 
+    /// Rounded only when the window is a floating window. Maximized or full
+    /// screen, the corners are the SCREEN's corners and must be filled.
+    private void ApplyCorners() =>
+        Surface.CornerRadius = new CornerRadius(WindowState == WindowState.Normal ? 12 : 0);
+
+    private void OnWindowStateChanged(WindowState state)
+    {
+        ApplyCorners();
+
+        // Logged because the other half of the 2026-09-20 report — "it maximized
+        // but wouldn't return to the normal window size", and then the window
+        // "totally disappeared" — has never been reproduced on demand. The next
+        // occurrence should leave a trail rather than a memory.
+        Console.WriteLine($"[wall] window state -> {state}  size={Width}x{Height} "
+                        + $"pos={Position}  remembered={_normalGeometry}");
+    }
+
     /// The menu, the preferences sheet and the empty state — all one concern,
     /// because they exist for one reason: the app cannot know where the music is.
     private void SetUpMenu()
@@ -1287,6 +1355,18 @@ public partial class MainWindow : Window
                         Math.Max(0, WallScroller.Extent.Height - WallScroller.Viewport.Height));
             WallScroller.Offset = WallScroller.Offset.WithY(to);
             Console.WriteLine($"[wall] scroll -> {WallScroller.Offset.Y:F0}");
+            return;
+        }
+
+        // Window state, so that the corner squaring and the un-maximize geometry
+        // can be checked by a script instead of by remembering what last night
+        // looked like. Both were reported by eye on 2026-09-20.
+        if (text.Equals("maximize", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("restore", StringComparison.OrdinalIgnoreCase))
+        {
+            WindowState = text.Equals("maximize", StringComparison.OrdinalIgnoreCase)
+                ? WindowState.Maximized
+                : WindowState.Normal;
             return;
         }
 
