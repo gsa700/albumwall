@@ -18,6 +18,10 @@ public partial class PrefsWindow : Window
     /// defaults into his settings file.
     private bool _filling;
 
+    /// Set when adding or removing the shortcut fails, and shown in place of the
+    /// usual status so the reason is not lost to a log nobody is reading.
+    private string? _shortcutNote;
+
     /// For the XAML previewer only.
     public PrefsWindow() => InitializeComponent();
 
@@ -78,6 +82,9 @@ public partial class PrefsWindow : Window
             Fill();
         };
 
+        ShortcutAdd.Click += (_, _) => { _shortcutNote = WindowsShell.AddShortcut(); Fill(); };
+        ShortcutRemove.Click += (_, _) => { _shortcutNote = WindowsShell.RemoveShortcut(); Fill(); };
+
         // Where it was, like the family's Setup windows. Saved as it closes
         // rather than as it moves: nothing is lost if this one is wrong.
         Closing += (_, _) =>
@@ -114,6 +121,19 @@ public partial class PrefsWindow : Window
         LightValue.Text = _host.ColorLightness.ToString();
         TintValue.Text = _host.ColorTint.ToString();
         BarsAbout.Text = AboutBars(_host.ColorChrome);
+
+        ShortcutSection.IsVisible = OperatingSystem.IsWindows();
+        if (OperatingSystem.IsWindows())
+        {
+            var has = WindowsShell.HasShortcut;
+            var current = WindowsShell.ShortcutIsCurrent;
+            ShortcutAdd.Content = !has ? "Add to the Start Menu" : current ? "Re-create the shortcut" : "Point the shortcut here";
+            ShortcutRemove.IsVisible = has;
+            ShortcutStatus.Text = _shortcutNote
+                ?? (!has ? "No shortcut yet. With one, Windows calls this AlbumWall instead of naming it after its exe, and you can pin it."
+                    : current ? "In the Start Menu, and pointing at this copy."
+                    : "There is a shortcut, but it points at a different copy of the program — one that was moved or rebuilt somewhere else.");
+        }
 
         var v = typeof(PrefsWindow).Assembly.GetName().Version;
         AboutVersion.Text = $"{App.DisplayName} {v?.Major}.{v?.Minor}.{v?.Build}";

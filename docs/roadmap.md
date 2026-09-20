@@ -27,16 +27,19 @@ is ahead, the history is for what is behind.
   are already application-wide for this reason. Presumably reached from the
   right-click menu above.
 
-- **A proper way to start it on Windows: shortcut, icon, app identity.** Today it
-  is launched from a terminal or by double-clicking the exe in `bin`. It wants a
-  Start Menu shortcut with an icon, and the shortcut should carry an
-  AppUserModelID that the app also sets on itself at startup
-  (`SetCurrentProcessExplicitAppUserModelID`). That ID is what Windows uses to
-  name an unpackaged program: without it the media flyout labels the player
-  `AlbumWall.App.exe`, and the taskbar cannot group or pin it properly. There
-  is no icon yet either — the windows have none. His other tools install
-  themselves with an `install.ps1`; the same shape would suit. This was waiting
-  on the name, and the name is settled now (see Decided), so nothing blocks it.
+- **The same for Linux: a `.desktop` entry with the icon.** Windows has its
+  half (see `WindowsShell.cs` and the About tab). `Assets/app-icon.png` is
+  the 256 px frame of the icon, there for exactly this; the station tools
+  write `~/.local/share/applications/<name>.desktop` and the icon into the
+  hicolor theme from their own Setup windows, and the About tab is where a
+  matching button would go. The MPRIS `DesktopEntry` is already "albumwall".
+
+- **An installed copy, separate from the build folder.** The Start Menu
+  shortcut points at wherever the app is running from, which today is
+  `bin/Debug`. That works, but it means the player he is listening to has to be
+  closed before every rebuild. The station tools copy themselves to
+  `%LocalAppData%/Programs` and update in place (`InstallService` in FlexPad);
+  worth porting once there are releases to install.
 
 - **Tag editing.** The button in the album panel is there and disabled on
   purpose.

@@ -2,7 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AlbumWall.App.PrefsWindow"
         Title="AlbumWall — Preferences"
-        Width="580" Height="440" CanResize="False"
+        Icon="/Assets/app.ico"
+        Width="580" Height="460" CanResize="False"
         RequestedThemeVariant="Dark"
         Background="{DynamicResource SheetBg}"
         Foreground="#F3EEE6"
@@ -121,6 +122,20 @@
                            Text="Licensed under the GNU General Public License v3 or later. Audio by libmpv (GPLv2 or later). Tags by TagLib#."/>
                 <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
                            TextWrapping="Wrap"/>
+
+                <!-- Windows only; hidden elsewhere. A shortcut is how an exe in a
+                     folder gets a name: see WindowsShell. Here rather than in an
+                     installer because there is no installer — it runs from
+                     wherever it was built — and because a shortcut made from
+                     inside the app is made with the app's own view of the disk. -->
+                <StackPanel x:Name="ShortcutSection" Spacing="6" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Button x:Name="ShortcutAdd" Classes="panel" Content="Add to the Start Menu"/>
+                        <Button x:Name="ShortcutRemove" Classes="panel" Content="Remove"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ShortcutStatus" Classes="dim" FontSize="13" LineHeight="20"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
             </StackPanel>
         </TabItem>
     </TabControl>

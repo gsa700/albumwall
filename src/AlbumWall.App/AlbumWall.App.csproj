@@ -20,6 +20,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The icon compiled into the exe: what Explorer, the taskbar and the Start
+         Menu shortcut show. Drawn by tools/make_icon.py; the outputs are
+         committed so nobody building this needs Pillow. -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,6 +38,11 @@
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- And the same icon as a resource, for the windows' own title bars. -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
   <ItemGroup>

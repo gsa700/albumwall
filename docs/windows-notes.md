@@ -156,6 +156,23 @@ So, on Hambench:
   task** that copies them somewhere unsandboxed, then unregister it.
 - Test runs were never affected: they set `ALBUMWALL_CONFIG_DIR`.
 
+### Icon, identity, Start Menu
+
+The icon is drawn by `tools/make_icon.py` (needs Pillow; the outputs in
+`Assets/` are committed). The app claims the AppUserModelID `gsa700.AlbumWall`
+at startup, and **Preferences > About > Add to the Start Menu** writes a
+shortcut carrying the same ID — it takes both for Windows to call the program
+AlbumWall rather than `AlbumWall.App.exe` in the media flyout, and to pin it
+properly. The ID is permanent: existing shortcuts carry it.
+
+The button is in the app, not in a script, on purpose. The Start Menu folder
+is under `%AppData%`, which the Claude tool shell sees a private copy of (see
+below), so a shortcut made from there never reaches the real Start Menu. One
+made by the app, launched through Explorer, does.
+
+The shortcut points at the exe that made it. After anything that moves the
+build output, the About tab says so and offers to re-point it.
+
 ### The build output moved
 
 Since media keys, the app targets the Windows SDK when built on Windows, so

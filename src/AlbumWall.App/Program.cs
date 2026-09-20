@@ -12,6 +12,7 @@ class Program
     public static void Main(string[] args)
     {
         LogFile.Start();
+        WindowsShell.ClaimIdentity();       // before any window exists, or it does not take
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
