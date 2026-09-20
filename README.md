@@ -3,6 +3,8 @@
 A player for a music library you own, built around seeing the whole collection
 at once.
 
+![The wall, with Nevermind unfolded in place and playing](docs/screenshots/album-open.webp)
+
 The library is a wall of cover art. Clicking a record unfolds it in place —
 the wall never goes away, the album opens inside it, tinted by its own sleeve —
 and the sleeve is the play button. It is meant to feel like flipping through a
@@ -12,6 +14,11 @@ get wrong.
 Early, and built for one person's library first. It works, on Linux and on
 Windows, and it has been its author's daily player on both since the day it
 could play music.
+
+<p>
+  <img src="docs/screenshots/wall.webp" width="49%" alt="The wall: nothing but covers">
+  <img src="docs/screenshots/dark-side.webp" width="49%" alt="The Dark Side of the Moon open, the panel tinted by its sleeve">
+</p>
 
 ## What it does
 
@@ -40,8 +47,16 @@ could play music.
 - The play controls slide in when something is loaded and leave when the record
   ends. They sit above the bottom bar, or under the title bar if you prefer.
 
+<p>
+  <img src="docs/screenshots/statistics.webp" width="40%" alt="Preferences: Statistics">
+  <img src="docs/screenshots/appearance.webp" width="40%" alt="Preferences: Appearance, where the window's color comes from">
+</p>
+
 Not built yet: tag editing, a right-click menu, an A–Z rail, in-app updates.
 What is wanted next is in [docs/roadmap.md](docs/roadmap.md).
+
+The screenshots are the author's own library. The covers belong to their
+artists and labels and are shown, small, to illustrate the software.
 
 ## Your music
 
