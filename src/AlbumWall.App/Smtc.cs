@@ -26,15 +26,22 @@ public sealed class Smtc
 {
     private readonly SystemMediaTransportControls _controls;
     private readonly Action<string> _command;
+    private readonly Action<TimeSpan> _seek;
 
     /// The cover last handed over, by album, so a track change within a record
     /// does not re-read and re-upload the same picture.
     private string? _artFor;
 
-    private Smtc(SystemMediaTransportControls controls, Action<string> command)
+    private Smtc(SystemMediaTransportControls controls, Action<string> command, Action<TimeSpan> seek)
     {
         _controls = controls;
         _command = command;
+        _seek = seek;
+
+        // Someone dragged the bar in the media flyout. Windows only offers the bar
+        // at all once a timeline has been sent (UpdateTimeline), and only lets it
+        // be dragged if somebody is listening here.
+        _controls.PlaybackPositionChangeRequested += (_, e) => _seek(e.RequestedPlaybackPosition);
 
         _controls.IsEnabled = true;
         _controls.IsPlayEnabled = true;
@@ -65,14 +72,14 @@ public sealed class Smtc
     /// app is; it has to ask for the set belonging to one of its windows.
     /// Returns null rather than throwing: no media keys is an inconvenience,
     /// and must never be the reason the player does not start.
-    public static Smtc? Start(IntPtr window, Action<string> command)
+    public static Smtc? Start(IntPtr window, Action<string> command, Action<TimeSpan> seek)
     {
         try
         {
             if (window == IntPtr.Zero) return null;
             var controls = SystemMediaTransportControlsInterop.GetForWindow(window);
             Console.WriteLine("[smtc] registered with the system media controls");
-            return new Smtc(controls, command);
+            return new Smtc(controls, command, seek);
         }
         catch (Exception ex)
         {
@@ -82,6 +89,41 @@ public sealed class Smtc
     }
 
     /// Tells the system what is playing. `album` is where the cover comes from.
+    /// Where the track is and how long it is: what turns the flyout's card from a
+    /// title with three buttons into one with a progress bar that can be dragged.
+    ///
+    /// "that sounds cool, lets do it" - the roadmap had said of this "Nobody has
+    /// asked", which stopped being true the moment it was explained what the
+    /// flyout was.
+    ///
+    /// Windows moves the bar by itself between calls while the status is Playing,
+    /// so this is sent when something CHANGES - a new track, play, pause, a seek -
+    /// and every couple of seconds in between to keep the two clocks together,
+    /// not on the app's own quarter-second tick. A zero duration (the file has not
+    /// reported one yet) is not sent: a bar of no length is worse than no bar.
+    public void UpdateTimeline(TimeSpan position, TimeSpan duration)
+    {
+        try
+        {
+            if (duration <= TimeSpan.Zero) return;
+            if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+            if (position > duration) position = duration;
+
+            _controls.UpdateTimelineProperties(new SystemMediaTransportControlsTimelineProperties
+            {
+                StartTime = TimeSpan.Zero,
+                MinSeekTime = TimeSpan.Zero,
+                Position = position,
+                MaxSeekTime = duration,
+                EndTime = duration
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[smtc] timeline failed: {ex.Message}");
+        }
+    }
+
     public void Update(Mpris.State state, Domain.Album? album)
     {
         try

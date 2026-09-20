@@ -133,11 +133,48 @@ is ahead, the history is for what is behind.
   machine that can run the gapless check.
 
 - **Tag editing.** The button in the album panel is there and disabled on
-  purpose.
+  purpose. It is the first time the app would WRITE to his music, and the README
+  says today that it never does — so it wants a design, not a button handler:
+  how a write is made safe, what happens to the file's date (he tags with
+  `metaflac --preserve-modtime`), and how the index and the watcher are kept
+  honest about a change the app made itself.
 
-- **A seek bar in the Windows media flyout.** `Smtc.cs` tells Windows what is
-  playing and takes its buttons, but does not send timeline properties, so the
-  flyout shows the track without a position. Nobody has asked.
+- **Lyrics, where they are embedded** (2026-09-20): "when we get to the metadata
+  editing and right click and so on I want to be able to view and edit lyrics if
+  they are embedded." VIEWING is cheap and can come with the properties window:
+  TagLib# already reads them (ID3 `USLT`, MP4 `©lyr`, Vorbis `LYRICS`), fetched
+  when a track's properties are opened and NOT kept in the index. EDITING is tag
+  editing, above. Unsynced lyrics first; timed ones (`SYLT`, LRC) are a separate
+  and much larger feature.
+
+- **Keyboard shortcuts beyond the media keys** (2026-09-20). Cheap, used daily.
+  A first set: Space play/pause; Ctrl+Left/Right previous/next; Left/Right seek;
+  Up/Down volume; Ctrl+F or `/` to the search box; Esc clears the search or folds
+  the open album; Ctrl+, Preferences. Space must not fire while typing in the
+  search box. Moving about the wall itself with the arrow keys is a bigger job
+  and a later one.
+
+- **A Help page in the app** (2026-09-20). The `art:missing` / `art:small` /
+  `art:nonsquare` searches cannot be discovered today, and shortcuts will be
+  just as hidden: one page listing both. `--help` and `--version` go with the
+  command-line work below. A man page for Linux can be generated from the same
+  text and installed by the self-installer; a nicety, later.
+
+- **One instance, and a command line to it** (2026-09-20, from "remote control
+  and/or specialized command line arguments?"). Three things, in this order:
+  1. SINGLE INSTANCE: a second launch brings the running window forward instead
+     of starting a copy that fights the first over the settings and the session.
+     "Never run both" was a rule to be remembered all through 2026-09-20; it
+     should be a thing that cannot happen.
+  2. COMMANDS TO THE RUNNING COPY: `AlbumWall --next`, `--play-pause`,
+     `--play "dark side"` — nearly free once (1) exists, since the second launch
+     hands over its arguments. Linux has most of it through MPRIS and
+     `playerctl`; Windows has nothing. It would also replace the DEBUG
+     trigger-file channel the test rig uses with something real.
+  3. A NETWORK REMOTE (a phone, a web page): not now. A listening socket with
+     the security questions that come with one, for no concrete use yet.
+
+- **Arrow-key navigation of the wall.** See shortcuts, above.
 
 ## Decided
 

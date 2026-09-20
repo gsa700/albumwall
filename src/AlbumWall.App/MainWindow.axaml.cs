@@ -120,6 +120,7 @@ public partial class MainWindow : Window
         DispatcherTimer.Run(() =>
         {
             if (_player is not null && _transportShown) UpdatePosition();
+            if (Environment.TickCount64 - _timelineSent > 2000) PushTimeline();
             return true;
         }, TimeSpan.FromMilliseconds(250));
         SetUpBench();
@@ -409,7 +410,8 @@ public partial class MainWindow : Window
         // The same thing for Windows, which has no D-Bus. It needs this window's
         // handle, which exists by now, and hands its keys to the same
         // MprisCommand the Linux side uses.
-        _smtc = Smtc.Start(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, MprisCommand);
+        _smtc = Smtc.Start(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, MprisCommand,
+                           to => Dispatcher.UIThread.Post(() => SeekFromSystem(to)));
 #endif
     }
 
@@ -2206,7 +2208,39 @@ public partial class MainWindow : Window
     {
 #if WINDOWS
         _smtc?.Update(_mprisState, _playingAlbum?.Album);
+        PushTimeline();
 #endif
+    }
+
+    /// Tells the desktop's media controls where the track is. Called when
+    /// something changes and, from the position timer, every two seconds.
+    private void PushTimeline()
+    {
+#if WINDOWS
+        if (_smtc is null || _player is null || !_mprisState.HasTrack) return;
+        _smtc.UpdateTimeline(_player.Position, _player.Duration);
+        _timelineSent = Environment.TickCount64;
+#endif
+    }
+
+    private long _timelineSent;
+
+    /// The bar in the desktop's media controls was dragged.
+    private void SeekFromSystem(TimeSpan to)
+    {
+        if (_player is null || !_mprisState.HasTrack) return;
+        var duration = _player.Duration;
+        if (duration <= TimeSpan.Zero) return;
+        if (to < TimeSpan.Zero) to = TimeSpan.Zero;
+        if (to > duration) to = duration;
+
+        Console.WriteLine($"[smtc] seek to {Clock(to)} asked for from the system's controls");
+        _player.Seek(to);
+        UpdatePosition();
+
+        // The answer goes straight back, or the bar springs to where it was and
+        // waits for the next two-second report.
+        Dispatcher.UIThread.Post(PushTimeline, DispatcherPriority.Background);
     }
 
     /// A media key, or a click in the shell's own media controls.
@@ -2428,6 +2462,7 @@ public partial class MainWindow : Window
             var duration = _player.Duration;
             if (duration > TimeSpan.Zero)
                 _player.Seek(duration * PositionSlider.Value);
+                Dispatcher.UIThread.Post(PushTimeline, DispatcherPriority.Background);   // and tell the flyout
         }, RoutingStrategies.Tunnel);
     }
 
