@@ -9,3 +9,7 @@ obj/
 
 # libmpv, fetched per-platform by scripts/get-libmpv.ps1
 native/
+
+# Python bytecode, from running or importing tools/*.py
+__pycache__/
+*.pyc
