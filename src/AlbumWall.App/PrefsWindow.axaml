@@ -3,7 +3,7 @@
         x:Class="AlbumWall.App.PrefsWindow"
         Title="AlbumWall — Preferences"
         Icon="/Assets/app.ico"
-        Width="580" Height="580" CanResize="False"
+        Width="580" Height="700" CanResize="False"
         RequestedThemeVariant="Dark"
         Background="{DynamicResource SheetBg}"
         Foreground="#F3EEE6"
