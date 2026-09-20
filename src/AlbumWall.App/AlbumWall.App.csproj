@@ -49,8 +49,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- The icon compiled into the exe: what Explorer, the taskbar and the Start
-         Menu shortcut show. Drawn by tools/make_icon.py; the outputs are
-         committed so nobody building this needs Pillow. -->
+         Menu shortcut show. The source is Assets/icon.svg; tools/make_icon.py
+         renders app.ico and app-icon.png from it, and the outputs are committed
+         so nobody building this needs ImageMagick. -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 

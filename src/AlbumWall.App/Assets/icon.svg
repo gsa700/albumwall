@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AlbumWall — the application icon. THIS FILE IS THE SOURCE; app.ico and
+  app-icon.png beside it are generated from it by tools/make_icon.py and
+  committed, so nobody building the app needs the tools that render it.
+
+  What it shows: a CD sliding out of its sleeve, a pair of notes on the front,
+  and — look closely — the sleeve's artwork is a wall of album covers. The disc
+  and the notes say MUSIC; the cover says ALBUMWALL. It is a CD and not a record
+  on purpose: the collection this was built for is CDs, and vinyl would be
+  borrowed costume.
+
+  It replaced a first icon that was a diagram of the app's own screen (a grid
+  of color chips with an unfolded panel). Faithful, but it could have been a
+  kanban board: nothing about it said music. His verdict on that one: "I think
+  we can do better?", and on this direction: "needs a music note or something".
+
+  The detail is layered on purpose. The little wall on the sleeve is there at
+  256 px and quietly gone by 32; the notes and the disc survive to 16.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- ============ THE COLOR TO CHANGE, IF IT EVER CHANGES ============
+         The sleeve. Orange is the accent this family of apps already uses.
+         "might want to adjust color at some point but good for now as is." -->
+    <linearGradient id="sleeve" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0452f"/>
+      <stop offset="1" stop-color="#f2a23a"/>
+    </linearGradient>
+    <!-- ================================================================= -->
+
+    <!-- The plate everything sits on: the app's own warm near-black. -->
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34302c"/>
+      <stop offset="1" stop-color="#1b1917"/>
+    </linearGradient>
+
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#f6f6f8"/>
+      <stop offset="0.5" stop-color="#d2d5dc"/>
+      <stop offset="1"   stop-color="#9da3b0"/>
+    </radialGradient>
+
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="ink" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#5a1500" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- The plate. The hairline along its edge is what keeps the icon from
+       dissolving into a dark dock or panel, where a near-black shape has no
+       outline of its own. -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#plate)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="106.5"
+        fill="none" stroke="#fff" stroke-opacity="0.13" stroke-width="3"/>
+
+  <!-- The disc, most of the way out of the sleeve so that it still reads as a
+       disc at 32 px. The colored wedges are the rainbow a CD throws. -->
+  <g filter="url(#lift)">
+    <circle cx="340" cy="256" r="146" fill="url(#disc)"/>
+    <path d="M340 256 L408.5 127.1 A146 146 0 0 1 461.0 174.4 Z" fill="#ffe36a" fill-opacity="0.50"/>
+    <path d="M340 256 L461.0 174.4 A146 146 0 0 1 484.6 235.7 Z" fill="#7be08a" fill-opacity="0.42"/>
+    <path d="M340 256 L484.6 235.7 A146 146 0 0 1 477.2 305.9 Z" fill="#5fd0ff" fill-opacity="0.50"/>
+    <path d="M340 256 L477.2 305.9 A146 146 0 0 1 441.4 361.0 Z" fill="#8f86ff" fill-opacity="0.42"/>
+    <path d="M340 256 L441.4 361.0 A146 146 0 0 1 389.9 393.2 Z" fill="#ff7ad1" fill-opacity="0.45"/>
+    <circle cx="340" cy="256" r="146" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="2"/>
+    <circle cx="340" cy="256" r="48" fill="#eceef2"/>
+    <circle cx="340" cy="256" r="48" fill="none" stroke="#8d93a0" stroke-opacity="0.5" stroke-width="2"/>
+    <circle cx="340" cy="256" r="19" fill="#1f1d1b"/>
+  </g>
+
+  <!-- The sleeve, and on it the wall: nine covers, tone on tone. -->
+  <g filter="url(#lift)">
+    <rect x="58" y="113" width="286" height="286" rx="16" fill="url(#sleeve)"/>
+    <g fill="#fff4dc">
+      <rect x="76"  y="131" width="78" height="78" rx="8" fill-opacity="0.10"/>
+      <rect x="162" y="131" width="78" height="78" rx="8" fill-opacity="0.15"/>
+      <rect x="248" y="131" width="78" height="78" rx="8" fill-opacity="0.20"/>
+      <rect x="76"  y="217" width="78" height="78" rx="8" fill-opacity="0.15"/>
+      <rect x="162" y="217" width="78" height="78" rx="8" fill-opacity="0.20"/>
+      <rect x="248" y="217" width="78" height="78" rx="8" fill-opacity="0.10"/>
+      <rect x="76"  y="303" width="78" height="78" rx="8" fill-opacity="0.20"/>
+      <rect x="162" y="303" width="78" height="78" rx="8" fill-opacity="0.10"/>
+      <rect x="248" y="303" width="78" height="78" rx="8" fill-opacity="0.15"/>
+    </g>
+  </g>
+
+  <!-- A beamed pair of notes. -->
+  <g filter="url(#ink)" fill="#fffaf0">
+    <ellipse cx="143" cy="326" rx="33" ry="24" transform="rotate(-22 143 326)"/>
+    <ellipse cx="245" cy="302" rx="33" ry="24" transform="rotate(-22 245 302)"/>
+    <rect x="167" y="194" width="14" height="134" rx="3"/>
+    <rect x="269" y="170" width="14" height="134" rx="3"/>
+    <path d="M167 194 L283 167 L283 204 L167 231 Z"/>
+  </g>
+</svg>
