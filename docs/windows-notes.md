@@ -156,6 +156,78 @@ So, on Hambench:
   task** that copies them somewhere unsandboxed, then unregister it.
 - Test runs were never affected: they set `ALBUMWALL_CONFIG_DIR`.
 
+## 2026-09-20 — v0.1.0-test3 on Hambench: everything works except gapless
+
+Downloaded `AlbumWall-win-x64.zip` from the pre-release, SHA-256 matching
+`SHA256SUMS`, unzipped to `%USERPROFILE%/AlbumWall-test`, launched through
+Explorer. Read from OUTSIDE the tool shell's sandbox (scheduled task):
+
+- **The single-file exe starts**, and the audio-only DLL self-extracts and
+  loads: the process has `libmpv-2.dll` at **9.3 MB** from
+  `%LocalAppData%/Temp/.net/AlbumWall/<hash>/` (the upstream one was 114.8 MB).
+  Note `[mpv] library:` is not logged on Windows, so the log alone cannot show
+  this; the process's module list does.
+- **The installer's Windows half works**, first time. Loose copy at 00:46:52
+  logged `mode is Loose`, he accepted the offer, `install: ok — reg import exit
+  0; start menu ok; desktop shortcut created` five seconds later, relaunched
+  from `%LocalAppData%/Programs/AlbumWall/AlbumWall.exe` at 00:46:58 with
+  `startup: ok`. His word for it: "fb" (fine business).
+- **The Installed-apps entry is REAL** — read back from the real HKCU
+  uninstall key by a process outside the sandbox: AlbumWall 0.1.0, publisher
+  "David Erickson (AB0R)", icon, location, both uninstall strings. The one
+  `reg import` did what the family's rule promised; no PCA overlay ate it.
+- Start Menu and Desktop shortcuts created. Session restore and media keys
+  fine. **MP3 and M4A both play.** The new icon "looks good".
+- NOT yet tested: uninstall (both forms), the taskbar pin grouping, the About
+  tab in installed mode.
+
+### GAPLESS FAILS with our libmpv on AAC — measured, and the cause is known
+
+His report: "gapless has a barely audible burp right after the track change".
+The upstream DLL was seamless on the same files a day earlier.
+
+Measured with `tools/gapless-check.cs` (new — see its header), which decodes
+tracks back to back through a given libmpv into a WAV at full speed and counts
+samples. Dark Side, On the Run -> Time -> The Great Gig in the Sky:
+
+| libmpv | versions | samples over what the files contain |
+|---|---|---|
+| upstream (SourceForge) | mpv 0.41.0-1012 git, ffmpeg N-126314 git | **+6** (0.1 ms, inaudible) |
+| ours, libmpv-0.41.0-2 | mpv 0.41.0, ffmpeg n8.1.2 | **+1,026** |
+
+1,020 = 676 + 336 + 8, which are EXACTLY the three files' end padding as their
+`iTunSMPB` tags state it. Cross-correlating the two decodes: track 1 is
+sample-identical and aligned; track 2 starts 676 samples late in ours. So our
+build trims each track's encoder delay (2,112) and **plays its end padding**:
+15 ms of encoder filler before every track change. That is the burp.
+
+- **AAC only.** An MP3 pair decodes sample-identical through both.
+- **It is the versions, not the trimmed feature list.** 381 of 400 sampled
+  M4A files here carry gapless info ONLY as `iTunSMPB`, with no MP4 edit list
+  (normal for iTunes rips; 14 had an edit list, 5 neither). ffmpeg n8.1.2's mov
+  demuxer takes the priming count from that tag and ignores the remainder.
+  Something between there and git master honors it. Candidates, unverified:
+  ffmpeg `bfcf9fcb37` "avformat: factor out iTunSMPB parsing" (2026-08-21,
+  touches mov.c), which the upstream build postdates by nine days — or a change
+  on the mpv side. Only a rebuild can say which.
+- **Why Linux did not catch it:** the library there is FLAC, which has no
+  padding and is gapless in anything that does not stop between files. It was
+  never a test of trimming. Test with iTunes AAC.
+
+**What the Fedora side needs to do:** move the recipe's pins forward (ffmpeg
+first) and run `dotnet run tools/gapless-check.cs -- <the new .so or .dll>
+<two or three iTunes .m4a tracks>` until it says PASS. It needs no ears, no
+Windows and half a second. Until then test builds are not gapless on AAC, and
+the development build with the upstream DLL in `native/win-x64` still is —
+so `get-libmpv.ps1` stays pointed at SourceForge for now.
+
+### The mixer said "song title - mpv"
+
+`audio-client-name` (06c4868) is what PulseAudio, PipeWire and JACK read.
+WASAPI has no client name: mpv names the Windows session from its window-title
+option, default `<media title> - mpv`. `Player` now sets `title` to AlbumWall
+on Windows only. Not in test3; first seen in whatever is built next.
+
 ### Icon, identity, Start Menu
 
 The icon is drawn by `tools/make_icon.py` (needs Pillow; the outputs in

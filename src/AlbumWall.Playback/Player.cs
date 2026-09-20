@@ -100,6 +100,16 @@ public sealed class Player : IDisposable
         // What the system mixer calls this stream. Without it every mpv-based
         // app is "mpv", and the one slider you are looking for is anonymous.
         Option("audio-client-name", "AlbumWall");
+
+        // ...which is only half of it. audio-client-name is what PulseAudio,
+        // PipeWire and JACK read. WASAPI has no client name; mpv names the
+        // Windows session from its WINDOW TITLE option instead, whose default is
+        // "<media title> - mpv" — and that is what his volume mixer said:
+        // "mixer has song title - mpv". There is no window here, so the option
+        // has no other job. Windows only: on Linux the same string becomes the
+        // stream's media name, where the song title is the useful thing to show.
+        if (OperatingSystem.IsWindows()) Option("title", "AlbumWall");
+
         Option("vid", "no");                 // audio only; there is no video here
         Option("audio-display", "no");       // do not treat cover art as a video track
         Option("gapless-audio", "yes");      // the hard requirement
