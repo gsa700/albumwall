@@ -83,7 +83,14 @@ public sealed class AlbumVm : INotifyPropertyChanged
     // for exactly that reason (8111fdc): animating layout made every open album
     // re-centre on every frame. Nothing here changes a size, so the wall never
     // hears about it.
-    private const int FlipMs = 260;
+    /// How long the sleeve takes to turn over, both halves together.
+    ///
+    /// FEEL, not logic, and his to set: 260 was my guess, 400 is his "slowed a
+    /// bit". For reference the panel below unfolds in 330 (UnfoldMs), so at 400
+    /// the sleeve is the LAST thing to come to rest rather than the first.
+    /// Slowing it is always safe: the back's decode is collected at 90 degrees,
+    /// so a longer first half is simply more cover for it.
+    private const int FlipMs = 400;
 
     private Bitmap? _back;
     private bool _showingBack;
