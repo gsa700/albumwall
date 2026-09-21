@@ -136,6 +136,9 @@ public partial class MainWindow : Window
         // maximized and closed never fires a size change while it is Normal, and
         // without a seed its geometry would never be written down at all.
         Opened += (_, _) => { _restored = true; WatchPlacement(RestorePosition()); RememberNormalGeometry(); };
+
+        // The toplevel exists by now; GNOME needs its app_id to find the icon.
+        Opened += (_, _) => WaylandShell.ClaimIdentity(this);
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
