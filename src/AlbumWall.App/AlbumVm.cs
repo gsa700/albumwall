@@ -6,6 +6,7 @@
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
@@ -51,8 +52,147 @@ public sealed class AlbumVm : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(CoverOpacity));
             OnPropertyChanged(nameof(GroundOpacity));
+            OnPropertyChanged(nameof(Face));
+            OnPropertyChanged(nameof(FaceMax));
+            OnPropertyChanged(nameof(FaceStretch));
         }
     }
+
+    // ---- the flip ---------------------------------------------------------
+    //
+    // Selecting an album turns its sleeve over IN THE WALL, where the click
+    // was, rather than in the panel. His idea, and his framing of it: "this is
+    // an experience not really informational" -- which is why nothing here
+    // tries to make a back readable, and why a tile with no back.jpg simply
+    // does not flip rather than apologizing for it.
+    //
+    // HOW IT TURNS. Avalonia's transform-string parser is 2D only: rotate3d,
+    // rotateY and perspective are all FormatException, measured, so the
+    // transition-on-a-string trick the transport bar uses cannot do this.
+    // Rotate3DTransform can, and it is Animatable, so the angle is animated on
+    // the transform object itself.
+    //
+    // It is a HALF flip twice, not one 180 degree turn: the face rotates to 90
+    // (edge on, invisible), the bitmap is swapped there, and it rotates back
+    // from -90 to 0. One Image, no second face to keep in step, and no mirrored
+    // back -- the horizontal scale is cos(angle), which is positive either side
+    // of the swap. A full 180 would need the back pre-rotated to avoid coming
+    // out as its own reflection.
+    //
+    // PURE RENDER TRANSFORM, no layout. The transport bar had to be rewritten
+    // for exactly that reason (8111fdc): animating layout made every open album
+    // re-centre on every frame. Nothing here changes a size, so the wall never
+    // hears about it.
+    private const int FlipMs = 260;
+
+    private Bitmap? _back;
+    private bool _showingBack;
+    private Rotate3DTransform? _turn;
+    private int _flipGeneration;
+
+    /// Which way round the sleeve currently is. Read by the wall so that a
+    /// rescan, which replaces every view model, can put the open album back the
+    /// way it was.
+    public bool ShowingBack => _showingBack;
+
+    /// What the tile actually draws: the front, or the back once it has turned.
+    public Bitmap? Face => _showingBack ? _back : _cover;
+
+    /// The transform the tile's sleeve is bound to.
+    ///
+    /// Created LAZILY, on the UI thread. View models are built on the scan
+    /// thread and a Transform is an AvaloniaObject carrying dispatcher
+    /// affinity -- the same trap the immutable-brush rule in the scanner exists
+    /// for. Null until the first flip, which is also why an album that is never
+    /// opened costs nothing.
+    public Transform? Turn => _turn;
+
+    /// Turn the sleeve over, or back. Safe to call for an album with no back:
+    /// it does nothing at all, so the caller does not have to know.
+    public async void Flip(bool toBack, bool animate = true)
+    {
+        if (toBack == _showingBack) return;
+        if (toBack && !Album.HasBack) return;
+
+        var mine = ++_flipGeneration;
+
+        if (toBack && _back is null)
+        {
+            // Decoded at the panel's bucket rather than the tile's: a back is
+            // read at 500 px and the wall may be showing large covers.
+            _back = await ArtCache.GetBackAsync(Album, 512).ConfigureAwait(true);
+            if (_back is null || mine != _flipGeneration) return;   // no back, or overtaken
+        }
+
+        if (!animate)
+        {
+            _showingBack = toBack;
+            OnPropertyChanged(nameof(Face));
+            OnPropertyChanged(nameof(FaceMax));
+            OnPropertyChanged(nameof(FaceStretch));
+            return;
+        }
+
+        _turn ??= new Rotate3DTransform { Depth = 220 };
+        OnPropertyChanged(nameof(Turn));
+
+        await Tween(_turn, 0, 90, FlipMs / 2);
+        if (mine != _flipGeneration) return;
+
+        _showingBack = toBack;
+        OnPropertyChanged(nameof(Face));
+        OnPropertyChanged(nameof(FaceMax));
+        OnPropertyChanged(nameof(FaceStretch));
+
+        await Tween(_turn, -90, 0, FlipMs / 2);
+    }
+
+    /// Tweens the transform's AngleY, by hand.
+    ///
+    /// Avalonia's Animation cannot do this: RunAsync takes an Animatable but
+    /// casts it to Visual internally, so animating a Transform OBJECT throws
+    /// InvalidCastException ("Unable to cast Rotate3DTransform to Visual"),
+    /// which is how this was found. And the declarative route is out too, since
+    /// the transform-string parser has no rotate3d. So a timer it is: eight
+    /// frames of sine easing, on the UI thread, setting one double.
+    private static Task Tween(Rotate3DTransform t, double from, double to, int ms)
+    {
+        var done = new TaskCompletionSource();
+        var startedAt = Environment.TickCount64;
+        t.AngleY = from;
+
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        timer.Tick += (_, _) =>
+        {
+            var p = Math.Clamp((Environment.TickCount64 - startedAt) / (double)ms, 0, 1);
+            // Sine in-out: the sleeve leaves and arrives slowly and is quickest
+            // edge-on, which is where a real card moves fastest too.
+            t.AngleY = from + (to - from) * (0.5 - 0.5 * Math.Cos(Math.PI * p));
+            if (p < 1) return;
+            timer.Stop();
+            done.TrySetResult();
+        };
+        timer.Start();
+        return done.Task;
+    }
+
+    /// The size caps and stretch rule, for whichever face is showing. A back is
+    /// a scan of the whole tray card and runs to 1.27 wide, so it is
+    /// letterboxed like any other oblong art rather than cropped -- a crop
+    /// takes the track listing off the edge.
+    public double FaceMax => _showingBack
+        ? (Album.BackWidth > 0 && Album.BackHeight > 0
+            ? Math.Max(Album.BackWidth, Album.BackHeight) * MaxEnlarge / Math.Max(1, Scaling)
+            : double.PositiveInfinity)
+        : CoverMax;
+
+    public Avalonia.Media.Stretch FaceStretch => _showingBack
+        ? (Album.BackWidth > 0 && Album.BackHeight > 0
+           && Math.Abs(Album.BackWidth - Album.BackHeight)
+              > 0.06 * Math.Max(Album.BackWidth, Album.BackHeight)
+            ? Avalonia.Media.Stretch.Uniform
+            : Avalonia.Media.Stretch.UniformToFill)
+        : CoverStretch;
 
     /// The ring takes the album's OWN accent color, so the selected tile is
     /// visibly tied to the panel that opened below it.

@@ -47,21 +47,36 @@
                                     <Border Classes="ground" Background="{Binding Placeholder}" CornerRadius="2"
                                             Opacity="{Binding GroundOpacity}"/>
                                     <!-- The WHOLE cover, never cropped and never
-                                         enlarged past CoverMax: a small or oblong
-                                         one sits centered on the ground above. -->
-                                    <Image Classes="cover" Source="{Binding Cover}"
+                                         enlarged past FaceMax: a small or oblong
+                                         one sits centered on the ground above.
+                                         A BACK is oblong by nature (a tray card
+                                         scan, spines included) so it letterboxes
+                                         here by the same rule.
+
+                                         RenderTransform is the flip: the view
+                                         model owns a Rotate3DTransform and
+                                         animates its AngleY. Bound as a whole
+                                         object, never as a property INSIDE a
+                                         transform: transforms are not in the
+                                         visual tree and x:Name on one does not
+                                         even compile. Null until the album is
+                                         first opened, so an untouched tile
+                                         carries no transform at all. -->
+                                    <Image Classes="cover" Source="{Binding Face}"
                                            Opacity="{Binding CoverOpacity}"
-                                           Stretch="{Binding CoverStretch}"
+                                           Stretch="{Binding FaceStretch}"
+                                           RenderTransform="{Binding Turn}"
+                                           RenderTransformOrigin="50%,50%"
                                            HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <Image.MaxWidth>
                                             <MultiBinding Converter="{x:Static app:AlbumVm+FitConverter.Instance}">
-                                                <Binding Path="CoverMax"/>
+                                                <Binding Path="FaceMax"/>
                                                 <Binding Path="$parent[Panel].Bounds.Width"/>
                                             </MultiBinding>
                                         </Image.MaxWidth>
                                         <Image.MaxHeight>
                                             <MultiBinding Converter="{x:Static app:AlbumVm+FitConverter.Instance}">
-                                                <Binding Path="CoverMax"/>
+                                                <Binding Path="FaceMax"/>
                                                 <Binding Path="$parent[Panel].Bounds.Width"/>
                                             </MultiBinding>
                                         </Image.MaxHeight>

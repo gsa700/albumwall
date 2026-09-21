@@ -67,12 +67,21 @@ public static class ArtCache
     /// scales the rest.
     public static int BucketFor(int displayPx) => displayPx <= 256 ? 256 : 512;
 
-    public static Task<Bitmap?> GetAsync(Domain.Album album, int displayPx)
+    /// The album's FRONT.
+    public static Task<Bitmap?> GetAsync(Domain.Album album, int displayPx) =>
+        GetAsync(album.ArtPath ?? album.ArtEmbeddedIn, album.ArtSize, album.ArtModified, displayPx);
+
+    /// The album's BACK, when it has one. Same cache, same budget, same
+    /// eviction: a back is just another image file, and only albums that have
+    /// actually been flipped ever pay for one.
+    public static Task<Bitmap?> GetBackAsync(Domain.Album album, int displayPx) =>
+        GetAsync(album.BackPath, album.BackSize, album.BackModified, displayPx);
+
+    public static Task<Bitmap?> GetAsync(string? source, long size, long modified, int displayPx)
     {
-        var source = album.ArtPath ?? album.ArtEmbeddedIn;
         if (source is null) return Task.FromResult<Bitmap?>(null);
 
-        var id = new Key(source, album.ArtSize, album.ArtModified, BucketFor(displayPx));
+        var id = new Key(source, size, modified, BucketFor(displayPx));
 
         lock (Gate)
         {

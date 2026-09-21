@@ -758,6 +758,8 @@ public partial class MainWindow : Window
             // change: same path, and usually the same dimensions, so nothing else
             // here would move and the wall would not rebuild.
             h.Add(a.ArtSize); h.Add(a.ArtModified);
+            h.Add(a.BackPath); h.Add(a.BackSize); h.Add(a.BackModified);
+            h.Add(a.BackWidth); h.Add(a.BackHeight);
             foreach (var t in a.Tracks) h.Add(t);      // a record: every field counts
         }
         return h.ToHashCode();
@@ -794,9 +796,18 @@ public partial class MainWindow : Window
         var top = OpenAlbumInView(offset) ?? TopAlbumInView();
         var into = top is null ? 0 : offset - Wall.OffsetOf(RowIndexOf(top));
 
+        var wasShowingBack = _open?.ShowingBack == true;
         if (_open is not null) _open.IsSelected = false;
         _open = Carry(_open);
-        if (_open is not null) _open.IsSelected = true;
+        if (_open is not null)
+        {
+            _open.IsSelected = true;
+            // A rescan hands back all-new view models, so the open album's
+            // sleeve is put back the way it WAS -- and without turning, because
+            // nobody asked for anything: a watcher firing while you read a
+            // track list must not flip the wall at you.
+            if (wasShowingBack) _open.Flip(toBack: true, animate: false);
+        }
 
         _beforeSearchOpen = Carry(_beforeSearchOpen);
         _beforeSearchTop = Carry(_beforeSearchTop);
@@ -1649,6 +1660,20 @@ public partial class MainWindow : Window
         // The menu's Rescan, which nothing else here can reach: a warm scan is
         // over in seconds, so catching its progress display means starting one
         // on demand and photographing it straight away.
+        // Reports the flip: whether the open album has a back, which face it is
+        // showing, and the back's real aspect. A snapshot cannot catch a 260 ms
+        // turn, so this is how the flip is checked from a script.
+        if (text.Equals("face", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_open is null) { Console.WriteLine("[face] nothing open"); return; }
+            var a = _open.Album;
+            Console.WriteLine($"[face] {a.Title}: hasBack={a.HasBack} showingBack={_open.ShowingBack} "
+                            + $"back={a.BackWidth}x{a.BackHeight} "
+                            + $"aspect={(a.BackHeight > 0 ? (a.BackWidth / (double)a.BackHeight).ToString("0.00") : "-")} "
+                            + $"path={a.BackPath ?? "none"}");
+            return;
+        }
+
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(honest: true); return; }
         if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
@@ -2788,11 +2813,25 @@ public partial class MainWindow : Window
         // of opening rather than a row vanishing from under the cursor.
         if (_open is not null) await FoldAwayAsync();
 
-        if (_open is not null) _open.IsSelected = false;
+        if (_open is not null) { _open.IsSelected = false; _open.Flip(toBack: false, animate); }
         // Clicking the open album again closes it, which is the only way back to
         // an unbroken wall.
         _open = closing ? null : album;
-        if (_open is not null) _open.IsSelected = true;
+        if (_open is not null)
+        {
+            _open.IsSelected = true;
+            // The sleeve turns over IN THE WALL. Driven from the OPEN album
+            // rather than from the click, so it happens identically from a
+            // search, from Ctrl+L and from the keyboard -- one rule instead of
+            // two. An album with no back.jpg does nothing here, which is the
+            // whole of the "if it exists, flip" condition.
+            //
+            // ONLY on a gesture. `animate: false` is how a restored session and
+            // a rebuild re-open an album, and a wall that comes up already
+            // showing a back nobody turned over is a glitch rather than a
+            // flourish.
+            if (animate) _open.Flip(toBack: true);
+        }
 
         Rebuild(unfold: animate && _open is not null);
 

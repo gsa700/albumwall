@@ -68,6 +68,27 @@ public sealed class Album
 
     public bool HasArt => ArtPath is not null || ArtEmbeddedIn is not null;
 
+    /// The BACK of the sleeve, when a back.jpg sits beside the front.
+    ///
+    /// OPTIONAL, and its absence is not a defect: the Cover Art Archive has a
+    /// back for about 95% of this wall and nothing at all for the rest, which
+    /// is mostly recent box sets and greatest-hits compilations. A tile with no
+    /// back simply does not flip. There is deliberately no embedded equivalent
+    /// — a tag's picture block is the front by convention, and guessing which
+    /// of several pictures is a back is not a guess worth making.
+    ///
+    /// Sidecar only, and measured the same way the front is, because backs are
+    /// NOT square: they are scans of the whole tray card, spines included,
+    /// running to 1.27 wide. The view letterboxes them rather than cropping,
+    /// since a crop takes off the track listing.
+    public string? BackPath { get; set; }
+    public int BackWidth { get; set; }
+    public int BackHeight { get; set; }
+    public long BackSize { get; set; }
+    public long BackModified { get; set; }
+
+    public bool HasBack => BackPath is not null;
+
     /// Every directory this album's tracks live in. A multi-disc set spans
     /// several, which is why art lookup has to consider more than one.
     public HashSet<string> Directories { get; } = [];

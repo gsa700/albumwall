@@ -25,6 +25,11 @@ public sealed partial class LibraryScanner
     private static readonly string[] ArtNames = ["cover.jpg", "cover.jpeg", "cover.png",
                                                  "folder.jpg", "folder.jpeg", "front.jpg"];
 
+    /// The back of the sleeve. `music-backart` writes back.jpg and `music-audit`
+    /// blesses exactly that spelling; the other two are here for the same reason
+    /// ArtNames carries more than one, and cost nothing.
+    private static readonly string[] BackNames = ["back.jpg", "back.jpeg", "back.png"];
+
     /// `Total` is known before the first tag is read, so a bar driven by this is
     /// an honest fraction rather than a spinner with a number beside it.
     public sealed record Progress(int FilesSeen, int Total, int AlbumsFound, string? Current);
@@ -33,7 +38,8 @@ public sealed partial class LibraryScanner
     /// asks, so that the two can never disagree about what a library file is.
     internal static bool IsLibraryFile(string path) =>
         AudioExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
-        || ArtNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
+        || ArtNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+        || BackNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
 
     /// How many files the last scan actually opened. With a trusted index on an
     /// unchanged library this is zero, and that is the point of the index.
@@ -187,8 +193,15 @@ public sealed partial class LibraryScanner
             album.ArtHeight = facts.CoverHeight;
             album.ArtSize = facts.Size;                 // the TRACK's, since that is what would be re-read
             album.ArtModified = facts.Modified;
+            ResolveBack(album, dir, trusted, seenArt);
             return;
         }
+
+        // The back is resolved FIRST and on its own, because everything below
+        // returns early once a front is settled — and an album whose front is
+        // embedded, or already found in an earlier directory, must still get
+        // its back.
+        ResolveBack(album, dir, trusted, seenArt);
 
         if (album.ArtPath is not null) return;          // already have a fallback
 
@@ -225,6 +238,48 @@ public sealed partial class LibraryScanner
                 album.ArtHeight = art.Height;
             }
             catch { /* art we cannot measure is still art */ }
+            return;
+        }
+    }
+
+    /// Finds back.jpg beside the tracks, if there is one.
+    ///
+    /// Measured, not just found: backs are scans of the whole tray card and are
+    /// not square, so the view needs the real aspect to letterbox instead of
+    /// cropping off the track listing. Measurement goes through the same index
+    /// table the front uses — a back is just another art path, which is why
+    /// this cost no index version bump.
+    private static void ResolveBack(Album album, string dir, LibraryIndex? trusted,
+                                    Dictionary<string, LibraryIndex.ArtFacts> seenArt)
+    {
+        if (album.BackPath is not null) return;         // an earlier disc had one
+
+        foreach (var name in BackNames)
+        {
+            var candidate = new FileInfo(Path.Combine(dir, name));
+            if (!candidate.Exists) continue;
+
+            album.BackPath = candidate.FullName;
+            var (size, modified) = (candidate.Length, candidate.LastWriteTimeUtc.Ticks);
+            album.BackSize = size;
+            album.BackModified = modified;
+            try
+            {
+                if (!seenArt.TryGetValue(candidate.FullName, out var art))
+                    art = trusted?.FindArt(candidate.FullName, size, modified);
+                if (art is null)
+                {
+                    using var fs = candidate.OpenRead();
+                    var head = new byte[(int)Math.Min(fs.Length, 256 * 1024)];
+                    fs.ReadExactly(head);
+                    var (w, h) = ImageSize.Read(head) ?? (0, 0);
+                    art = new LibraryIndex.ArtFacts(size, modified, w, h);
+                }
+                seenArt[candidate.FullName] = art;
+                album.BackWidth = art.Width;
+                album.BackHeight = art.Height;
+            }
+            catch { /* a back we cannot measure is still a back */ }
             return;
         }
     }
