@@ -116,36 +116,77 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
         var mine = ++_flipGeneration;
 
-        if (toBack && _back is null)
-        {
-            // Decoded at the panel's bucket rather than the tile's: a back is
-            // read at 500 px and the wall may be showing large covers.
-            _back = await ArtCache.GetBackAsync(Album, 512).ConfigureAwait(true);
-            if (_back is null || mine != _flipGeneration) return;   // no back, or overtaken
-        }
-
         if (!animate)
         {
-            _showingBack = toBack;
-            OnPropertyChanged(nameof(Face));
-            OnPropertyChanged(nameof(FaceMax));
-            OnPropertyChanged(nameof(FaceStretch));
+            if (toBack && _back is null)
+            {
+                _back = await ArtCache.GetBackAsync(Album, BackBucket).ConfigureAwait(true);
+                if (_back is null || mine != _flipGeneration) return;
+            }
+            ShowFace(toBack);
             return;
         }
 
         _turn ??= new Rotate3DTransform { Depth = 220 };
         OnPropertyChanged(nameof(Turn));
 
+        // THE DECODE GOES BEHIND THE TURN, not in front of it.
+        //
+        // Awaiting it first made the sleeve sit still for 21 to 191 ms before
+        // it moved -- measured over five albums -- while the panel below had
+        // already started rolling out. Worse, the second open of the same album
+        // was instant, so the same gesture looked different depending on
+        // whether a bitmap happened to be cached. The first half of the turn is
+        // 130 ms of cover for exactly this, and edge-on is the one moment in
+        // the whole animation where nothing is visible anyway.
+        var decoding = toBack && _back is null
+            ? ArtCache.GetBackAsync(Album, BackBucket)
+            : Task.FromResult(_back);
+
+#if DEBUG
+        var turnStarted = Environment.TickCount64;
+#endif
         await Tween(_turn, 0, 90, FlipMs / 2);
         if (mine != _flipGeneration) return;
+#if DEBUG
+        var edgeOn = Environment.TickCount64;
+#endif
 
-        _showingBack = toBack;
+        if (toBack)
+        {
+            // Edge-on until the bitmap lands. Slower than the turn only on a
+            // cold cache, and a held pause reads as the card being turned by a
+            // hand rather than as a dropped frame.
+            _back = await decoding.ConfigureAwait(true);
+            if (mine != _flipGeneration) return;
+            if (_back is null)
+            {
+                // Nothing to show after all: turn the front back rather than
+                // leaving the tile edge-on forever.
+                await Tween(_turn, -90, 0, FlipMs / 2);
+                return;
+            }
+        }
+
+        ShowFace(toBack);
+#if DEBUG
+        Console.WriteLine($"[flip] {Album.Title}: first half {edgeOn - turnStarted} ms, "
+                        + $"edge-on hold {Environment.TickCount64 - edgeOn} ms");
+#endif
+        await Tween(_turn, -90, 0, FlipMs / 2);
+    }
+
+    private void ShowFace(bool back)
+    {
+        _showingBack = back;
         OnPropertyChanged(nameof(Face));
         OnPropertyChanged(nameof(FaceMax));
         OnPropertyChanged(nameof(FaceStretch));
-
-        await Tween(_turn, -90, 0, FlipMs / 2);
     }
+
+    /// Backs are decoded at the larger bucket: the files are 500 px and the
+    /// wall may be showing covers bigger than the tile default.
+    private const int BackBucket = 512;
 
     /// Tweens the transform's AngleY, by hand.
     ///
