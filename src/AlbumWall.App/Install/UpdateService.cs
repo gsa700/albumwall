@@ -85,6 +85,34 @@ public static class UpdateService
         }
     }
 
+    /// <summary>
+    /// On Linux .NET does its TLS and hashing through the system's OpenSSL, loaded by name the first
+    /// time either is used. If no version it knows is there, the runtime does not throw - it prints
+    /// "No usable version of libssl was found" and ABORTS THE PROCESS, and no catch can stop it. Fedora
+    /// 45 did exactly that (2026-09-21): it ships only libssl.so.4, and the check six seconds after
+    /// launch took the player down mid-song. So look first, with the names the runtime itself tries
+    /// (dotnet/runtime opensslshim.c), and treat "none" as a reason not to update rather than a crash.
+    /// <c>CLR_OPENSSL_VERSION_OVERRIDE</c> is the runtime's own escape hatch and is honoured the same way.
+    /// Cached: a library appearing mid-session would not help, the runtime has already looked.
+    /// </summary>
+    private static readonly Lazy<string?> MissingTls = new(() =>
+    {
+        if (!OperatingSystem.IsLinux()) return null;
+        var names = new List<string>();
+        if (Environment.GetEnvironmentVariable("CLR_OPENSSL_VERSION_OVERRIDE") is { Length: > 0 } v)
+            names.Add($"libssl.so.{v}");
+        names.AddRange(["libssl.so.3", "libssl.so.1.1", "libssl.so.1.0.2", "libssl.so.1.0.0", "libssl.so.10"]);
+        foreach (var name in names)
+            if (NativeLibrary.TryLoad(name, out var handle))
+            {
+                NativeLibrary.Free(handle);
+                return null;
+            }
+        Console.WriteLine($"[update] no libssl .NET can use (tried {string.Join(", ", names)}); updates are off");
+        return "This computer has no version of OpenSSL that .NET can use, so AlbumWall cannot check for "
+             + "updates. On Fedora, installing openssl3-libs fixes it.";
+    });
+
     public static async Task<UpdateInfo> CheckAsync()
     {
         var info = new UpdateInfo
@@ -92,6 +120,11 @@ public static class UpdateService
             CurrentVersion = CurrentVersion,
             ReleaseUrl = App.ProjectUrl + "/releases/latest"
         };
+        if (MissingTls.Value is { } why)
+        {
+            info.Error = why;
+            return info;
+        }
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, FeedUrl);
@@ -153,6 +186,7 @@ public static class UpdateService
     /// </summary>
     public static async Task<string> DownloadAndStageAsync(UpdateInfo info, IProgress<double>? progress = null)
     {
+        if (MissingTls.Value is { } why) throw new InvalidOperationException(why);
         if (info.AssetUrl is null || info.AssetName is null)
             throw new InvalidOperationException($"This release has no build for {Rid()}.");
         if (info.SumsUrl is null)
