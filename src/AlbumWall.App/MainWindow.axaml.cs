@@ -92,6 +92,12 @@ public partial class MainWindow : Window
         if (_settings.WindowWidth is > 320) Width = _settings.WindowWidth.Value;
         if (_settings.WindowHeight is > 240) Height = _settings.WindowHeight.Value;
 
+        // No saved position means a first run: centre it. Decided HERE, because
+        // the startup location is only read when the window is shown - set in
+        // Opened, as it once was, it did nothing and the window sat at 0,0.
+        if (_settings.WindowX is null || _settings.WindowY is null)
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
         Wall.RowHeight = CoverPx + LabelHeight;
         Wall.ItemsSource = _rows;
         Wall.ElementPrepared += OnElementPrepared;
@@ -245,14 +251,8 @@ public partial class MainWindow : Window
     {
         if (_settings.Maximized) { WindowState = WindowState.Maximized; return false; }
 
-        // No saved position means a first run. WindowStartupLocation is Manual so
-        // that a saved position is honored exactly, but with nothing to honor
-        // that would drop the window in the top-left corner.
-        if (_settings.WindowX is not { } x || _settings.WindowY is not { } y)
-        {
-            WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            return false;
-        }
+        // No saved position means a first run, centred by the constructor.
+        if (_settings.WindowX is not { } x || _settings.WindowY is not { } y) return false;
 
         // The screen the saved top-left corner sits on, found from the POINT so
         // that the screen's own scaling can be used for the conversion below.
