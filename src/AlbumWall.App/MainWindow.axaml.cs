@@ -129,7 +129,7 @@ public partial class MainWindow : Window
         // Seeded here, not left to the first resize: a window that is opened,
         // maximized and closed never fires a size change while it is Normal, and
         // without a seed its geometry would never be written down at all.
-        Opened += (_, _) => { _restored = true; RestorePosition(); RememberNormalGeometry(); };
+        Opened += (_, _) => { _restored = true; WatchPlacement(RestorePosition()); RememberNormalGeometry(); };
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
@@ -240,9 +240,10 @@ public partial class MainWindow : Window
     /// wanted is not a yes/no test but a correction, so the saved geometry is
     /// clamped into the target screen's working area instead of being trusted or
     /// discarded wholesale.
-    private void RestorePosition()
+    /// <returns>True when a saved position was asked for, which the window manager applies later.</returns>
+    private bool RestorePosition()
     {
-        if (_settings.Maximized) { WindowState = WindowState.Maximized; return; }
+        if (_settings.Maximized) { WindowState = WindowState.Maximized; return false; }
 
         // No saved position means a first run. WindowStartupLocation is Manual so
         // that a saved position is honored exactly, but with nothing to honor
@@ -250,13 +251,13 @@ public partial class MainWindow : Window
         if (_settings.WindowX is not { } x || _settings.WindowY is not { } y)
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            return;
+            return false;
         }
 
         // The screen the saved top-left corner sits on, found from the POINT so
         // that the screen's own scaling can be used for the conversion below.
         var screen = Screens.ScreenFromPoint(new PixelPoint(x, y)) ?? Screens.Primary;
-        if (screen is null) return;
+        if (screen is null) return false;
 
         // The SCREEN's scaling, not RenderScaling. RenderScaling is not reliably
         // settled when Opened fires, and reading 1.0 on a 2x display makes the
@@ -281,6 +282,52 @@ public partial class MainWindow : Window
                             + $"{area.Width}x{area.Height}; corrected to {cx},{cy} {w}x{h}");
 
         Position = new PixelPoint(cx, cy);
+        return true;
+    }
+
+    private readonly TaskCompletionSource _placed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Completes once the window is where it is going to stay. Anything placed relative to it at
+    /// startup - a dialog centred on it - must wait for this. Setting Position only ASKS the window
+    /// manager; until it answers, Position still reads the old value (0,0 on Fedora, 2026-09-21), so
+    /// the install offer centred itself on a window that was about to be somewhere else. The answer
+    /// took ~150 ms here.
+    /// </summary>
+    public Task Placed => _placed.Task;
+
+    /// Settled = no move or resize for a quiet spell, and, when a move was asked
+    /// for, not before the first one has arrived. Capped, so a window manager
+    /// that never reports back costs a second, not the dialog.
+    private void WatchPlacement(bool moveAsked)
+    {
+        var waitingForMove = moveAsked;
+        var quiet = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        var cap = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+
+        void Done()
+        {
+            quiet.Stop();
+            cap.Stop();
+            PositionChanged -= OnMoved;
+            SizeChanged -= OnResized;
+            _placed.TrySetResult();
+        }
+        void Restart()
+        {
+            if (waitingForMove) return;
+            quiet.Stop();
+            quiet.Start();
+        }
+        void OnMoved(object? sender, PixelPointEventArgs e) { waitingForMove = false; Restart(); }
+        void OnResized(object? sender, SizeChangedEventArgs e) => Restart();
+
+        quiet.Tick += (_, _) => Done();
+        cap.Tick += (_, _) => Done();
+        PositionChanged += OnMoved;
+        SizeChanged += OnResized;
+        cap.Start();
+        Restart();
     }
 
     private bool _restored;

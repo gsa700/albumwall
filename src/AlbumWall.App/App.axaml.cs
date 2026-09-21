@@ -113,6 +113,10 @@ public partial class App : Application
 
             window.Opened += async (_, _) =>
             {
+                // Both dialogs below centre on the window, so it has to be where
+                // it is going to be first. See MainWindow.Placed.
+                await window.Placed;
+
                 // This run exists only to uninstall: ask, act, and go.
                 if (Program.PendingUninstall)
                 {
