@@ -61,14 +61,39 @@ class Program
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
+    /// <summary>
+    /// Running on Avalonia's own Wayland backend rather than through XWayland. Since 2026-09-21
+    /// that is the default wherever a Wayland session exists: Fedora 45's mutter 51 stopped giving
+    /// clicks to borderless X11 windows that are not GTK's, so under XWayland every click on the
+    /// wall went to the window behind it. Native Wayland never meets that code.
+    ///
+    /// The price is the window's position. A Wayland client cannot place its window or learn where
+    /// it is (Position always reads 0,0), so the compositor decides where it opens, and the saved
+    /// position is left alone rather than overwritten, ready for when GNOME can honour it.
+    /// <c>ALBUMWALL_X11=1</c> goes back through XWayland, for testing whether mutter is fixed.
+    /// </summary>
+    public static readonly bool NativeWayland =
+        OperatingSystem.IsLinux()
+        && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+        && Environment.GetEnvironmentVariable("ALBUMWALL_X11") != "1";
+
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+        => WithBackend(AppBuilder.Configure<App>()
+            .UsePlatformDetect())
 #if DEBUG
             .WithDeveloperTools()
 #endif
             .WithInterFont()
             .AfterSetup(_ => Avalonia.Logging.Logger.Sink =
                 new ConsoleLogSink(Avalonia.Logging.LogEventLevel.Warning));
+
+    /// UseWayland after UsePlatformDetect replaces only the windowing platform;
+    /// rendering and the rest are still what detection chose.
+    private static AppBuilder WithBackend(AppBuilder builder)
+    {
+        if (!NativeWayland) return builder;
+        Console.WriteLine("[wall] backend: native Wayland");
+        return builder.UseWayland();
+    }
 }

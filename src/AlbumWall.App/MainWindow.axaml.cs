@@ -251,6 +251,9 @@ public partial class MainWindow : Window
     {
         if (_settings.Maximized) { WindowState = WindowState.Maximized; return false; }
 
+        // Wayland does not let a client place its own window. See Program.NativeWayland.
+        if (Program.NativeWayland) return false;
+
         // No saved position means a first run, centred by the constructor.
         if (_settings.WindowX is not { } x || _settings.WindowY is not { } y) return false;
 
@@ -403,8 +406,13 @@ public partial class MainWindow : Window
         {
             _settings.WindowWidth = g.W;
             _settings.WindowHeight = g.H;
-            _settings.WindowX = g.X;
-            _settings.WindowY = g.Y;
+            // On Wayland the position is unknowable and reads 0,0; writing that
+            // down would throw away the real one. See Program.NativeWayland.
+            if (!Program.NativeWayland)
+            {
+                _settings.WindowX = g.X;
+                _settings.WindowY = g.Y;
+            }
         }
 
         _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
