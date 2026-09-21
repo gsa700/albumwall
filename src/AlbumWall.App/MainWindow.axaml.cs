@@ -754,6 +754,10 @@ public partial class MainWindow : Window
         {
             h.Add(a.AlbumArtist); h.Add(a.Title); h.Add(a.Year);
             h.Add(a.ArtPath); h.Add(a.ArtEmbeddedIn); h.Add(a.ArtWidth); h.Add(a.ArtHeight);
+            // The art's own stamp, so that REPLACING a cover in place counts as a
+            // change: same path, and usually the same dimensions, so nothing else
+            // here would move and the wall would not rebuild.
+            h.Add(a.ArtSize); h.Add(a.ArtModified);
             foreach (var t in a.Tracks) h.Add(t);      // a record: every field counts
         }
         return h.ToHashCode();

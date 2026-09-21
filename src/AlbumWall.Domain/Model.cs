@@ -55,6 +55,17 @@ public sealed class Album
     public int ArtWidth { get; set; }
     public int ArtHeight { get; set; }
 
+    /// The length and last-write time of whatever the art came FROM — the sidecar
+    /// file, or the track holding the embedded picture.
+    ///
+    /// The decoded-bitmap and palette caches key on these as well as the path,
+    /// so a cover replaced IN PLACE invalidates itself. Keyed on the path alone
+    /// they could not: a corrected sleeve written over the old one at the same
+    /// size is, to every cache in the app, the same cover. Rescanning does not
+    /// help either, because those caches are static and outlive a scan.
+    public long ArtSize { get; set; }
+    public long ArtModified { get; set; }
+
     public bool HasArt => ArtPath is not null || ArtEmbeddedIn is not null;
 
     /// Every directory this album's tracks live in. A multi-disc set spans

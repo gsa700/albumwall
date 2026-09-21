@@ -70,11 +70,17 @@ public static class Palette
 
     public static AlbumPalette For(Domain.Album album)
     {
-        var key = album.ArtPath ?? album.ArtEmbeddedIn;
-        if (key is null) return Neutral;
-        return Cache.GetOrAdd(key, static k =>
+        var source = album.ArtPath ?? album.ArtEmbeddedIn;
+        if (source is null) return Neutral;
+
+        // Keyed on the art's length and last-write as well as its path, for the
+        // reason ArtCache.Key gives: a sleeve corrected in place keeps both its
+        // path and, usually, its dimensions, and a palette built from the wrong
+        // cover would otherwise tint the panel until the app restarted.
+        var key = $"{source}\u0000{album.ArtSize}\u0000{album.ArtModified}";
+        return Cache.GetOrAdd(key, _ =>
         {
-            var (hue, sat, highlight) = Analyze(k);
+            var (hue, sat, highlight) = Analyze(source);
             return sat <= 0.02 ? Neutral : Build(hue, sat, highlight);
         });
     }

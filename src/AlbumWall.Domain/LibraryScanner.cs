@@ -185,6 +185,8 @@ public sealed partial class LibraryScanner
             album.ArtPath = null;
             album.ArtWidth = facts.CoverWidth;          // not the sidecar's
             album.ArtHeight = facts.CoverHeight;
+            album.ArtSize = facts.Size;                 // the TRACK's, since that is what would be re-read
+            album.ArtModified = facts.Modified;
             return;
         }
 
@@ -196,9 +198,15 @@ public sealed partial class LibraryScanner
             if (!candidate.Exists) continue;
 
             album.ArtPath = candidate.FullName;
+            var (size, modified) = (candidate.Length, candidate.LastWriteTimeUtc.Ticks);
+
+            // Stamped from the directory entry, OUTSIDE the try: art we cannot
+            // measure is still art (see the catch), and it must still invalidate
+            // its caches when it is replaced.
+            album.ArtSize = size;
+            album.ArtModified = modified;
             try
             {
-                var (size, modified) = (candidate.Length, candidate.LastWriteTimeUtc.Ticks);
                 if (!seenArt.TryGetValue(candidate.FullName, out var art))
                     art = trusted?.FindArt(candidate.FullName, size, modified);
                 if (art is null)

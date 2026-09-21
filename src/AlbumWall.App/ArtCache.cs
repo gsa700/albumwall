@@ -37,10 +37,22 @@ public static class ArtCache
         public long Bytes;
     }
 
+    /// What a decoded bitmap is filed under.
+    ///
+    /// Source and Bucket alone are NOT enough. A cover corrected in place — the
+    /// ordinary way a wrong sleeve gets fixed — keeps its path, and a 500 px
+    /// replacement for a 500 px original keeps its dimensions too, so nothing in
+    /// the old key moved and the app went on showing the sleeve it had already
+    /// decoded. Not until a restart: this cache is static and a rescan does not
+    /// touch it. Size and Modified come from the scanner (Album.ArtSize /
+    /// ArtModified), so a swapped file simply lands under a different key and the
+    /// stale entry ages out of the LRU on its own.
+    private readonly record struct Key(string Source, long Size, long Modified, int Bucket);
+
     private static readonly object Gate = new();
-    private static readonly Dictionary<(string Key, int Bucket), Entry> Cache = [];
-    private static readonly LinkedList<(string Key, int Bucket)> Lru = [];
-    private static readonly Dictionary<(string Key, int Bucket), LinkedListNode<(string, int)>> Nodes = [];
+    private static readonly Dictionary<Key, Entry> Cache = [];
+    private static readonly LinkedList<Key> Lru = [];
+    private static readonly Dictionary<Key, LinkedListNode<Key>> Nodes = [];
     private static long _bytes;
 
     /// How many covers are currently decoded and held. Surfaced in the status bar:
@@ -57,10 +69,10 @@ public static class ArtCache
 
     public static Task<Bitmap?> GetAsync(Domain.Album album, int displayPx)
     {
-        var key = album.ArtPath ?? album.ArtEmbeddedIn;
-        if (key is null) return Task.FromResult<Bitmap?>(null);
+        var source = album.ArtPath ?? album.ArtEmbeddedIn;
+        if (source is null) return Task.FromResult<Bitmap?>(null);
 
-        var id = (key, BucketFor(displayPx));
+        var id = new Key(source, album.ArtSize, album.ArtModified, BucketFor(displayPx));
 
         lock (Gate)
         {
@@ -70,7 +82,7 @@ public static class ArtCache
                 return hit.Task;
             }
 
-            var entry = new Entry { Task = Task.Run(() => Decode(id.Item1, id.Item2)) };
+            var entry = new Entry { Task = Task.Run(() => Decode(id.Source, id.Bucket)) };
             Cache[id] = entry;
             Nodes[id] = Lru.AddLast(id);
 
@@ -93,7 +105,7 @@ public static class ArtCache
     }
 
     /// Marks an entry as most recently used. Caller holds the lock.
-    private static void Touch((string, int) id)
+    private static void Touch(Key id)
     {
         if (!Nodes.TryGetValue(id, out var node)) return;
         Lru.Remove(node);
