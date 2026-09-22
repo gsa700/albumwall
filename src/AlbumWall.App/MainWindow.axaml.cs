@@ -466,8 +466,13 @@ public partial class MainWindow : Window
         // THE RESULT MUST BE HELD. Nothing else refers to the connection, so
         // discarding it lets the GC take the whole thing — the app claims the
         // name, logs that it did, and then quietly vanishes off the bus.
+        //
+        // The name is claimed on a background thread, so playback can in
+        // principle start before it lands. Announcing once on arrival covers
+        // that: whatever PushToSystem had nobody to tell goes out now.
         _ = Mpris.StartAsync(MprisState, MprisCommand)
-                 .ContinueWith(t => _mpris = t.Result, TaskScheduler.Default);
+                 .ContinueWith(t => { _mpris = t.Result; _mpris?.NotifyChanged(); },
+                               TaskScheduler.Default);
 
 #if WINDOWS
         // The same thing for Windows, which has no D-Bus. It needs this window's
@@ -2310,13 +2315,20 @@ public partial class MainWindow : Window
             ArtUrl: art is not null && File.Exists(art) ? new Uri(art).AbsoluteUri : "",
             LengthMicros: (long)(_player.Duration.TotalMicroseconds),
             PositionMicros: 0,
-            Volume: _volume / 100.0);
+            Volume: _volume / 100.0,
+            TrackKey: path ?? "");
         PushToSystem();
     }
 
-    /// MPRIS is asked; the Windows transport controls have to be told.
+    /// Both of the desktop's media controls have to be TOLD. Neither comes back
+    /// to ask.
+    ///
+    /// This method used to be the Windows half only, on the belief that MPRIS
+    /// needed nothing because it answers every read live. It does answer every
+    /// read live; the shell just does not read twice. See Mpris.NotifyChanged.
     private void PushToSystem()
     {
+        _mpris?.NotifyChanged();
 #if WINDOWS
         _smtc?.Update(_mprisState, _playingAlbum?.Album);
         PushTimeline();

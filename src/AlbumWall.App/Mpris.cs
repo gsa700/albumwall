@@ -28,9 +28,15 @@ public sealed class Mpris : IPathMethodHandler
     public string Path => "/org/mpris/MediaPlayer2";
     public bool HandlesChildPaths => false;
 
-    /// What the app has to tell the shell about itself, read fresh on every
-    /// request rather than pushed: no cache to go stale, and the cost is a
-    /// property read on a dozen fields.
+    /// What the app has to tell the shell about itself.
+    ///
+    /// Answered fresh on every request, AND pushed when it changes. The pull
+    /// side alone was the original design and it was wrong: see NotifyChanged.
+    ///
+    /// TrackKey is the playing file's path, or empty. It is not shown anywhere
+    /// — it exists so that mpris:trackid can differ from one track to the next,
+    /// which is how a client tells "the same song, still going" from "a new
+    /// song started".
     public sealed record State(
         bool Playing,
         bool HasTrack,
@@ -40,12 +46,14 @@ public sealed class Mpris : IPathMethodHandler
         string ArtUrl,
         long LengthMicros,
         long PositionMicros,
-        double Volume);
+        double Volume,
+        string TrackKey = "");
 
     /// Keeps the connection rooted for the life of the process. See StartAsync.
     private static DBusConnection? Held;
 
     private readonly Func<State> _state;
+    private State? _lastAnnounced;
     private readonly Action<string> _command;
     private DBusConnection? _connection;
 
@@ -257,9 +265,14 @@ public sealed class Mpris : IPathMethodHandler
 
         // Required, and must be a valid object path even with nothing playing:
         // shells discard the whole map when it is missing or malformed.
+        //
+        // A DIFFERENT PATH PER TRACK. It was one constant path for every track
+        // here, which is what the spec calls a unique identifier and is not one:
+        // a client watching for the next song sees the identity it already has
+        // and can reasonably decide nothing happened.
         writer.WriteDictionaryEntryStart();
         writer.WriteString("mpris:trackid");
-        writer.WriteVariant(VariantValue.ObjectPath(new ObjectPath("/org/mpris/MediaPlayer2/albumwall/track")));
+        writer.WriteVariant(VariantValue.ObjectPath(new ObjectPath(TrackId(s))));
 
         if (s.HasTrack)
         {
@@ -318,6 +331,103 @@ public sealed class Mpris : IPathMethodHandler
     };
 
     private static string Status(State s) => !s.HasTrack ? "Stopped" : s.Playing ? "Playing" : "Paused";
+
+    /// An object path standing for the playing track. Only the last element is
+    /// ours; it may hold nothing but [A-Za-z0-9_], so the file path becomes a
+    /// hash rather than travelling as itself — which also keeps the listener's
+    /// directory layout off the session bus.
+    private static string TrackId(State s)
+    {
+        const string root = "/org/mpris/MediaPlayer2/albumwall/track";
+        if (!s.HasTrack || s.TrackKey.Length == 0) return root + "/none";
+
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(s.TrackKey));
+        return root + "/" + System.Convert.ToHexString(hash, 0, 8);
+    }
+
+    /// The properties that move while the app runs, and so the ones a change is
+    /// announced for. Position is deliberately absent: MPRIS says it must not
+    /// be reported this way, because a value that changes continuously would
+    /// have every client redrawing on every tick. Clients estimate it from Rate
+    /// and correct on the Seeked signal.
+    private static readonly string[] ChangingProperties =
+    [
+        "PlaybackStatus", "Metadata", "Volume", "CanGoNext", "CanGoPrevious", "CanPlay", "CanPause",
+    ];
+
+    /// PUSHED, NOT PULLED — and this is why the shell's media controls sat there
+    /// showing nothing.
+    ///
+    /// Every property in here is answered fresh on request, which made the whole
+    /// thing look right when it was tested the way it was tested: `gdbus call`
+    /// asks, and gets a true answer every time. Nothing that actually consumes
+    /// MPRIS works that way. GNOME's media controls build a proxy, read the
+    /// properties ONCE when the player appears on the bus, and from that moment
+    /// believe only what PropertiesChanged tells them. Emit it never and the
+    /// shell keeps forever whatever was true the instant it first looked —
+    /// which, for an app that claims the bus name at startup, is "Stopped,
+    /// nothing playing", the state in which the shell shows no player at all.
+    ///
+    /// So: the pull side was never broken and was never the whole interface.
+    /// The lesson is the one the Windows side already had by construction —
+    /// PushToSystem exists because SMTC has to be TOLD. So does every MPRIS
+    /// client. Test a D-Bus service with a client that behaves like the real
+    /// ones, not with a command that re-asks.
+    public void NotifyChanged()
+    {
+        var connection = _connection;
+        if (connection is null) return;
+
+        try
+        {
+            var state = _state();
+
+            // Several paths call RefreshMprisState for one user action, so the
+            // same news arrived on the bus two and three times over. Position is
+            // dropped from the comparison because it always differs and is never
+            // in the message: what is compared is exactly what would be sent.
+            var announced = state with { PositionMicros = 0 };
+            if (announced == _lastAnnounced) return;
+            _lastAnnounced = announced;
+
+            // Not "using", for the reason WriteAll sets out at length: this is a
+            // ref struct and every writer here is passed by ref.
+            var writer = connection.GetMessageWriter();
+            try
+            {
+                writer.WriteSignalHeader(
+                    destination: null,
+                    path: Path,
+                    @interface: "org.freedesktop.DBus.Properties",
+                    member: "PropertiesChanged",
+                    signature: "sa{sv}as");
+
+                writer.WriteString("org.mpris.MediaPlayer2.Player");
+
+                var dict = writer.WriteDictionaryStart();
+                foreach (var name in ChangingProperties)
+                {
+                    writer.WriteDictionaryEntryStart();
+                    writer.WriteString(name);
+                    Write(ref writer, name, state);
+                }
+                writer.WriteDictionaryEnd(dict);
+
+                // Nothing is invalidated: every changed property is sent with
+                // its new value rather than being flagged for a re-read.
+                writer.WriteArray(System.Array.Empty<string>());
+
+                connection.TrySendMessage(writer.CreateMessage());
+            }
+            finally { writer.Dispose(); }
+        }
+        catch (Exception ex)
+        {
+            // Same bargain as everything else here: the player keeps playing.
+            Console.WriteLine($"[mpris] notify failed: {ex.Message}");
+        }
+    }
 
     private static void ReplyEmpty(MethodContext context)
     {
