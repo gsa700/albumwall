@@ -40,12 +40,14 @@ if (args.Length < 3)
 }
 
 var lib = NativeLibrary.Load(Path.GetFullPath(args[0]));
-var files = args[1..].Select(Path.GetFullPath).ToArray();
+// A URL goes to mpv as it is: that is how a stream from Navidrome is checked
+// against the same tracks read from disk. See IsUrl.
+var files = args[1..].Select(a => IsUrl(a) ? a : Path.GetFullPath(a)).ToArray();
 
 // Said here, because otherwise it is said sixty lines down as "could not find
 // gapless-check-1234.wav", which reads like a libmpv that cannot decode. Git
 // Bash on Windows rewrites backslashed arguments; PowerShell does not.
-if (files.Where(f => !File.Exists(f)).ToList() is { Count: > 0 } missing)
+if (files.Where(f => !IsUrl(f) && !File.Exists(f)).ToList() is { Count: > 0 } missing)
 {
     foreach (var f in missing) Console.Error.WriteLine($"no such track: {f}");
     return 2;
@@ -113,6 +115,9 @@ File.Delete(wav);
 long expected = 0; var known = true;
 foreach (var f in files)
 {
+    // A stream's tags are not read here. Its answer is checked by running the
+    // same tracks from disk, which are, and comparing the two counts.
+    if (IsUrl(f)) { known = false; Console.WriteLine("  (stream: length not checkable here; compare with the files)"); continue; }
     var head = Latin1(f);
     var m = Regex.Match(head, "iTunSMPB.{0,120}? 0{8} ([0-9A-Fa-f]{8}) ([0-9A-Fa-f]{8}) ([0-9A-Fa-f]{16})", RegexOptions.Singleline);
     if (!m.Success) { known = false; Console.WriteLine($"  {Path.GetFileName(f)}: no iTunSMPB tag, length not checkable"); continue; }
@@ -142,6 +147,8 @@ if (Math.Abs(extra) <= tolerance)
 Console.WriteLine($"FAIL: {extra:+#;-#} samples ({extra * 1000.0 / 44100:0.0} ms at 44.1 kHz) against the {expected} the files contain.");
 Console.WriteLine("      Extra samples are padding or priming that was played instead of trimmed: a click or a burp at every track change.");
 return 1;
+
+static bool IsUrl(string s) => s.Contains("://");
 
 static string Latin1(string path)
 {
