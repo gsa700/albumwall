@@ -453,6 +453,7 @@ public partial class MainWindow : Window
 
         SetUpMenu();
         CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Statistics);
+        LibraryLink.Click += (_, _) => OpenLibraryPicker();
 
         // Tunnelled, so the keys work wherever the focus happens to be - after a
         // click it is on whichever cover was clicked, and a bubbling handler would
@@ -483,15 +484,13 @@ public partial class MainWindow : Window
 #endif
     }
 
-    /// Where the music lives: his setting, or the platform's Music folder.
+    /// Where the music lives: the current library's folder, or the platform's
+    /// Music folder for the library a fresh install starts with.
     ///
     /// The default is right on a machine that keeps its music where the OS
     /// suggests, and wrong on every machine where the records are on a NAS —
     /// which is why it is settable and why an empty result explains itself.
-    private string LibraryRoot =>
-        string.IsNullOrWhiteSpace(_settings.LibraryPath)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music")
-            : _settings.LibraryPath;
+    private string LibraryRoot => _settings.Current().Root;
 
     private Domain.LibraryWatcher? _watcher;
     private CancellationTokenSource? _scan;
@@ -591,6 +590,7 @@ public partial class MainWindow : Window
 
         var root = LibraryRoot;
         if (asked) EmptyState.IsVisible = false;
+        ShowLibraryName();
         WatchLibrary(root);
 
         _scan?.Cancel();
@@ -679,7 +679,7 @@ public partial class MainWindow : Window
                 _showing = (root, print);
 
                 foreach (var vm in vms) vm.OnOpen = a => SetOpen(a);
-                _counts = $"{albums.Count} albums · {tracks} tracks · {artists} artists";
+                _counts = $"{Count(albums.Count, "album")} · {Count(tracks, "track")} · {Count(artists, "artist")}";
                 _scanMs = sw.ElapsedMilliseconds;
                 Adopt(vms);
                 ApplyGround();
@@ -1256,9 +1256,124 @@ public partial class MainWindow : Window
 
     internal void UseDefaultLibrary()
     {
-        _settings.LibraryPath = null;
+        Repoint(_settings.Current(), null);
         _settings.Save();
         ScanLibrary();
+    }
+
+    // ---- The libraries: one shown at a time, switched from the bottom bar ----
+
+    internal IReadOnlyList<Library> Libraries => _settings.AllLibraries();
+    internal Library CurrentLibrary => _settings.Current();
+
+    /// Shows another library. What is playing goes on playing: the wall
+    /// changes, the music does not, the same as when a rescan finds the playing
+    /// album gone. The search is cleared, because a search typed for one
+    /// library is a puzzle when it silently filters another.
+    internal void SwitchLibrary(string id)
+    {
+        if (id == _settings.Current().Id || Libraries.All(l => l.Id != id)) return;
+        _settings.CurrentLibrary = id;
+        _settings.Save();
+        Console.WriteLine($"[library] switched to {_settings.Current().Name} ({LibraryRoot})");
+        SearchBox.Text = "";
+        SetOpen(null);
+        ScanLibrary();
+        _prefs?.Fill();
+    }
+
+    /// Asks for a folder and adds it as a library of its own, then shows it.
+    internal async Task AddFolderLibrary(Window from)
+    {
+        if (await PickFolder(from, "Add a music folder") is not { } path) return;
+        if (Libraries.FirstOrDefault(l => l.IsFolder && l.Root == path) is { } existing)
+        {
+            SwitchLibrary(existing.Id);     // already there: going to it is what was meant
+            return;
+        }
+        var library = Library.Folder(path);
+        _settings.AllLibraries().Add(library);
+        _settings.Save();
+        Console.WriteLine($"[library] added {library.Name} ({path})");
+        SwitchLibrary(library.Id);
+    }
+
+    internal void RenameLibrary(string id, string name)
+    {
+        var library = Libraries.FirstOrDefault(l => l.Id == id);
+        name = name.Trim();
+        if (library is null || name.Length == 0 || name == library.Name) return;
+        library.Name = name;
+        _settings.Save();
+        ShowLibraryName();
+    }
+
+    /// Forgets a library. Nothing on disk is touched: a library is only a place
+    /// to look. The last one cannot go, since the wall has to show something.
+    internal void RemoveLibrary(string id)
+    {
+        var all = _settings.AllLibraries();
+        if (all.Count < 2 || all.FirstOrDefault(l => l.Id == id) is not { } library) return;
+        var wasCurrent = library.Id == _settings.Current().Id;
+        all.Remove(library);
+        Console.WriteLine($"[library] removed {library.Name}");
+        if (wasCurrent)
+        {
+            _settings.CurrentLibrary = null;        // Current() falls back to the first
+            _settings.Save();
+            SearchBox.Text = "";
+            SetOpen(null);
+            ScanLibrary();
+        }
+        else _settings.Save();
+        ShowLibraryName();
+        _prefs?.Fill();
+    }
+
+    /// Points a library at another folder. A name he never changed follows the
+    /// folder; one he chose is his and stays.
+    private static void Repoint(Library library, string? path)
+    {
+        if (library.Name == Library.NameFor(library.Path)) library.Name = Library.NameFor(path);
+        library.Path = path;
+    }
+
+    /// "1 album", "287 albums". A library of one record is a real case: a new
+    /// folder library holding the first thing copied into it.
+    private static string Count(int n, string noun) => n == 1 ? $"1 {noun}" : $"{n} {noun}s";
+
+    private void ShowLibraryName()
+    {
+        var current = _settings.Current();
+        LibraryText.Text = current.Name;
+        ToolTip.SetTip(LibraryLink, $"{current.Root}\nChoose a library");
+    }
+
+    /// The picker: every library, the current one ticked, and a way to the tab
+    /// where they are added and removed. Built each time it opens, so it is
+    /// never out of date.
+    private void OpenLibraryPicker()
+    {
+        var menu = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
+        var current = _settings.Current().Id;
+        foreach (var library in Libraries)
+        {
+            var id = library.Id;
+            var item = new MenuItem
+            {
+                Header = library.Name,
+                ToggleType = MenuItemToggleType.Radio,
+                IsChecked = id == current,
+            };
+            ToolTip.SetTip(item, library.Root);
+            item.Click += (_, _) => SwitchLibrary(id);
+            menu.Items.Add(item);
+        }
+        menu.Items.Add(new Separator());
+        var manage = new MenuItem { Header = "Libraries…" };
+        manage.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
+        menu.Items.Add(manage);
+        menu.ShowAt(LibraryLink);
     }
 
     private void ShowEmptyState(bool empty, string root)
@@ -1281,9 +1396,17 @@ public partial class MainWindow : Window
     /// one asked — Preferences, or this one from the empty state.
     internal async Task ChooseLibraryFolder(Window from)
     {
+        if (await PickFolder(from, "Choose your music folder") is not { } path) return;
+        Repoint(_settings.Current(), path);
+        _settings.Save();
+        ScanLibrary();
+    }
+
+    private static async Task<string?> PickFolder(Window from, string title)
+    {
         var picked = await from.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Choose your music folder",
+            Title = title,
             AllowMultiple = false
         });
 
@@ -1291,11 +1414,7 @@ public partial class MainWindow : Window
 
         // A folder the app cannot reach by path is no use to a scanner that
         // walks the filesystem — a phone over MTP, for instance.
-        if (string.IsNullOrWhiteSpace(path)) return;
-
-        _settings.LibraryPath = path;
-        _settings.Save();
-        ScanLibrary();
+        return string.IsNullOrWhiteSpace(path) ? null : path;
     }
 
     /// The tuning bench: three levers over the palette the library derived.
@@ -1775,6 +1894,17 @@ public partial class MainWindow : Window
             return;
         }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }
+        if (text.Equals("libraries", StringComparison.OrdinalIgnoreCase)) { OpenLibraryPicker(); return; }
+        if (text.StartsWith("library ", StringComparison.OrdinalIgnoreCase))
+        {
+            // Switches by name, as the picker would: "library MusicFolder".
+            var want = text["library ".Length..].Trim();
+            if (Libraries.FirstOrDefault(l => l.Name.Equals(want, StringComparison.OrdinalIgnoreCase)) is { } hit)
+                SwitchLibrary(hit.Id);
+            else
+                Console.WriteLine($"[library] command: no library called '{want}'");
+            return;
+        }
 
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {

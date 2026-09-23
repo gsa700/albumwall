@@ -42,6 +42,16 @@
         <Style Selector="Button.link:focus-visible">
             <Setter Property="Opacity" Value="1"/>
         </Style>
+        <!-- A link that names something rather than counting it: the library
+             picker. "it kind of disappears down there" (2026-09-22), so it sits
+             nearer full strength than the figures beside it. After the plain
+             link styles, so it wins over them. -->
+        <Style Selector="Button.link.strong">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        <Style Selector="Button.link.strong:pointerover">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
 
         <Style Selector="Button.panel">
             <Setter Property="Background" Value="#26FFFFFF"/>

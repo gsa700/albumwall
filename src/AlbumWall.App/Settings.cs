@@ -58,6 +58,35 @@ public sealed class Settings
     /// preferences window at all.
     public string? LibraryPath { get; set; }
 
+    /// Every library he has told the app about, and which one the wall shows.
+    ///
+    /// ONE AT A TIME, NEVER MERGED — the standing rule. His FLAC library and the
+    /// NAS's lossy one hold many of the same records, so a merged wall shows
+    /// them twice, and more of them with every album re-ripped. A picker in the
+    /// bottom bar switches between them instead (decided 2026-09-22).
+    ///
+    /// Null in a settings file from before 2026-09-22; Libraries() then makes
+    /// the one library there was, from LibraryPath, which stays readable for
+    /// that and is not written to again.
+    public List<Library>? Libraries { get; set; }
+    public string? CurrentLibrary { get; set; }
+
+    /// The list, made from LibraryPath the first time it is asked for.
+    public List<Library> AllLibraries()
+    {
+        if (Libraries is { Count: > 0 }) return Libraries;
+        Libraries = [Library.Folder(LibraryPath)];
+        CurrentLibrary = Libraries[0].Id;
+        return Libraries;
+    }
+
+    /// The library the wall shows. The first, if the one named has gone.
+    public Library Current()
+    {
+        var all = AllLibraries();
+        return all.FirstOrDefault(l => l.Id == CurrentLibrary) ?? all[0];
+    }
+
     /// The app's own playback volume, 0-100.
     public int? Volume { get; set; }
 
@@ -110,10 +139,53 @@ public sealed class Settings
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
             File.WriteAllText(Path,
                 JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+
+            // His alone: a Navidrome library keeps a sign-in token in here. Not
+            // the password (see Library.Token), but enough to sign in with.
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(Path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[wall] could not save settings: {ex.Message}");
         }
+    }
+}
+
+/// One library: a folder the scanner walks, or (from step 2) a Navidrome server.
+public sealed class Library
+{
+    /// Stable across renames, so CurrentLibrary survives one.
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+
+    /// What the picker says. Made from the folder's name until he changes it.
+    public string Name { get; set; } = "";
+
+    /// "folder" today. By name, like Chrome, so a new kind cannot be misread
+    /// as an old one.
+    public string Kind { get; set; } = "folder";
+
+    /// A folder library's root. Null means the platform's Music folder, which
+    /// is where a fresh install looks and the only root that needs no setup.
+    public string? Path { get; set; }
+
+    [JsonIgnore]
+    public bool IsFolder => Kind == "folder";
+
+    /// Where a folder library actually is, with null resolved.
+    [JsonIgnore]
+    public string Root => string.IsNullOrWhiteSpace(Path) ? DefaultRoot : Path;
+
+    public static string DefaultRoot =>
+        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music");
+
+    public static Library Folder(string? path) => new() { Path = path, Name = NameFor(path) };
+
+    /// "Music" for the default, else the folder's own name ("MusicFolder").
+    public static string NameFor(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "Music";
+        var name = System.IO.Path.GetFileName(System.IO.Path.TrimEndingDirectorySeparator(path));
+        return string.IsNullOrEmpty(name) ? path : name;
     }
 }

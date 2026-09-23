@@ -684,11 +684,29 @@
                 <TextBox Grid.Column="1" x:Name="SearchBox" Classes="search" Width="320"
                          PlaceholderText="Search artist or album…" VerticalAlignment="Center"
                          FontSize="13" Padding="11,5"/>
-                <Button Grid.Column="2" x:Name="CountsLink" Classes="link"
-                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                        ToolTip.Tip="Library statistics">
-                    <TextBlock x:Name="CountsText" Classes="mono" FontSize="11"/>
-                </Button>
+                <!-- THE LIBRARY PICKER sits in front of the counts, because the
+                     counts are about the library it names (decided 2026-09-22:
+                     "let's do the bottom-bar library picker"). One library is
+                     shown at a time and never merged. The bottom bar stays put
+                     when the play controls move to the top, so the picker never
+                     moves. The list itself is a menu built when it opens; see
+                     MainWindow.OpenLibraryPicker. -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="LibraryLink" Classes="link strong" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock x:Name="LibraryText" FontSize="13" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <Path Data="M 0 0 L 7 0 L 3.5 4 Z" VerticalAlignment="Center"
+                                  Fill="{Binding $parent[Button].Foreground}"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="·" Classes="dim" FontSize="11" VerticalAlignment="Center"/>
+                    <Button x:Name="CountsLink" Classes="link" VerticalAlignment="Center"
+                            ToolTip.Tip="Library statistics">
+                        <TextBlock x:Name="CountsText" Classes="mono" FontSize="11"/>
+                    </Button>
+                </StackPanel>
             </Grid>
             </Panel>
         </Border>

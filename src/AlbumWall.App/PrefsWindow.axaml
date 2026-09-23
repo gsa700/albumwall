@@ -29,8 +29,27 @@
          button. About is the last tab, by convention; new tabs go before it. -->
     <TabControl x:Name="Tabs" Margin="12">
         <TabItem Header="Library">
-            <StackPanel Spacing="12">
-                <TextBlock Text="Music folder" FontSize="14" FontWeight="SemiBold"/>
+            <!-- Scrolls, alone of the tabs: it is the one whose length he decides,
+                 one row per library. -->
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12" Margin="0,0,14,0">
+                <!-- THE LIST. One row per library, built in code (FillLibraries);
+                     the one on the wall is marked, the others can be shown or
+                     forgotten. Forgetting touches nothing on disk. -->
+                <TextBlock Text="Libraries" FontSize="14" FontWeight="SemiBold"/>
+                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                           Text="The wall shows one library at a time and never mixes them. Switch between them with the name in the bottom bar, beside the counts."/>
+                <StackPanel x:Name="LibraryList" Spacing="6"/>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <Button x:Name="AddFolderLibrary" Classes="panel" Content="Add a folder…"/>
+                </StackPanel>
+
+                <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
+                <TextBlock x:Name="ThisLibrary" FontSize="14" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <TextBlock Text="Name" FontSize="13" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" x:Name="LibraryName" FontSize="13" MaxLength="60"/>
+                </Grid>
                 <Border CornerRadius="4" Padding="13,11" Background="{DynamicResource SheetBg}">
                     <TextBlock x:Name="LibraryPath" FontSize="13" Classes="mono" TextWrapping="Wrap"/>
                 </Border>
@@ -74,6 +93,7 @@
                                TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </TabItem>
 
         <!-- WHAT THE LIBRARY IS MADE OF. "detailed library stats like x number

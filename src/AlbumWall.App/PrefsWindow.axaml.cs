@@ -42,6 +42,12 @@ public partial class PrefsWindow : Window
 
         ChooseFolder.Click += async (_, _) => { await host.ChooseLibraryFolder(this); Fill(); };
         UseDefault.Click += (_, _) => { host.UseDefaultLibrary(); Fill(); };
+        AddFolderLibrary.Click += async (_, _) => { await host.AddFolderLibrary(this); Fill(); };
+
+        // A rename lands when he leaves the box or presses Enter, not on every
+        // keystroke: the picker would otherwise show each letter as it came.
+        LibraryName.LostFocus += (_, _) => RenameCurrent();
+        LibraryName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) RenameCurrent(); };
         Rescan.Click += (_, _) =>
         {
             if (host.RescanRunning) host.StopRescan();
@@ -304,6 +310,82 @@ public partial class PrefsWindow : Window
 
     public void ShowRescanResult(string text) => RescanResult.Text = text;
 
+    private void RenameCurrent()
+    {
+        if (_host is null || _filling) return;
+        _host.RenameLibrary(_host.CurrentLibrary.Id, LibraryName.Text ?? "");
+        FillLibraries();
+    }
+
+    /// One row per library: its name and where it is, and for any but the one
+    /// on the wall, Show and Forget. The last library has no Forget, since the
+    /// wall has to show something.
+    private void FillLibraries()
+    {
+        if (_host is null) return;
+        var current = _host.CurrentLibrary;
+        var all = _host.Libraries;
+
+        ThisLibrary.Text = all.Count > 1 ? $"This library: {current.Name}" : "This library";
+        if (!LibraryName.IsFocused) LibraryName.Text = current.Name;
+
+        LibraryList.Children.Clear();
+        foreach (var library in all)
+        {
+            var id = library.Id;
+            var shown = id == current.Id;
+
+            var words = new StackPanel { Spacing = 2 };
+            words.Children.Add(new TextBlock
+            {
+                Text = shown ? $"{library.Name}  \u2014 on the wall" : library.Name,
+                FontSize = 13,
+                FontWeight = shown ? Avalonia.Media.FontWeight.SemiBold : Avalonia.Media.FontWeight.Normal,
+            });
+            var where = new TextBlock
+            {
+                Text = library.Root,
+                FontSize = 12,
+                TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis,
+            };
+            where.Classes.Add("dim");
+            where.Classes.Add("mono");
+            words.Children.Add(where);
+
+            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 7,
+                                           VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            if (!shown)
+            {
+                var show = new Button { Content = "Show" };
+                show.Classes.Add("panel");
+                show.Click += (_, _) => { _host.SwitchLibrary(id); Fill(); };
+                buttons.Children.Add(show);
+            }
+            if (all.Count > 1)
+            {
+                var forget = new Button { Content = "Forget" };
+                forget.Classes.Add("panel");
+                Avalonia.Controls.ToolTip.SetTip(forget, "Removes it from this list. Nothing on disk is touched.");
+                forget.Click += (_, _) => { _host.RemoveLibrary(id); Fill(); };
+                buttons.Children.Add(forget);
+            }
+
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
+            row.Children.Add(words);
+            Grid.SetColumn(buttons, 1);
+            row.Children.Add(buttons);
+
+            var border = new Border
+            {
+                CornerRadius = new Avalonia.CornerRadius(4),
+                Padding = new Avalonia.Thickness(13, 9),
+                Child = row,
+            };
+            border[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
+            LibraryList.Children.Add(border);
+        }
+    }
+
     /// Re-reads everything shown. Called when it opens, after anything here
     /// changes the library, and by the main window when a scan finishes — the
     /// counts on the About tab are only as good as the last scan.
@@ -314,6 +396,7 @@ public partial class PrefsWindow : Window
         FillStatistics();
 
         _filling = true;
+        FillLibraries();
         LibraryPath.Text = _host.LibraryRootPath;
 
         // What the button does, in the terms he will experience it. The count is
