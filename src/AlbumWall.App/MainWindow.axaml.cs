@@ -470,7 +470,7 @@ public partial class MainWindow : Window
         // The name is claimed on a background thread, so playback can in
         // principle start before it lands. Announcing once on arrival covers
         // that: whatever PushToSystem had nobody to tell goes out now.
-        _ = Mpris.StartAsync(MprisState, MprisCommand)
+        _ = Mpris.StartAsync(MprisState, MprisCommand, to => Dispatcher.UIThread.Post(() => SeekFromSystem(to)))
                  .ContinueWith(t => { _mpris = t.Result; _mpris?.NotifyChanged(); },
                                TaskScheduler.Default);
 
@@ -2092,6 +2092,11 @@ public partial class MainWindow : Window
 
         _player.TrackChanged += OnTrackChanged;
         _player.StateChanged += OnPlaybackState;
+        // The desktop's media controls were told the length when the track
+        // changed, which is before mpv knows it: they showed 0 and no progress
+        // until a pause happened to tell them again. Found on KDE, 2026-09-22.
+        _player.DurationChanged += (_, _) => Dispatcher.UIThread.Post(RefreshMprisState);
+        _player.Seeked += (_, at) => _mpris?.NotifySeeked(at);
 
         // The record ran out: there is nothing left to pick up next time.
         //
@@ -2301,7 +2306,9 @@ public partial class MainWindow : Window
             ? null
             : _playingAlbum.Album.Tracks.FirstOrDefault(t => t.Path == path);
 
-        var art = _playingAlbum.Album.ArtPath;
+        // An embedded cover has no file until MprisArt writes one; when it has,
+        // this runs again and the URL goes out then.
+        var art = MprisArt.For(_playingAlbum.Album, RefreshMprisState);
 
         _mprisState = new Mpris.State(
             Playing: _player.IsPlaying,
@@ -2309,9 +2316,8 @@ public partial class MainWindow : Window
             Title: track?.Title ?? (path is null ? "" : Path.GetFileNameWithoutExtension(path)),
             Artist: _playingAlbum.Artist,
             Album: _playingAlbum.Title,
-            // Only a real file on disk becomes a URL. Embedded art would have to
-            // be extracted to a temporary file to have one, which is more than a
-            // panel caption is worth.
+            // Only a real file on disk becomes a URL: a sidecar, or an embedded
+            // cover MprisArt has written out.
             ArtUrl: art is not null && File.Exists(art) ? new Uri(art).AbsoluteUri : "",
             LengthMicros: (long)(_player.Duration.TotalMicroseconds),
             PositionMicros: 0,
@@ -2357,7 +2363,7 @@ public partial class MainWindow : Window
         if (to < TimeSpan.Zero) to = TimeSpan.Zero;
         if (to > duration) to = duration;
 
-        Console.WriteLine($"[smtc] seek to {Clock(to)} asked for from the system's controls");
+        Console.WriteLine($"[media] seek to {Clock(to)} asked for from the system's controls");
         _player.Seek(to);
         UpdatePosition();
 

@@ -205,11 +205,8 @@ public sealed partial class LibraryScanner
 
         if (album.ArtPath is not null) return;          // already have a fallback
 
-        foreach (var name in ArtNames)
+        foreach (var candidate in Sidecar(dir, ArtNames))
         {
-            var candidate = new FileInfo(Path.Combine(dir, name));
-            if (!candidate.Exists) continue;
-
             album.ArtPath = candidate.FullName;
             var (size, modified) = (candidate.Length, candidate.LastWriteTimeUtc.Ticks);
 
@@ -242,6 +239,35 @@ public sealed partial class LibraryScanner
         }
     }
 
+    /// The first of `names` present in `dir`, in the order `names` gives, WHATEVER ITS CASE.
+    ///
+    /// Windows never cares about case, so the exact-name look is all it needs.
+    /// Linux does, and Windows-era libraries write `Folder.jpg`: every album
+    /// copied from the iTunes collection on the NAS has one, and an exact look
+    /// for `folder.jpg` walked straight past it. The exact look still goes
+    /// first, so a library that spells its art the way we do (this FLAC one)
+    /// never lists a directory. Yields at most one file.
+    private static IEnumerable<FileInfo> Sidecar(string dir, string[] names)
+    {
+        foreach (var name in names)
+        {
+            var exact = new FileInfo(Path.Combine(dir, name));
+            if (exact.Exists) { yield return exact; yield break; }
+        }
+
+        if (OperatingSystem.IsWindows()) yield break;
+
+        FileInfo[] present;
+        try { present = new DirectoryInfo(dir).GetFiles(); }
+        catch { yield break; }
+
+        foreach (var name in names)
+        {
+            var match = present.FirstOrDefault(f => f.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) { yield return match; yield break; }
+        }
+    }
+
     /// Finds back.jpg beside the tracks, if there is one.
     ///
     /// Measured, not just found: backs are scans of the whole tray card and are
@@ -254,11 +280,8 @@ public sealed partial class LibraryScanner
     {
         if (album.BackPath is not null) return;         // an earlier disc had one
 
-        foreach (var name in BackNames)
+        foreach (var candidate in Sidecar(dir, BackNames))
         {
-            var candidate = new FileInfo(Path.Combine(dir, name));
-            if (!candidate.Exists) continue;
-
             album.BackPath = candidate.FullName;
             var (size, modified) = (candidate.Length, candidate.LastWriteTimeUtc.Ticks);
             album.BackSize = size;

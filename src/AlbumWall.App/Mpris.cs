@@ -57,10 +57,13 @@ public sealed class Mpris : IPathMethodHandler
     private readonly Action<string> _command;
     private DBusConnection? _connection;
 
-    private Mpris(Func<State> state, Action<string> command)
+    private readonly Action<TimeSpan> _seek;
+
+    private Mpris(Func<State> state, Action<string> command, Action<TimeSpan> seek)
     {
         _state = state;
         _command = command;
+        _seek = seek;
     }
 
     /// Connects and claims the name, or returns null and leaves the app alone.
@@ -69,7 +72,8 @@ public sealed class Mpris : IPathMethodHandler
     /// another copy of the app already holding the name. A music player that
     /// refuses to start because the media keys are unavailable would be a worse
     /// bargain than one whose media keys are unavailable.
-    public static async Task<Mpris?> StartAsync(Func<State> state, Action<string> command)
+    public static async Task<Mpris?> StartAsync(Func<State> state, Action<string> command,
+                                                Action<TimeSpan> seek)
     {
         try
         {
@@ -102,7 +106,7 @@ public sealed class Mpris : IPathMethodHandler
             // with it — the app then reports success and answers nothing.
             Held = connection;
 
-            var mpris = new Mpris(state, command);
+            var mpris = new Mpris(state, command, seek);
             connection.AddMethodHandler(mpris);
             var granted = await connection.TryRequestNameAsync(BusName, RequestNameOptions.None);
 
@@ -153,12 +157,46 @@ public sealed class Mpris : IPathMethodHandler
                     ReplyEmpty(context);
                     return;
                 }
-                // Seek, SetPosition and OpenUri are declared unsupported in the
-                // properties below, so a well-behaved caller never sends them.
+                if (member is "Seek" or "SetPosition")
+                {
+                    Seek(request, member);
+                    ReplyEmpty(context);
+                    return;
+                }
+                // OpenUri is not offered: SupportedUriSchemes is empty.
                 break;
         }
 
         context.ReplyUnknownMethodError();
+    }
+
+    /// Seek(offset) moves by that much from where it is; SetPosition(track, at)
+    /// goes to a place in a NAMED track, and is ignored if that track is no
+    /// longer the one playing, since the shell may be answering an old
+    /// Metadata. The spec's rules for going out of range: before the start is
+    /// the start; past the end, Seek means the next track and SetPosition
+    /// means nothing.
+    private void Seek(Message request, string member)
+    {
+        var s = _state();
+        if (!s.HasTrack || s.LengthMicros <= 0) return;
+
+        var reader = request.GetBodyReader();
+        long to;
+        if (member == "Seek")
+        {
+            to = s.PositionMicros + reader.ReadInt64();
+            if (to >= s.LengthMicros) { _command("Next"); return; }
+        }
+        else
+        {
+            var track = reader.ReadObjectPathAsString();
+            to = reader.ReadInt64();
+            if (track != TrackId(s) || to < 0 || to > s.LengthMicros) return;
+        }
+
+        Console.WriteLine($"[mpris] {member} -> {to / 1_000_000.0:0.0} s");
+        _seek(TimeSpan.FromMicroseconds(Math.Max(0, to)));
     }
 
     private void Properties(MethodContext context, string member)
@@ -322,10 +360,9 @@ public sealed class Mpris : IPathMethodHandler
         "Volume" => VariantValue.Double(s.Volume),
         "CanGoNext" or "CanGoPrevious" or "CanPlay" or "CanPause" or "CanControl" => VariantValue.Bool(true),
 
-        // Seeking works in the app's own transport, but honoring Seek and
-        // SetPosition means keeping a stable trackid for the shell to name a
-        // track by, which this does not do yet. Declared false until true.
-        "CanSeek" => VariantValue.Bool(false),
+        // Only when there is a track whose length is known: with no length
+        // there is no bar to click, and nowhere to say "the end" is.
+        "CanSeek" => VariantValue.Bool(s.HasTrack && s.LengthMicros > 0),
 
         _ => VariantValue.String(""),
     };
@@ -354,7 +391,39 @@ public sealed class Mpris : IPathMethodHandler
     private static readonly string[] ChangingProperties =
     [
         "PlaybackStatus", "Metadata", "Volume", "CanGoNext", "CanGoPrevious", "CanPlay", "CanPause",
+        "CanSeek",
     ];
+
+    /// Where playback jumped to. Clients estimate Position from the clock, so
+    /// every jump has to be told, whoever made it: a drag on the app's own bar
+    /// that went unannounced would leave the shell's bar running on from the
+    /// old place.
+    public void NotifySeeked(TimeSpan at)
+    {
+        var connection = _connection;
+        if (connection is null) return;
+
+        try
+        {
+            var writer = connection.GetMessageWriter();
+            try
+            {
+                writer.WriteSignalHeader(
+                    destination: null,
+                    path: Path,
+                    @interface: "org.mpris.MediaPlayer2.Player",
+                    member: "Seeked",
+                    signature: "x");
+                writer.WriteInt64((long)at.TotalMicroseconds);
+                connection.TrySendMessage(writer.CreateMessage());
+            }
+            finally { writer.Dispose(); }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[mpris] seeked failed: {ex.Message}");
+        }
+    }
 
     /// PUSHED, NOT PULLED — and this is why the shell's media controls sat there
     /// showing nothing.
@@ -487,6 +556,16 @@ public sealed class Mpris : IPathMethodHandler
             <method name="PlayPause"/>
             <method name="Stop"/>
             <method name="Play"/>
+            <method name="Seek">
+              <arg name="Offset" type="x" direction="in"/>
+            </method>
+            <method name="SetPosition">
+              <arg name="TrackId" type="o" direction="in"/>
+              <arg name="Position" type="x" direction="in"/>
+            </method>
+            <signal name="Seeked">
+              <arg name="Position" type="x"/>
+            </signal>
             <property name="PlaybackStatus" type="s" access="read"/>
             <property name="Metadata" type="a{sv}" access="read"/>
             <property name="Position" type="x" access="read"/>

@@ -84,6 +84,15 @@ public sealed class Player : IDisposable
     public event EventHandler? StateChanged;
     public event EventHandler? Finished;
 
+    /// The track's length has become known, or changed. mpv learns it only once
+    /// a file has loaded, AFTER TrackChanged has gone out, so anything that
+    /// captured Duration at the change captured zero.
+    public event EventHandler? DurationChanged;
+
+    /// Playback jumped, by anyone's hand: the app's bar, the desktop's, or
+    /// Previous restarting a track. Carries where it was asked to go.
+    public event EventHandler<TimeSpan>? Seeked;
+
     public Player(GainMode gain = GainMode.Album)
     {
         if (!Mpv.IsAvailable)
@@ -140,6 +149,7 @@ public sealed class Player : IDisposable
         Mpv.mpv_observe_property(_ctx, 2, "pause", Mpv.Format.Flag);
         Mpv.mpv_observe_property(_ctx, 4, "playlist-pos", Mpv.Format.Int64);
         Mpv.mpv_observe_property(_ctx, 5, "idle-active", Mpv.Format.Flag);
+        Mpv.mpv_observe_property(_ctx, 6, "duration", Mpv.Format.Double);
 
         _running = true;
         _pump = new Thread(Pump) { IsBackground = true, Name = "mpv events" };
@@ -343,8 +353,11 @@ public sealed class Player : IDisposable
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public void Seek(TimeSpan to) =>
+    public void Seek(TimeSpan to)
+    {
         Mpv.Command(_ctx, "seek", to.TotalSeconds.ToString("0.###"), "absolute");
+        Seeked?.Invoke(this, to);
+    }
 
     public TimeSpan Position =>
         Mpv.mpv_get_property(_ctx, "time-pos", Mpv.Format.Double, out double v) == 0 && v > 0
@@ -465,6 +478,10 @@ public sealed class Player : IDisposable
                 // After Finished, not before: a listener can still see which
                 // track it ended on.
                 _index = -1;
+                break;
+
+            case 6:     // duration
+                DurationChanged?.Invoke(this, EventArgs.Empty);
                 break;
         }
     }
