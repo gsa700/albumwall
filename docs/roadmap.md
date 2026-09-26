@@ -284,6 +284,9 @@ is ahead, the history is for what is behind.
   part of its setup (the Pi5-POE got the allowed-rates drop-in on 2026-09-26,
   verified at 44.1 kHz on the HDMI hardware); how "force" is implemented there
   (allowed-rates vs exclusive ALSA) is decided when the kiosk mode is built.
+  **It is a runtime switch, not a preference:** kiosk mode would likely hide
+  Preferences anyway, so bit-perfect output is turned on from the command line
+  or the launcher shortcut (his call, 2026-09-26).
 
 ## Decided against, for now
 
