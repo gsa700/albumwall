@@ -169,6 +169,13 @@ public sealed class Library
     /// is where a fresh install looks and the only root that needs no setup.
     public string? Path { get; set; }
 
+    /// How many tracks the last finished scan found. It is how the app tells a
+    /// folder that is empty from one that is ABSENT: an unmounted share and an
+    /// unplugged drive both look like an empty folder, and a library that held
+    /// music last time is not believed to have none now. Null until the first
+    /// scan, which has nothing to compare with.
+    public int? Tracks { get; set; }
+
     [JsonIgnore]
     public bool IsFolder => Kind == "folder";
 

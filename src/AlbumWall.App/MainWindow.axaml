@@ -701,7 +701,7 @@
                                   Fill="{Binding $parent[Button].Foreground}"/>
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="·" Classes="dim" FontSize="11" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="CountsDot" Text="·" Classes="dim" FontSize="11" VerticalAlignment="Center"/>
                     <Button x:Name="CountsLink" Classes="link" VerticalAlignment="Center"
                             ToolTip.Tip="Library statistics">
                         <TextBlock x:Name="CountsText" Classes="mono" FontSize="11"/>
@@ -858,12 +858,14 @@
     <Border x:Name="EmptyState" IsVisible="False" Background="Transparent">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="20" MaxWidth="520">
-            <TextBlock Text="No music here yet" FontSize="25" FontWeight="Bold"
-                       HorizontalAlignment="Center"/>
+            <TextBlock x:Name="EmptyTitle" Text="No music here yet" FontSize="25" FontWeight="Bold"
+                       HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
             <TextBlock x:Name="EmptyWhere" Classes="dim" FontSize="14" LineHeight="21"
                        TextWrapping="Wrap" TextAlignment="Center"/>
-            <Button x:Name="EmptyChoose" Classes="panel" Content="Choose your music folder…"
-                    HorizontalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                <Button x:Name="EmptyRetry" Classes="panel" Content="Try again" IsVisible="False"/>
+                <Button x:Name="EmptyChoose" Classes="panel" Content="Choose your music folder…"/>
+            </StackPanel>
         </StackPanel>
     </Border>
 

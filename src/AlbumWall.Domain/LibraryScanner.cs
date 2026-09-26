@@ -51,9 +51,16 @@ public sealed partial class LibraryScanner
     /// well, a file whose path, size and modified time it recognizes is not
     /// opened. Without, every file is — and the index is rebuilt from the result,
     /// which is what makes Rescan the way out when the index is wrong.
+    ///
+    /// A library that cannot be reached throws LibraryUnreachableException, and
+    /// nothing is committed to the index: not there, not readable, or EMPTY when
+    /// the caller says it held music last time (`expectMusic`) or a TRUSTED index
+    /// remembers files under it. See LibraryUnreachableException for why an empty
+    /// folder can be an absent one.
     public IReadOnlyList<Album> Scan(string root, Action<Progress>? onProgress = null,
                                      CancellationToken ct = default,
-                                     LibraryIndex? index = null, bool trustIndex = true)
+                                     LibraryIndex? index = null, bool trustIndex = true,
+                                     bool expectMusic = false)
     {
         // Key is (AlbumArtist, Title) — the album identity rule.
         var albums = new Dictionary<(string, string), Album>();
@@ -73,9 +80,30 @@ public sealed partial class LibraryScanner
         // The listing carries each file's size and modified time — on Windows
         // they arrive with the directory entry, at no further cost — and those
         // are what the index is asked about. Nothing is opened to find them out.
-        var paths = EnumerateAudio(root).ToList();
+        if (!Directory.Exists(root))
+            throw new LibraryUnreachableException(root, LibraryUnreachableException.Reason.Missing);
+        List<FileInfo> paths;
+        try { paths = EnumerateAudio(root).ToList(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The share went away while it was being listed, or refuses us.
+            throw new LibraryUnreachableException(root, LibraryUnreachableException.Reason.Failed, ex);
+        }
         var walked = new DirectoryInfo(root).FullName;       // how every path above begins
+
+        // Not when told to trust nothing: an honest scan (Rescan) is the way to
+        // say the music really has gone, and it must be able to.
+        if (paths.Count == 0 && (expectMusic || (trustIndex && index?.HasFilesUnder(walked) == true)))
+            throw new LibraryUnreachableException(root, LibraryUnreachableException.Reason.Empty);
+
         onProgress?.Invoke(new Progress(0, paths.Count, 0, null));
+
+        // A file that was listed and then could not be OPENED is not remembered
+        // as unreadable — that verdict would stick until its size or time
+        // changed, and a NAS that drops for a moment would leave albums missing
+        // from the wall indefinitely. It is simply not seen this time, and a
+        // scan with such gaps concludes nothing about what is gone.
+        var gaps = false;
 
         try
         {
@@ -94,6 +122,15 @@ public sealed partial class LibraryScanner
                 {
                     FilesOpened++;
                     facts = ReadFacts(path, size, modified);
+                    if (facts is null)
+                    {
+                        // Deleted since the listing, or the whole library just
+                        // went away. Asking costs one lookup, and only here.
+                        if (!Directory.Exists(root))
+                            throw new LibraryUnreachableException(root, LibraryUnreachableException.Reason.Failed);
+                        gaps = true;
+                        continue;
+                    }
                 }
                 seen[path] = facts;
 
@@ -153,7 +190,12 @@ public sealed partial class LibraryScanner
             throw;
         }
 
-        index?.Commit(seen, seenArt, startedAt, complete: true, walked);
+        // Listed, and then not one file could be opened: gone mid-scan (a mount
+        // point stays behind as an empty directory, so the check above passes).
+        if (gaps && seen.Count == 0)
+            throw new LibraryUnreachableException(root, LibraryUnreachableException.Reason.Failed);
+
+        index?.Commit(seen, seenArt, startedAt, complete: !gaps, walked);
 
         foreach (var a in albums.Values)
         {
@@ -313,10 +355,18 @@ public sealed partial class LibraryScanner
     ///
     /// CHANGE WHAT THIS RETURNS FOR THE SAME FILE AND LibraryIndex.Version MUST
     /// GO UP, or every file already indexed keeps the old answer.
-    private static LibraryIndex.TrackFacts ReadFacts(string path, long size, long modified)
+    ///
+    /// Null when the file could not be OPENED (gone, locked, the share dropped),
+    /// as opposed to opened and found not to be audio — only the second is a
+    /// fact about the file worth remembering.
+    private static LibraryIndex.TrackFacts? ReadFacts(string path, long size, long modified)
     {
         TagLib.File tf;
         try { tf = TagLib.File.Create(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
         catch
         {
             return new LibraryIndex.TrackFacts(size, modified, false, "", "", 0, 0, 0, "", "", 0, 0, 0, 0, false, 0, 0);
@@ -375,5 +425,35 @@ public sealed partial class LibraryScanner
         foreach (var f in new DirectoryInfo(root).EnumerateFiles("*", opts))
             if (AudioExtensions.Contains(f.Extension, StringComparer.OrdinalIgnoreCase))
                 yield return f;
+    }
+}
+
+/// The library's folder cannot be reached, which is NOT the same as the folder
+/// being wrong or the music being gone — and the difference decides whether the
+/// app tells someone to go and repoint a library that is fine.
+///
+/// EMPTY is in here on purpose. An unmounted Linux mount point is an empty
+/// directory, and so is a drive letter that now belongs to a different USB
+/// stick; a scan that believed it would conclude every record was deleted,
+/// empty the wall, and prune the index, so that the next time the drive is there
+/// the whole first scan is paid again — on Windows, ten minutes of Defender. A
+/// folder that held music last time and holds none now is taken to be absent.
+public sealed class LibraryUnreachableException : IOException
+{
+    public enum Reason { Missing, Empty, Failed }
+
+    public string Root { get; }
+    public Reason Why { get; }
+
+    public LibraryUnreachableException(string root, Reason why, Exception? inner = null)
+        : base(why switch
+        {
+            Reason.Missing => $"{root} is not there",
+            Reason.Empty => $"{root} is empty, and held music last time",
+            _ => $"{root} could not be read" + (inner is null ? "" : $": {inner.Message}"),
+        }, inner)
+    {
+        Root = root;
+        Why = why;
     }
 }

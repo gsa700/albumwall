@@ -193,6 +193,9 @@ is ahead, the history is for what is behind.
      or an unplugged drive that is the wrong advice, and it invites repointing
      a library that is fine. Say it is not reachable now, name the library,
      offer to try again, and leave the playing session alone.
+     DONE (2026-09-25): "{name} cannot be reached" with Try again and Choose
+     another folder; a wall of that library already up stays up, with a note
+     on the status line; looked for again every 30 s, recovering by itself.
   2. PRESENT BUT EMPTY IS ABSENT, NOT DELETED. An unmounted Linux mount point
      is an empty directory, and so is a drive letter that now belongs to a
      different USB stick. A complete scan that finds nothing under a root the
@@ -202,6 +205,12 @@ is ahead, the history is for what is behind.
      now empty should be treated as unreachable (1), and neither prune the
      index nor empty the wall. Since e7ad028 a scan only prunes under its own
      root, so this is per library, not all of them.
+     DONE (2026-09-25): LibraryUnreachableException. "Was full" is the
+     library's track count from its last scan (settings), or on Windows the
+     index; Rescan is the one scan that believes an empty folder. Found on the
+     way: a file that could not be OPENED was remembered as "not audio" and
+     stayed off the wall until its size or time changed; now it is only
+     skipped, and a scan with skips prunes nothing. `tools/absent-check.cs`.
   3. TRUSTING THE INDEX, PER LIBRARY. Linux opens every file on every scan -
      David's decision for Techbench, where `metaflac --preserve-modtime` means
      size and mtime cannot be trusted to change. For somebody else's library

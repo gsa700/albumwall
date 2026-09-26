@@ -134,6 +134,23 @@ public sealed class LibraryIndex
     /// first one was gone: adding the NAS's FLAC library on Hambench logged
     /// "saved 4143 changed, 15556 gone", which was every file in ~/Music, and
     /// switching back would have been the 10-minute first scan all over again.
+    /// Whether the index remembers any track under `root` — that is, whether a
+    /// scan has ever found music there. The scanner asks before believing an
+    /// empty folder; see LibraryUnreachableException.
+    public bool HasFilesUnder(string root)
+    {
+        var under = UnderTest(root);
+        lock (_gate) return _tracks.Keys.Any(under);
+    }
+
+    /// Paths as the scanner spells them begin with `root` plus a separator.
+    private static Func<string, bool> UnderTest(string root)
+    {
+        var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return path => path.StartsWith(prefix, comparison);
+    }
+
     public void Commit(IReadOnlyDictionary<string, TrackFacts> tracks,
                        IReadOnlyDictionary<string, ArtFacts> art,
                        long startedAt, bool complete, string root)
@@ -141,9 +158,7 @@ public sealed class LibraryIndex
         var sw = System.Diagnostics.Stopwatch.StartNew();
         int written = 0, removed = 0;
 
-        var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        bool Under(string path) => path.StartsWith(prefix, comparison);
+        var Under = UnderTest(root);
 
         lock (_gate)
         {

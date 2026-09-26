@@ -176,6 +176,11 @@ public partial class MainWindow : Window
 #endif
 
             if (_all.Count == 0 || _filter.Length > 0 || _scanning) return true;
+            if (_unreachable is not null)
+            {
+                StatusText.Text = _unreachable;
+                return true;
+            }
 
             var n = ArtCache.Decoded;
             StatusText.Text = $"{_scanMs} ms scan \u00b7 {n} covers held \u00b7 "
@@ -588,7 +593,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var root = LibraryRoot;
+        var library = _settings.Current();
+        var root = library.Root;
         if (asked) EmptyState.IsVisible = false;
         ShowLibraryName();
         WatchLibrary(root);
@@ -634,7 +640,20 @@ public partial class MainWindow : Window
             IReadOnlyList<Domain.Album> albums;
             try
             {
-                albums = scanner.Scan(root, Progress, ct, _index.Value, trustIndex: !honest);
+                // Rescan is the one scan that believes an empty folder: it is the
+                // way to say "the music really has gone" when it has.
+                albums = scanner.Scan(root, Progress, ct, _index.Value, trustIndex: !honest,
+                                      expectMusic: !honest && library.Tracks > 0);
+            }
+            catch (Domain.LibraryUnreachableException ex)
+            {
+                Console.WriteLine($"[scan] unreachable after {sw.ElapsedMilliseconds} ms: {ex.Message}");
+                Finished(() =>
+                {
+                    ShowUnreachable(library, root, ex);
+                    if (honest) _prefs?.ShowRescanResult($"{library.Name} cannot be reached, so nothing was changed.");
+                });
+                return;
             }
             catch (OperationCanceledException)
             {
@@ -665,6 +684,12 @@ public partial class MainWindow : Window
             {
                 _trackCount = tracks;
                 _stats = stats;
+                LibraryBack();
+                if (library.Tracks != tracks)
+                {
+                    library.Tracks = tracks;
+                    _settings.Save();
+                }
                 if (honest)
                     _prefs?.ShowRescanResult($"Done — {tracks:N0} tracks read in {Spoken(sw.Elapsed)}.");
 
@@ -721,6 +746,89 @@ public partial class MainWindow : Window
 
     private bool _scanning;
     private bool _scanAgain;
+
+    /// The status line while the library on the wall cannot be reached, or null.
+    private string? _unreachable;
+
+    /// While a library cannot be reached, it is looked for again every 30
+    /// seconds: a NAS wakes, a drive is plugged back in, a share mounts late,
+    /// and none of those should need anyone to press anything.
+    private DispatcherTimer? _retry;
+
+    /// The library could not be reached. Says so, in words that do not send
+    /// anyone off to repoint a library that is fine.
+    ///
+    /// A wall of THIS library already on screen stays there, and so does
+    /// whatever is playing: the music on it is only out of reach, and a sleeping
+    /// NAS is no reason to take the wall away. Anything else on screen — another
+    /// library's wall, just switched away from — must not stand in for this one.
+    private void ShowUnreachable(Library library, string root, Domain.LibraryUnreachableException ex)
+    {
+        if (_retry is null)
+        {
+            _retry = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+            _retry.Tick += (_, _) => { if (!_scanning) ScanLibrary(asked: false); };
+        }
+        _retry.Start();
+
+        if (_showing.Root == root && _all.Count > 0)
+        {
+            _unreachable = $"{library.Name} cannot be reached · showing it as it was";
+            StatusText.Text = _unreachable;
+            return;
+        }
+
+        _unreachable = null;
+        if (_all.Count > 0)
+        {
+            Adopt([]);
+            _showing = ("", 0);
+        }
+        _counts = "";
+        CountsText.Text = "";
+        CountsDot.IsVisible = false;
+        StatusText.Text = "";
+
+        EmptyRetry.Content = "Try again";
+        EmptyRetry.IsEnabled = true;
+        EmptyRetry.IsVisible = true;
+        EmptyState.IsVisible = true;
+
+        if (library.Tracks > 0)
+        {
+            const string after = " Nothing about the library has been forgotten, and it is looked for again every 30 seconds.";
+            EmptyTitle.Text = $"{library.Name} cannot be reached";
+            EmptyWhere.Text = ex.Why switch
+            {
+                Domain.LibraryUnreachableException.Reason.Empty =>
+                    $"{root} is there but empty, and last time it held {library.Tracks:N0} tracks. "
+                    + "That usually means the drive or share behind it is not connected or not mounted."
+                    + after + " If the music really has gone, Rescan in Preferences will believe it.",
+                Domain.LibraryUnreachableException.Reason.Failed =>
+                    $"{root} stopped answering while it was being read." + after,
+                _ => $"{root} is not there right now. If it lives on a NAS or a drive, that may be "
+                     + "asleep, unplugged or not mounted yet." + after,
+            };
+            EmptyChoose.Content = "Choose another folder…";
+        }
+        else
+        {
+            // Never seen with music in it: as likely a wrong path as a missing drive.
+            EmptyTitle.Text = "No music here yet";
+            EmptyWhere.Text = $"{root} cannot be reached. If it is a drive or a share, check that it is "
+                            + "connected; otherwise point the app at wherever your records live.";
+            EmptyChoose.Content = "Choose your music folder…";
+        }
+    }
+
+    /// A scan found the library: whatever ShowUnreachable put up comes down.
+    private void LibraryBack()
+    {
+        _retry?.Stop();
+        if (_unreachable is not null) Console.WriteLine("[scan] library reachable again");
+        _unreachable = null;
+        EmptyRetry.IsVisible = false;
+    }
 
     /// The scan now running is the honest one, asked for in Preferences — the
     /// only scan that can be stopped, because it is the only one with a wall
@@ -1189,6 +1297,13 @@ public partial class MainWindow : Window
         SettingsButton.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
 
         EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder(this);
+        EmptyRetry.Click += (_, _) =>
+        {
+            // A share that is not answering can take a while to say so.
+            EmptyRetry.Content = "Trying…";
+            EmptyRetry.IsEnabled = false;
+            ScanLibrary(asked: false);
+        };
     }
 
     private PrefsWindow? _prefs;
@@ -1380,15 +1495,15 @@ public partial class MainWindow : Window
     {
         EmptyState.IsVisible = empty;
         if (!empty) return;
+        EmptyTitle.Text = "No music here yet";
+        EmptyChoose.Content = "Choose your music folder…";
 
         // The status line is driven by a timer that gives up when there is
         // nothing to count, so without this it sits on "scanning…" forever —
         // which on a fresh machine reads as a hang rather than an empty folder.
         StatusText.Text = "";
 
-        EmptyWhere.Text = Directory.Exists(root)
-            ? $"Nothing playable was found in {root}. If your records live somewhere else — another drive, or a share on the network — point the app at them."
-            : $"{root} does not exist. Point the app at wherever your records live.";
+        EmptyWhere.Text = $"Nothing playable was found in {root}. If your records live somewhere else — another drive, or a share on the network — point the app at them.";
     }
 
     /// Asks for a folder and rescans if it changed.
@@ -1533,6 +1648,7 @@ public partial class MainWindow : Window
         Resources["ScanInk"] = SolidColorBrush.Parse(_ramp.Lightness < 55 ? "#B8FFFFFF" : "#B8000000");
 
         CountsText.Text = _counts;
+        CountsDot.IsVisible = _counts.Length > 0;
         Console.WriteLine($"[wall] ground {_ramp.GroundHex} L{_ramp.Lightness}% "
                         + $"hue {_ramp.Hue:0.#} \u00b7 chrome {_ramp.Chrome.Name} "
                         + $"bar {_ramp.BarHex} field {_ramp.FieldHex}");
