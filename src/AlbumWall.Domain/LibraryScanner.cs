@@ -74,6 +74,7 @@ public sealed partial class LibraryScanner
         // they arrive with the directory entry, at no further cost — and those
         // are what the index is asked about. Nothing is opened to find them out.
         var paths = EnumerateAudio(root).ToList();
+        var walked = new DirectoryInfo(root).FullName;       // how every path above begins
         onProgress?.Invoke(new Progress(0, paths.Count, 0, null));
 
         try
@@ -148,11 +149,11 @@ public sealed partial class LibraryScanner
             // Cut short, but what was read was read, and on a cold first scan
             // that may be minutes of it. Kept, without concluding anything about
             // the files this scan never reached.
-            index?.Commit(seen, seenArt, startedAt, complete: false);
+            index?.Commit(seen, seenArt, startedAt, complete: false, walked);
             throw;
         }
 
-        index?.Commit(seen, seenArt, startedAt, complete: true);
+        index?.Commit(seen, seenArt, startedAt, complete: true, walked);
 
         foreach (var a in albums.Values)
         {

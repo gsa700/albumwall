@@ -126,12 +126,24 @@ public sealed class LibraryIndex
     /// Takes what a scan found. A finished scan REPLACES the index — a file it
     /// did not see is gone. One that was cut short only adds to it, so that
     /// quitting two minutes into a first scan does not throw the two minutes away.
+    ///
+    /// A finished scan replaces only what is UNDER `root`, the folder it walked,
+    /// spelled as the scanner's DirectoryInfo spells it so that the file paths
+    /// begin with it. The index is shared by every library, and until this was
+    /// said, the first scan of a second library concluded that the whole of the
+    /// first one was gone: adding the NAS's FLAC library on Hambench logged
+    /// "saved 4143 changed, 15556 gone", which was every file in ~/Music, and
+    /// switching back would have been the 10-minute first scan all over again.
     public void Commit(IReadOnlyDictionary<string, TrackFacts> tracks,
                        IReadOnlyDictionary<string, ArtFacts> art,
-                       long startedAt, bool complete)
+                       long startedAt, bool complete, string root)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         int written = 0, removed = 0;
+
+        var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        bool Under(string path) => path.StartsWith(prefix, comparison);
 
         lock (_gate)
         {
@@ -141,8 +153,8 @@ public sealed class LibraryIndex
                 && !(_tracks.TryGetValue(kv.Key, out var old) && old == kv.Value)).ToList();
             var putArt = art.Where(kv => !Stale(kv.Key)
                 && !(_art.TryGetValue(kv.Key, out var old) && old == kv.Value)).ToList();
-            var dropTracks = complete ? _tracks.Keys.Where(p => !tracks.ContainsKey(p)).ToList() : [];
-            var dropArt = complete ? _art.Keys.Where(p => !art.ContainsKey(p)).ToList() : [];
+            var dropTracks = complete ? _tracks.Keys.Where(p => Under(p) && !tracks.ContainsKey(p)).ToList() : [];
+            var dropArt = complete ? _art.Keys.Where(p => Under(p) && !art.ContainsKey(p)).ToList() : [];
 
             foreach (var (p, f) in putTracks) _tracks[p] = f;
             foreach (var (p, f) in putArt) _art[p] = f;
