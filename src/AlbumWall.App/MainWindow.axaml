@@ -348,6 +348,14 @@
         <Style Selector="Button.coverplay:pointerover Panel#RevealOverlay">
             <Setter Property="Opacity" Value="1"/>
         </Style>
+        <!-- Touch has no hover: while the last input was a finger, the window
+             carries .touch and both hints show at rest (FollowInputKind). -->
+        <Style Selector=".touch Button.coverplay Panel#PlayOverlay">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector=".touch Button.coverplay Panel#RevealOverlay">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
 
         <Style Selector="Image.cover">
             <Setter Property="Transitions">

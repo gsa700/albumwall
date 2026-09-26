@@ -139,6 +139,8 @@ public partial class MainWindow : Window
 
         // The toplevel exists by now; GNOME needs its app_id to find the icon.
         Opened += (_, _) => WaylandShell.ClaimIdentity(this);
+
+        FollowInputKind();
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
@@ -2862,6 +2864,28 @@ public partial class MainWindow : Window
     };
 
     private bool _showingPause;
+
+    /// <summary>
+    /// Hover hints are invisible to a finger: touch has no hover, so the sleeve's play circle and
+    /// the "back to the playing album" arrow only flickered on while the finger was down. Found on
+    /// the Pi's touchscreen, 2026-09-26. The window carries a <c>touch</c> class while the most
+    /// recent input was a touch, and the styles show those hints at rest under it. Any mouse
+    /// movement takes it off again, so the desktop looks exactly as before until someone touches
+    /// the screen. Pen is treated like a mouse, because a pen hovers.
+    /// </summary>
+    private void FollowInputKind()
+    {
+        void Use(bool touch)
+        {
+            if (Classes.Contains("touch") == touch) return;
+            Classes.Set("touch", touch);
+            Console.WriteLine($"[wall] input: {(touch ? "touch — hover hints shown at rest" : "pointer — hover hints on hover")}");
+        }
+        AddHandler(PointerPressedEvent, (_, e) => Use(e.Pointer.Type == PointerType.Touch),
+                   RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type != PointerType.Touch) Use(false); },
+                   RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
 
     private void SetPlayGlyph(bool playing)
     {
