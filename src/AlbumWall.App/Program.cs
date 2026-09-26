@@ -106,8 +106,20 @@ class Program
         // Marked experimental ("used mostly for testing"). If a future Avalonia drops it, this
         // stops compiling rather than silently regressing, and COSMIC is the desktop to recheck.
 #pragma warning disable AVALONIA_WAYLAND_FORCE_CSD
-        return builder.UseWayland()
-            .With(new WaylandPlatformOptions { ForceDrawnDecorations = true });
+        var options = new WaylandPlatformOptions { ForceDrawnDecorations = true };
+        // A Pi 5 (V3D, Pi OS trixie + labwc, 2026-09-26) fails the first profile Avalonia tries,
+        // desktop OpenGL 4.0, with "eglCreateContext failed with error EGL_SUCCESS" and never
+        // falls through to the GLES entries further down its own list: the render loop threw
+        // ~14,000 times a second and drew nothing. Offering only GLES renders cleanly. Kept to
+        // arm64 so the x64 desktops stay on the profiles they were tested with.
+        if (System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
+            == System.Runtime.InteropServices.Architecture.Arm64)
+            options.GlProfiles =
+            [
+                new Avalonia.OpenGL.GlVersion(Avalonia.OpenGL.GlProfileType.OpenGLES, 3, 0),
+                new Avalonia.OpenGL.GlVersion(Avalonia.OpenGL.GlProfileType.OpenGLES, 2, 0),
+            ];
+        return builder.UseWayland().With(options);
 #pragma warning restore AVALONIA_WAYLAND_FORCE_CSD
     }
 }
