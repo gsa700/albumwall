@@ -267,6 +267,24 @@ is ahead, the history is for what is behind.
   ever becomes commercial.** None of this is legal advice; it is the reasoning,
   written down so it does not have to be reconstructed.
 
+- **Desktop audio: be a good neighbour, not "bit-perfect".** Settled 2026-09-26:
+  "I think being a good neighbor is more important than saying we're bit
+  perfect. We cannot anticipate a thousand or a million different users audio
+  setup so we should let the OS handle it and just hand it the best 44.1 we
+  can." So on a desktop the player hands the OS the decoded audio at the file's
+  own rate (`audio-samplerate=0`) and stops there. No exclusive mode by
+  default, no forcing PipeWire's clock (`clock.force-rate`), and no writing the
+  user's PipeWire `allowed-rates` for them. If the OS resamples (stock PipeWire
+  runs at 48 kHz only; Windows shared mode mixes at the device's control-panel
+  rate), that is the user's system and the user's call.
+  **A dedicated device is the exception:** "the kiosk or another hardware
+  device running albumwall is a different matter: in that application I say we
+  force bit perfect because it would likely be the only app running the audio
+  stack." A jukebox/appliance setup therefore configures native-rate output as
+  part of its setup (the Pi5-POE got the allowed-rates drop-in on 2026-09-26,
+  verified at 44.1 kHz on the HDMI hardware); how "force" is implemented there
+  (allowed-rates vs exclusive ALSA) is decided when the kiosk mode is built.
+
 ## Decided against, for now
 
 - **Fetching album art from the internet** — "at least not yet". The app does

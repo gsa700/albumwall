@@ -128,7 +128,10 @@ public sealed class Player : IDisposable
         // one. On Linux this asks PipeWire to switch the graph; on Windows it is
         // what makes WASAPI exclusive mode meaningful.
         Option("audio-samplerate", "0");
-        Option("audio-exclusive", "no");     // opt-in later; it can block other apps
+        // Never exclusive on a desktop: it locks every other app out of the device.
+        // Good neighbour over bit-perfect (docs/roadmap.md, Decided, 2026-09-26);
+        // only a dedicated jukebox device may take the output for itself.
+        Option("audio-exclusive", "no");
 
         // keep-open MUST be off. With it on, mpv pauses at the end of a file
         // instead of unloading it, the playlist never advances, and playback

@@ -27,7 +27,7 @@ could play music.
   ignored), then year, then title.
 - **Albums open in place**, centered, colored from their own artwork, with the
   track list inside the wall rather than on another page.
-- **Gapless playback**, at the file's own sample rate, with ReplayGain by album
+- **Gapless playback**, handed to the system at the file's own sample rate, with ReplayGain by album
   or by track. Gapless is measured, not assumed — see `tools/gapless-check.cs`.
 - **It picks up where you left off**: the album, the track, how far in, and the
   album you had open — paused, until you press play. Both halves are options.
