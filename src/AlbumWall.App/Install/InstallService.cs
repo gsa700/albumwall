@@ -687,13 +687,38 @@ public static class InstallService
 
     /// <summary>Launch a copy of the app detached from this process. The working directory is set
     /// explicitly — inheriting this one's would pin the folder the user installed FROM.</summary>
-    public static void LaunchDetached(string exePath) =>
+    /// <remarks>On Unix, UseShellExecute is NOT detached: the child inherits this process's stdin,
+    /// stdout and stderr and its controlling terminal. Found 2026-09-26 on Pop!_OS: `./AlbumWall`
+    /// from a terminal, accept the install, and the installed copy kept logging into that terminal
+    /// — and closing the terminal would have hung it up. So on Unix the child gets a new session
+    /// (setsid, or FreeBSD's daemon(8); nohup as the POSIX floor) and /dev/null for all three
+    /// streams.</remarks>
+    public static void LaunchDetached(string exePath)
+    {
+        var dir = Path.GetDirectoryName(exePath)!;
+        if (OperatingSystem.IsWindows())
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = exePath,
+                WorkingDirectory = dir,
+                UseShellExecute = true,
+            });
+            return;
+        }
+
+        const string detach =
+            "if command -v setsid >/dev/null 2>&1; then setsid -f \"$0\"; " +
+            "elif command -v daemon >/dev/null 2>&1; then daemon -f \"$0\"; " +
+            "else nohup \"$0\" & fi";
         Process.Start(new ProcessStartInfo
         {
-            FileName = exePath,
-            WorkingDirectory = Path.GetDirectoryName(exePath)!,
-            UseShellExecute = true,
+            FileName = "/bin/sh",
+            ArgumentList = { "-c", detach + " </dev/null >/dev/null 2>&1", exePath },
+            WorkingDirectory = dir,
+            UseShellExecute = false,
         });
+    }
 
     private static int FileSizeKb(string path)
     {
