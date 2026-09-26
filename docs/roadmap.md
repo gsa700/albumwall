@@ -179,6 +179,53 @@ is ahead, the history is for what is behind.
   3. A NETWORK REMOTE (a phone, a web page): not now. A listening socket with
      the security questions that come with one, for no concrete use yet.
 
+- **Libraries that are not always there** (2026-09-25, Hambench, the day the
+  NAS's FLAC library was added: "I am also thinking of other users with
+  different network topologies and NAS or no NAS or USB drive or???"). The
+  two kinds of library cover every setup: a FOLDER is an internal disk, a USB
+  drive, a Windows share, an NFS or SMB mount, a Mac's /Volumes; a SERVER is
+  Navidrome or anything else speaking Subsonic, from anywhere. What other
+  people's setups exercise is not the kind but what happens when a library is
+  ABSENT, and with one library on an internal disk that never came up. Before
+  anyone else runs this, the first two:
+  1. UNREACHABLE IS NOT "WRONG FOLDER". A missing root shows "{root} does not
+     exist. Point the app at wherever your records live." For a sleeping NAS
+     or an unplugged drive that is the wrong advice, and it invites repointing
+     a library that is fine. Say it is not reachable now, name the library,
+     offer to try again, and leave the playing session alone.
+  2. PRESENT BUT EMPTY IS ABSENT, NOT DELETED. An unmounted Linux mount point
+     is an empty directory, and so is a drive letter that now belongs to a
+     different USB stick. A complete scan that finds nothing under a root the
+     index knows to be full would conclude everything in it is gone, and the
+     next time the drive is there the user pays the whole first scan again
+     (on Windows, Defender opening every file). A root that was full and is
+     now empty should be treated as unreachable (1), and neither prune the
+     index nor empty the wall. Since e7ad028 a scan only prunes under its own
+     root, so this is per library, not all of them.
+  3. TRUSTING THE INDEX, PER LIBRARY. Linux opens every file on every scan -
+     David's decision for Techbench, where `metaflac --preserve-modtime` means
+     size and mtime cannot be trusted to change. For somebody else's library
+     on a NAS that is a minute or more at every launch. Probably a setting of
+     the library, defaulting by platform, rather than a rule of the platform.
+  4. WATCHING A NETWORK FOLDER. Over NFS the watcher generally hears nothing
+     done from another machine, and over SMB it is unreliable. The scan at
+     launch catches it all; a library on a share might also want an
+     occasional quiet recheck while the app is running.
+  Small, found the same day: Forget leaves the forgotten library's rows in
+  `index.db`. Harmless (a few MB nothing reads), but Forget should drop them.
+
+  How David's own is laid out, decided the same day: Techbench stays the first
+  copy, where files are added and tagged. Its `~/Music` backup moves out of the
+  machine backup into a folder of its own on the NAS (a stable path that does
+  not depend on how Techbench is backed up; rsync keeps modification times, so
+  the index holds overnight). Hambench reads that folder directly as a folder
+  library - the full experience, back covers and statistics included - and
+  Navidrome serves the same folder, over a read-only NFS export if it does not
+  run on the NAS itself, for everything off the LAN. A second, identical copy
+  was considered and dropped: two mirrors with --delete lose an accidental
+  deletion together. If protection against that is wanted, it is --backup-dir
+  or no --delete on the one job, not another mirror.
+
 
 ## Decided
 
