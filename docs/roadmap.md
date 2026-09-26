@@ -7,6 +7,24 @@ is ahead, the history is for what is behind.
 
 ## Wanted
 
+- **Kiosk mode: a bigger, look-ahead cover cache.** His ask, 2026-09-26, after
+  the first 4K scroll test on the Pi 5 (Pi5-POE, full FLAC library, 294 albums):
+  "pretty good ... a little stutter is expected but really not bad at all. as
+  good or better than other apps on there at 4k." The stutter lines up with CPU
+  bursts of 100-190% (of 400%) while scrolling, dropping to 5-20% between: covers
+  being decoded as they come into view. Memory sat at 415-500 MB of 8 GB, never
+  throttled. Two levers, both for kiosk mode only (a desktop shares its RAM):
+  1. **Budget.** `ArtCache.Budget` is 160 MB. At the Pi's 2x scale a tile is
+     roughly 536 px square, ~1.1 MB decoded, so 294 albums is ~340 MB: the
+     wall does not fit and scrolling back re-decodes what was evicted. A kiosk
+     budget sized to the machine (say a quarter of RAM) holds the whole
+     library after one pass.
+  2. **Decode ahead.** Request art for a screen or two beyond the viewport in the
+     scroll direction, at low priority, so tiles arrive already decoded.
+  Measure before and after with the same fling on the same library; the status
+  bar already reports decoded count and art MB. Rides the kiosk runtime switch
+  (see Decided: audio), not a preference.
+
 - **Right-click context menu in the main window**, for albums and tracks
   ("files etc"). Nothing is decided about what goes in it. The obvious
   candidates, none of them asked for yet: play, play next, show in the file
