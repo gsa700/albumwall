@@ -90,10 +90,24 @@ class Program
 
     /// UseWayland after UsePlatformDetect replaces only the windowing platform;
     /// rendering and the rest are still what detection chose.
+    ///
+    /// ForceDrawnDecorations: every window draws its own title bar and never asks the compositor
+    /// for one. Without it Avalonia asks for server-side decorations on every toplevel
+    /// (xdg-decoration set_mode server_side) and, for the borderless main window, withdraws the
+    /// request a moment later by destroying the decoration object. The protocol says that means
+    /// "back to client-side at the next commit"; mutter never offers server-side at all and KWin
+    /// honours the withdrawal, but COSMIC (Pop!_OS 24.04, 2026-09-26) keeps its title bar, so the
+    /// wall showed two sets of window buttons. Secondary windows already draw theirs on GNOME
+    /// (see DrawnCaptions), so this makes every desktop look like GNOME does.
     private static AppBuilder WithBackend(AppBuilder builder)
     {
         if (!NativeWayland) return builder;
         Console.WriteLine("[wall] backend: native Wayland");
-        return builder.UseWayland();
+        // Marked experimental ("used mostly for testing"). If a future Avalonia drops it, this
+        // stops compiling rather than silently regressing, and COSMIC is the desktop to recheck.
+#pragma warning disable AVALONIA_WAYLAND_FORCE_CSD
+        return builder.UseWayland()
+            .With(new WaylandPlatformOptions { ForceDrawnDecorations = true });
+#pragma warning restore AVALONIA_WAYLAND_FORCE_CSD
     }
 }
