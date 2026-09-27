@@ -10,6 +10,7 @@
 // decode the entire library.
 
 using System.Collections.ObjectModel;
+using System.Reflection;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
@@ -141,6 +142,7 @@ public partial class MainWindow : Window
         Opened += (_, _) => WaylandShell.ClaimIdentity(this);
 
         FollowInputKind();
+        SetUpFullScreenReveal();
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
@@ -405,7 +407,9 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
-        _settings.Maximized = WindowState == WindowState.Maximized;
+        _settings.Maximized = WindowState == WindowState.FullScreen
+            ? _beforeFullScreen == WindowState.Maximized
+            : WindowState == WindowState.Maximized;
 
         // Only record geometry from a normal window. Saving a maximized or
         // minimized window's bounds means restoring to something that was never
@@ -1140,6 +1144,7 @@ public partial class MainWindow : Window
         // Only a press on the bar's own background starts a drag. A press that
         // landed on the search box or a window button belongs to that control.
         if (e.Source is not Border) return;
+        if (WindowState == WindowState.FullScreen) return;     // nothing to move or maximize
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
         // The SECOND press of a double click must not start a move drag.
@@ -1213,6 +1218,188 @@ public partial class MainWindow : Window
         if (_transportShown) SetWallInset(true);
     }
 
+    // ---- FULL SCREEN ------------------------------------------------------------
+    //
+    // His design, 2026-09-26, after a kiosk preview on the Pi: "a full screen mode
+    // that doesn't need the -kiosk starter but would use a F11 or similar ... we
+    // could autohide the top and bottom bar and just leave the wall". Then, from
+    // the options: WALL ONLY while the bars are away (the play controls go with the
+    // bottom bar); a bar comes back when the mouse reaches its edge or a finger
+    // touches that edge, and leaves again 3 s after it stops being used; in and out
+    // with F11 or the button beside Preferences, which is also the way out on a
+    // screen with no keyboard. Amended the same evening: the play controls stay.
+    //
+    // THE BARS FLOAT, THEY DO NOT DOCK. Hiding a docked bar would change the wall's
+    // height, and a height change re-centres the open album — the judder he called
+    // "blocky and not smooth" when the play controls were docked (see TransportSlot
+    // in the markup). So in full screen each bar keeps its dock slot but gives the
+    // space back with a negative margin, is lifted above the wall with ZIndex, and
+    // moves on a render transform only. The wall is sized once, on entry.
+
+    private WindowState _beforeFullScreen = WindowState.Normal;
+    private bool _fullScreenChrome;
+    private bool _topShown = true, _bottomShown = true;
+    private DispatcherTimer? _barHide;
+    private static readonly TimeSpan BarSlide = TimeSpan.FromMilliseconds(180);
+    private static readonly TimeSpan BarLinger = TimeSpan.FromSeconds(3);
+    /// How close to an edge a finger has to land to call that bar back. Logical px.
+    private const double TouchEdge = 28;
+
+    private void ToggleFullScreen()
+    {
+        if (WindowState == WindowState.FullScreen)
+            WindowState = _beforeFullScreen == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
+        else
+        {
+            _beforeFullScreen = WindowState;
+            WindowState = WindowState.FullScreen;
+        }
+    }
+
+    /// Follows the window's real state, so a window manager's own full-screen key
+    /// gets the same treatment as F11.
+    private void ApplyFullScreenChrome(bool on)
+    {
+        if (on == _fullScreenChrome) return;
+        _fullScreenChrome = on;
+
+        FullScreenGlyph.Data = Geometry.Parse(on
+            ? "M 6 1 L 6 6 L 1 6 M 12 1 L 12 6 L 17 6 M 12 17 L 12 12 L 17 12 M 6 17 L 6 12 L 1 12"
+            : "M 1 6 L 1 1 L 6 1 M 12 1 L 17 1 L 17 6 M 17 12 L 17 17 L 12 17 M 6 17 L 1 17 L 1 12");
+        ToolTip.SetTip(FullScreenButton, on ? "Exit full screen (F11)" : "Full screen (F11)");
+
+        foreach (var bar in new Control[] { TopBar, BottomBar, TransportSlot })
+        {
+            bar.Transitions = null;
+            bar.RenderTransform = Shifted(0);
+        }
+        TopBar.Margin = on ? new Thickness(0, 0, 0, -TopBar.Height) : default;
+        BottomBar.Margin = on ? new Thickness(0, -BottomBar.Height, 0, 0) : default;
+        TopBar.ZIndex = BottomBar.ZIndex = on ? 1 : 0;
+        foreach (var bar in new Control[] { TopBar, BottomBar, TransportSlot })
+            bar.Transitions =
+            [
+                new TransformOperationsTransition
+                {
+                    Property = RenderTransformProperty, Duration = BarSlide, Easing = new CubicEaseOut()
+                }
+            ];
+
+        _topShown = _bottomShown = true;
+        if (on)
+        {
+            ShowBar(top: true, show: false); ShowBar(top: false, show: false);
+            // After Avalonia's own full-screen handling for this state change has run.
+            Dispatcher.UIThread.Post(SuppressDecorationPopover, DispatcherPriority.Background);
+        }
+        else { _barHide?.Stop(); _barHide = null; }
+        Console.WriteLine($"[wall] full screen {(on ? "on - bars hidden" : "off")}");
+    }
+
+    /// Slides one bar in or out. The play controls travel with the bar they are
+    /// parked against, so "wall only" really is the wall only.
+    private void ShowBar(bool top, bool show)
+    {
+        if ((top ? _topShown : _bottomShown) == show) return;
+        if (top) _topShown = show; else _bottomShown = show;
+
+        var bar = top ? TopBar : BottomBar;
+        var away = top ? -bar.Height : bar.Height;
+        bar.RenderTransform = Shifted(show ? 0 : away);
+        // The play controls STAY, on the same terms as in a window (up while something
+        // is playing): they drop into the space the bar leaves and sit on the edge.
+        // His correction to "wall only", 2026-09-26: "we should have the play
+        // controls stay on the screen all the time under the same terms and the
+        // normal app".
+        if (TransportAtTop == top)
+            TransportSlot.RenderTransform = Shifted(show ? 0 : away);
+
+        if (show) ArmBarHide();
+    }
+
+    /// <summary>
+    /// Avalonia's drawn decorations (on since ForceDrawnDecorations, bb62ed9) come with a
+    /// full-screen popover: a title bar of its own that slides down when the pointer
+    /// nears the top of a full-screen window. It appears even with WindowDecorations
+    /// None, so on the Pi full screen showed TWO bars at the top edge, that one and
+    /// ours. Seen 2026-09-26.
+    ///
+    /// THIS REACHES INTO AVALONIA'S PRIVATE API: the window's visual parent is the
+    /// internal TopLevelHost, whose _fullscreenPopoverEnabled gates the hover
+    /// detection and whose _fullscreenPopover is the layer itself. Both are switched
+    /// off after Avalonia's ApplyFullscreenState has turned them on. Every step is
+    /// checked and a failure is logged and ignored: the worst case is the second bar
+    /// we already had. When Avalonia offers a switch for it, use that.
+    /// </summary>
+    private void SuppressDecorationPopover()
+    {
+        if (WindowState != WindowState.FullScreen) return;
+        try
+        {
+            const BindingFlags Any = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            Visual? host = this;
+            while (host is not null && host.GetType().Name != "TopLevelHost") host = host.GetVisualParent();
+            if (host is null) { Console.WriteLine("[wall] popover: no TopLevelHost (no drawn decorations here)"); return; }
+            var t = host.GetType();
+            var enabled = t.GetField("_fullscreenPopoverEnabled", Any)
+                          ?? throw new InvalidOperationException("no _fullscreenPopoverEnabled");
+            enabled.SetValue(host, false);
+            if (t.GetField("_fullscreenPopover", Any)?.GetValue(host) is Visual layer) layer.IsVisible = false;
+            Console.WriteLine("[wall] popover: Avalonia's full-screen title bar suppressed");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"[wall] popover NOT suppressed ({e.GetBaseException().Message})");
+        }
+    }
+
+    private void ArmBarHide()
+    {
+        _barHide?.Stop();
+        _barHide = new DispatcherTimer { Interval = BarLinger };
+        _barHide.Tick += (_, _) =>
+        {
+            if (WindowState != WindowState.FullScreen) { _barHide?.Stop(); return; }
+            // Not while it is being used: pointer on it (or on the play controls
+            // riding with it), or typing in the search box.
+            bool InUse(Control c) => c.IsPointerOver || c.IsKeyboardFocusWithin;
+            var topBusy = _topShown && InUse(TopBar);
+            var bottomBusy = _bottomShown && InUse(BottomBar);
+            if (_topShown && !topBusy) ShowBar(top: true, show: false);
+            if (_bottomShown && !bottomBusy) ShowBar(top: false, show: false);
+            if (!topBusy && !bottomBusy) { _barHide?.Stop(); _barHide = null; }
+        };
+        _barHide.Start();
+    }
+
+    private void SetUpFullScreenReveal()
+    {
+        // Mouse: reaching the very edge calls that bar back.
+        AddHandler(PointerMovedEvent, (_, e) =>
+        {
+            if (!_fullScreenChrome || e.Pointer.Type == PointerType.Touch) return;
+            var y = e.GetPosition(this).Y;
+            if (y <= 2) ShowBar(top: true, show: true);
+            else if (y >= Bounds.Height - 3) ShowBar(top: false, show: true);
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        // Touch: a finger landing near a hidden bar's edge calls it back, and that
+        // press goes no further, so it does not also grab the wall to scroll it.
+        // A press inside a bar that is already out keeps it out.
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (!_fullScreenChrome) return;
+            var y = e.GetPosition(this).Y;
+            if (e.Pointer.Type == PointerType.Touch)
+            {
+                if (!_topShown && y <= TouchEdge) { ShowBar(top: true, show: true); e.Handled = true; return; }
+                if (!_bottomShown && y >= Bounds.Height - TouchEdge) { ShowBar(top: false, show: true); e.Handled = true; return; }
+            }
+            if ((_topShown && y <= TopBar.Height) || (_bottomShown && y >= Bounds.Height - BottomBar.Height))
+                ArmBarHide();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
     private void ToggleMaximized() =>
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
@@ -1271,6 +1458,7 @@ public partial class MainWindow : Window
     private void OnWindowStateChanged(WindowState state)
     {
         ApplyCorners();
+        ApplyFullScreenChrome(state == WindowState.FullScreen);
         if (state == WindowState.Normal) PutBackNormalGeometry();
 
         // Logged because the other half of the 2026-09-20 report — "it maximized
@@ -1297,6 +1485,7 @@ public partial class MainWindow : Window
     private void SetUpMenu()
     {
         SettingsButton.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
+        FullScreenButton.Click += (_, _) => ToggleFullScreen();
 
         EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder(this);
         EmptyRetry.Click += (_, _) =>
@@ -2965,6 +3154,10 @@ public partial class MainWindow : Window
                 else if (typing) WallScroller.Focus();
                 else if (_open is not null) SetOpen(null);
                 else return;
+                break;
+
+            case Key.F11 when !ctrl:
+                ToggleFullScreen();
                 break;
 
             case Key.F when ctrl:
