@@ -36,11 +36,24 @@ could play music.
 - **The colors are your collection's.** The window has no theme of its own: it
   takes the hue your covers lean toward and builds itself from that. Preferences
   › Appearance decides how light it sits and how much of the hue it takes.
+- **Compact mode** (Ctrl+M, or the button beside full screen): the window
+  becomes a strip showing what is playing — cover, track, format, progress —
+  with a pair of analog VU meters that swing like real ones. Hover it for the
+  play controls and the way back; Esc or Ctrl+M returns to the wall exactly as
+  you left it. After two minutes paused it shows a clock instead.
+
+  ![Compact mode: the now-playing strip with its VU meters](docs/screenshots/compact.webp)
+
+- **Full screen** (F11): the bars step aside and come back when the pointer (or
+  a finger) reaches an edge. Built for a touchscreen as much as a desk.
+- **More than one library**: add folders under Preferences › Library and switch
+  between them from the bottom bar. They are never merged.
 - **Media keys and the desktop's own controls** — MPRIS on Linux (the GNOME
   panel and lock screen), the media flyout and hardware keys on Windows.
 - **The keyboard works**: Space to play or pause, Ctrl+arrows for the next and
-  previous track, arrows to seek, Ctrl+F to search, Esc to back out, and F1 for
-  the list — Preferences › Help has every key and every search the box understands.
+  previous track, arrows to seek, Ctrl+F to search, Esc to back out, Ctrl+M for
+  compact, F11 for full screen, and F1 for the list — Preferences › Help has
+  every key and every search the box understands.
 - **Live search** by artist or album, a way back to whatever is playing, and
   three searches for art that wants attention: `art:missing`, `art:small`,
   `art:nonsquare`.
@@ -60,7 +73,8 @@ could play music.
   SHA-256 list, and restarts into it. A dot on the gear says there is one; nothing
   is ever downloaded until you ask.
 
-Not built yet: tag editing, a right-click menu, an A–Z rail.
+Not built yet: tag editing, a right-click menu, an A–Z rail, playing from a
+Navidrome (Subsonic) server.
 What is wanted next is in [docs/roadmap.md](docs/roadmap.md).
 
 The screenshots are the author's own library. The covers belong to their
@@ -101,6 +115,18 @@ and none of this applies.
 
 ## Installing
 
+Download the zip for your machine from the
+[latest release](https://github.com/gsa700/albumwall/releases/latest):
+
+| your machine | the file |
+|---|---|
+| Windows 10 or 11 (64-bit) | `AlbumWall-win-x64.zip` |
+| a Linux PC | `AlbumWall-linux-x64.zip` |
+| a Raspberry Pi 4 or 5, 64-bit OS | `AlbumWall-linux-arm64.zip` |
+
+Unzip it and run `AlbumWall` (`AlbumWall.exe` on Windows). The releases named
+`libmpv-*` are the audio engine the app is built with, not something to download.
+
 A release is one file. Run it from wherever you unzipped it and it offers to
 install itself — per user, no administrator rights: into
 `%LocalAppData%\Programs\AlbumWall` on Windows (listed in Installed apps, with a
@@ -113,8 +139,26 @@ removed from Preferences › About.
 To run it from a folder or a USB stick and leave no trace on the machine, put
 an empty file named `portable.txt` beside it.
 
-Windows 10 or later, or a current Linux desktop. The player is inside the file;
-nothing else has to be installed.
+Windows 10 or later, or a current Linux desktop with glibc 2.36 or newer:
+Debian 12, Raspberry Pi OS bookworm, Ubuntu 24.04, Fedora, and anything later.
+Ubuntu 22.04 is too old. The player is
+inside the file; nothing else has to be installed. On Linux it plays through
+PipeWire or PulseAudio, which every desktop already has.
+
+### Linux: where the window opens
+
+On a Wayland desktop an application is not allowed to know or choose where its
+window is, so AlbumWall opens wherever the desktop puts it, and the wall and the
+compact strip share one position. To have the app remember its own places, run
+it through XWayland instead: with AlbumWall closed, open its settings file
+(`~/.config/albumwall/settings.json`) and change the `Backend` line to
+
+```json
+"Backend": "x11",
+```
+
+Set it back to `null` to return to Wayland. On Windows, and on an X11 desktop, the window
+remembers where it was, and compact mode keeps a place of its own.
 
 ## Building it
 
@@ -130,12 +174,17 @@ dotnet run --project src/AlbumWall.App
 ```
 
 A development build uses the distribution's libmpv. A release carries its own,
-built by `scripts/build-libmpv/` — audio only, the same on every platform.
+built by `scripts/build-libmpv/` — audio only, the same on every platform — and
+published on this repository as `libmpv-*` releases, with its source.
+
+`scripts/release.sh` cuts a release: it fetches that engine by the tag in
+`scripts/LIBMPV_RELEASE`, builds all three platforms, and makes a draft
+(`--dry-run` to only build the zips).
 
 **Windows**
 
 ```powershell
-.\scripts\get-libmpv.ps1           # once: fetches libmpv-2.dll (needs `gh auth login` while this repository is private)
+.\scripts\get-libmpv.ps1           # once: fetches libmpv-2.dll
 dotnet run --project src\AlbumWall.App
 ```
 
