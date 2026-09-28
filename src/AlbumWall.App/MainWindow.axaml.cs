@@ -387,15 +387,36 @@ public partial class MainWindow : Window
         // sized: it is a maximized one whose state has not caught up, or one the
         // window manager tiled. Restoring to it is indistinguishable from never
         // un-maximizing, so it is not worth remembering.
+        //
+        // EITHER dimension, not both. A window snapped to half the screen is full
+        // HEIGHT only, and remembering that height brought it back PINNED: GNOME
+        // opens a window as tall as the working area vertically maximized, and it
+        // would not come off the top edge until Super+Down (2026-09-28: "I can't
+        // get it to separate from the top" ... "I hate that stuff").
+        //
+        // WITHIN 95%, not equal. On native Wayland the app is told the whole
+        // screen (3072 x 1728 on his, logical, Scaling 1) and never the working
+        // area under GNOME's top bar, so the pinned window's 1689 never EQUALLED
+        // anything the app could see. A window within a few percent of the
+        // screen in either direction is the window manager's size, not his.
         var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
         if (screen is not null)
         {
             var scale = screen.Scaling > 0 ? screen.Scaling : RenderScaling;
             var area = screen.WorkingArea;
-            if (Width * scale >= area.Width && Height * scale >= area.Height) return;
+            if (Width * scale >= area.Width * 0.95 || Height * scale >= area.Height * 0.95)
+            {
+#if DEBUG
+                Console.WriteLine($"[wall] not remembering {Width}x{Height}: the screen's size, not his ({area}, scale {scale})");
+#endif
+                return;
+            }
         }
 
         _normalGeometry = (Width, Height, Position.X, Position.Y);
+#if DEBUG
+        Console.WriteLine($"[wall] remembered normal {Width}x{Height}");
+#endif
     }
 
     /// Coalesces a drag or resize into one write once it stops. Both events fire
@@ -2129,6 +2150,21 @@ public partial class MainWindow : Window
         // Window state, so that the corner squaring and the un-maximize geometry
         // can be checked by a script instead of by remembering what last night
         // looked like. Both were reported by eye on 2026-09-20.
+        // "size 1400x1700": what the window manager does to a snapped window, on demand.
+        if (text.StartsWith("size ", StringComparison.OrdinalIgnoreCase)
+            && text[5..].Split('x') is [var sw, var sh] && double.TryParse(sw, out var w) && double.TryParse(sh, out var h))
+        {
+            Width = w; Height = h;
+            // A size set from here does not raise SizeChanged the way a drag does;
+            // run what a drag would.
+            RememberNormalGeometry(); ScheduleSave();
+            return;
+        }
+        if (text.Equals("screens", StringComparison.OrdinalIgnoreCase))
+        {
+            var sc = Screens.ScreenFromWindow(this); Console.WriteLine($"[wall] screens: {Screens.ScreenCount}, window screen bounds={sc?.Bounds} working={sc?.WorkingArea} scaling={sc?.Scaling} renderScaling={RenderScaling} size={Width}x{Height}");
+            return;
+        }
         if (text.Equals("compact", StringComparison.OrdinalIgnoreCase)) { EnterCompact(); return; }
         if (text.StartsWith("compact ", StringComparison.OrdinalIgnoreCase)) { CompactDebug(text[8..].Trim().ToLowerInvariant()); return; }
         if (text.Equals("expand", StringComparison.OrdinalIgnoreCase)) { ExitCompact(); return; }
