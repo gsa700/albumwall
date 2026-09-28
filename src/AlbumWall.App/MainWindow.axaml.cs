@@ -143,7 +143,6 @@ public partial class MainWindow : Window
 
         FollowInputKind();
         SetUpFullScreenReveal();
-        SetUpPanelControls();
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
@@ -1211,7 +1210,9 @@ public partial class MainWindow : Window
         // separate window (Wayland cannot place or pin one) and over controls tied
         // to the open album (they would vanish when browsing another). Same
         // controls, same album colour; rounded, capped in width, centred, lifted
-        // PillGap off the edge. The slot still parks against the bar, so the
+        // PillGap off the edge. The pill ALWAYS: controls moved into the open
+        // album were tried (6500761) and reverted by him on 2026-09-27 — the
+        // small pill embedded in the album "doesn't feel right". The slot still parks against the bar, so the
         // bar-hide slide in ShowBar carries it down to PillGap from the screen edge.
         var pill = _fullScreenChrome;
         var gap = pill ? PillGap : 0;
@@ -1302,7 +1303,6 @@ public partial class MainWindow : Window
         BottomBar.Margin = on ? new Thickness(0, -BottomBar.Height, 0, 0) : default;
         TopBar.ZIndex = BottomBar.ZIndex = on ? 1 : 0;
         ApplyTransportPosition();        // strip in a window, pill in full screen
-        Dispatcher.UIThread.Post(PlaceControls, DispatcherPriority.Background);
         foreach (var bar in new Control[] { TopBar, BottomBar, TransportSlot })
             bar.Transitions =
             [
@@ -1378,147 +1378,6 @@ public partial class MainWindow : Window
         {
             Console.WriteLine($"[wall] popover NOT suppressed ({e.GetBaseException().Message})");
         }
-    }
-
-    // ---- PLAY CONTROLS IN THE OPEN ALBUM (full screen) ----------------------------
-    //
-    // His idea, 2026-09-26, after the pill "isn't really much different than the
-    // normal controls": put play/pause, back, forward and progress "right into the
-    // expanded album portion". Full screen only, "unless it's awesome".
-    //
-    // The REAL controls move — TransportButtons and TransportProgress are re-parented
-    // into the open panel's PanelTransportHost — so seeking, the play/pause glyph and
-    // the position ticker keep working with nothing duplicated. They are the
-    // PLAYER's controls living in whatever album is open, not that album's: browse
-    // another album while one plays and they stay, under a "Now playing" line that
-    // takes you back (his "this would break a little if we select a new album while
-    // the current one keeps playing"). No album open, or nothing loaded: back in the
-    // pill. While they are in a panel the pill is hidden.
-
-    private Grid? _transportGrid;
-    private ContentControl? _panelHost;
-    private Border? _panelControls;
-    private Grid? _panelControlsRow;
-    private Button? _panelNowPlaying;
-    private bool _controlsInPanel;
-    private AlbumPalette? _panelPalette;
-    private const double PanelProgressWidth = 380;
-
-    private void SetUpPanelControls()
-    {
-        _transportGrid = TransportButtons.Parent as Grid;
-        Control.LoadedEvent.AddClassHandler<ContentControl>((c, _) =>
-        {
-            if (c.Name == "PanelTransportHost") Dispatcher.UIThread.Post(PlaceControls, DispatcherPriority.Background);
-        }, RoutingStrategies.Direct);
-        Control.UnloadedEvent.AddClassHandler<ContentControl>((c, _) =>
-        {
-            if (ReferenceEquals(c, _panelHost)) Dispatcher.UIThread.Post(PlaceControls, DispatcherPriority.Background);
-        }, RoutingStrategies.Direct);
-    }
-
-    private ContentControl? OpenPanelHost() =>
-        _open is null ? null
-        : Wall.GetVisualDescendants().OfType<ContentControl>().FirstOrDefault(c =>
-              c.Name == "PanelTransportHost" && TopLevel.GetTopLevel(c) is not null
-              && c.DataContext is PanelRow row && ReferenceEquals(row.Album, _open));
-
-    private void PlaceControls()
-    {
-        var host = _fullScreenChrome && _transportShown ? OpenPanelHost() : null;
-        if (host is null || _transportGrid is null) { ReturnControls(); return; }
-
-        if (_panelControls is null)
-        {
-            // Centred, with its own breathing room: at the left edge the pill's rounded
-            // corner cut into it, and at 6 px from the controls it looked squeezed
-            // (his report, 2026-09-26, on the Pi).
-            _panelNowPlaying = new Button { Classes = { "link" }, Padding = new Thickness(0, 2), FontSize = 12,
-                                            HorizontalAlignment = HorizontalAlignment.Center };
-            _panelNowPlaying.Click += OnRevealPlaying;
-            _panelControlsRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-            // In a PILL of the playing album's light tone, like the one on the wall's
-            // edge: it separates the controls from the track list, and says which
-            // album they belong to. His ask: "center it in that space and add the
-            // pill back around it to separate it from the other listings".
-            _panelControls = new Border
-            {
-                ClipToBounds = true,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(24, 12),
-                Child = new StackPanel { Spacing = 10, Children = { _panelNowPlaying, _panelControlsRow } },
-            };
-            // A true pill while it is one row; two rows (the "Now playing" line on)
-            // get a gentler radius, or the corners eat the text.
-            _panelControls.SizeChanged += (_, e) =>
-                _panelControls.CornerRadius = new CornerRadius(
-                    _panelNowPlaying.IsVisible ? 18 : Math.Min(e.NewSize.Height / 2, 30));
-        }
-
-        if (!_controlsInPanel)
-        {
-            _transportGrid.Children.Remove(TransportButtons);
-            _transportGrid.Children.Remove(TransportProgress);
-            Grid.SetColumn(TransportButtons, 0);
-            Grid.SetColumn(TransportProgress, 1);
-            TransportButtons.Margin = new Thickness(0, 0, 18, 0);
-            TransportProgress.Width = PanelProgressWidth;   // an Auto column would give it only its minimum
-            _panelControlsRow!.Children.Add(TransportButtons);
-            _panelControlsRow.Children.Add(TransportProgress);
-            _controlsInPanel = true;
-        }
-
-        if (!ReferenceEquals(host.Content, _panelControls))
-        {
-            if (_panelControls.Parent is ContentControl old) old.Content = null;
-            host.Content = _panelControls;
-        }
-        _panelHost = host;
-
-        _panelPalette = _playingAlbum is not null ? Palette.For(_playingAlbum.Album) : ((PanelRow)host.DataContext!).Palette;
-        _panelControls.Background = _panelPalette.Light;
-        _panelControls.BorderBrush = _panelPalette.OnLightHover;
-        Recolor(_panelPalette.OnLight);
-        ElapsedText.Foreground = RemainingText.Foreground = _panelPalette.OnLightDim;
-
-        var elsewhere = _playingAlbum is not null && !ReferenceEquals(_open, _playingAlbum);
-        _panelNowPlaying!.IsVisible = elsewhere;
-        _panelControls.CornerRadius = new CornerRadius(elsewhere ? 18 : Math.Min(Math.Max(_panelControls.Bounds.Height, 56) / 2, 30));
-        if (elsewhere)
-        {
-            _panelNowPlaying.Content = $"Now playing: {TransportTitle.Text}  \u00b7  {_playingAlbum!.Title}";
-            _panelNowPlaying.Foreground = _panelPalette.OnLightDim;
-        }
-
-        TransportSlot.Opacity = 0;
-        TransportSlot.IsHitTestVisible = false;
-    }
-
-    private void ReturnControls()
-    {
-        if (_controlsInPanel && _transportGrid is not null)
-        {
-            _panelControlsRow!.Children.Remove(TransportButtons);
-            _panelControlsRow.Children.Remove(TransportProgress);
-            Grid.SetColumn(TransportButtons, 2);
-            Grid.SetColumn(TransportProgress, 3);
-            TransportButtons.Margin = new Thickness(16, 0, 16, 0);
-            TransportProgress.Width = double.NaN;
-            _transportGrid.Children.Add(TransportButtons);
-            _transportGrid.Children.Add(TransportProgress);
-            _controlsInPanel = false;
-            _panelPalette = null;
-            if (_playingAlbum is not null)
-            {
-                var pal = Palette.For(_playingAlbum.Album);
-                Recolor(pal.OnLight);
-                ElapsedText.Foreground = RemainingText.Foreground = pal.OnLightDim;
-            }
-        }
-        if (_panelHost is not null && ReferenceEquals(_panelHost.Content, _panelControls)) _panelHost.Content = null;
-        _panelHost = null;
-        TransportSlot.Opacity = 1;
-        TransportSlot.IsHitTestVisible = true;
     }
 
     private void ArmBarHide()
@@ -3032,7 +2891,6 @@ public partial class MainWindow : Window
     {
         if (_transportShown == visible) return;
         _transportShown = visible;
-        Dispatcher.UIThread.Post(PlaceControls, DispatcherPriority.Background);
 
         if (Transport.Transitions is null)
         {
@@ -3475,7 +3333,6 @@ public partial class MainWindow : Window
         Recolor(palette.OnLight);
 
         UpdatePosition();
-        if (_fullScreenChrome) PlaceControls();      // re-tints them if they live in a panel
     }
 
     /// Elapsed, remaining, and the slider. Remaining counts DOWN and is signed,
@@ -3526,7 +3383,6 @@ public partial class MainWindow : Window
         // Clicking the open album again closes it, which is the only way back to
         // an unbroken wall.
         _open = closing ? null : album;
-        if (_fullScreenChrome) Dispatcher.UIThread.Post(PlaceControls, DispatcherPriority.Background);
         if (_open is not null)
         {
             _open.IsSelected = true;

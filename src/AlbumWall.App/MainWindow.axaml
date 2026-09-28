@@ -133,38 +133,26 @@
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
 
                         <DockPanel Grid.Column="0">
-                            <!-- Title and Shuffle on the left; on the right, the space
-                                 they never use, where the play controls move in full
-                                 screen (PlaceControls). His placement, 2026-09-26:
-                                 "there is always space available above the track
-                                 listings right of the title and shuffle button". The
-                                 host is empty, and takes no room, otherwise. -->
-                            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" ColumnSpacing="24">
-                                <StackPanel Grid.Column="0">
-                                    <StackPanel Spacing="3">
-                                        <TextBlock Text="{Binding Album.Title}" FontSize="21"
-                                                   FontWeight="Bold"
-                                                   Foreground="{Binding Palette.Text}"/>
-                                        <TextBlock Text="{Binding Album.Artist}" FontSize="14"
-                                                   Foreground="{Binding Palette.TextDim}"/>
-                                        <TextBlock Text="{Binding HeaderLine}" FontSize="11"
-                                                   Margin="0,4,0,0"
-                                                   Foreground="{Binding Palette.TextDim}"/>
-                                    </StackPanel>
+                            <StackPanel DockPanel.Dock="Top" Spacing="3">
+                                <TextBlock Text="{Binding Album.Title}" FontSize="21"
+                                           FontWeight="Bold"
+                                           Foreground="{Binding Palette.Text}"/>
+                                <TextBlock Text="{Binding Album.Artist}" FontSize="14"
+                                           Foreground="{Binding Palette.TextDim}"/>
+                                <TextBlock Text="{Binding HeaderLine}" FontSize="11"
+                                           Margin="0,4,0,0"
+                                           Foreground="{Binding Palette.TextDim}"/>
+                            </StackPanel>
 
-                                    <StackPanel Orientation="Horizontal"
-                                                Spacing="9" Margin="0,14,0,0">
-                                        <Button Classes="panel" Content="Shuffle"
-                                                Command="{Binding ShuffleCommand}"
-                                                IsEnabled="{Binding CanPlay}"
-                                                ToolTip.Tip="Shuffle this album"/>
-                                        <Button Classes="panel" Content="Edit tags" IsEnabled="False"
-                                                ToolTip.Tip="Tag editing is not built yet"/>
-                                    </StackPanel>
-                                </StackPanel>
-                                <ContentControl Grid.Column="1" x:Name="PanelTransportHost"
-                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                                        Spacing="9" Margin="0,14,0,0">
+                                <Button Classes="panel" Content="Shuffle"
+                                        Command="{Binding ShuffleCommand}"
+                                        IsEnabled="{Binding CanPlay}"
+                                        ToolTip.Tip="Shuffle this album"/>
+                                <Button Classes="panel" Content="Edit tags" IsEnabled="False"
+                                        ToolTip.Tip="Tag editing is not built yet"/>
+                            </StackPanel>
 
                             <!-- NO internal scroll region. An album panel sizes to
                                  its own track list and the wall scrolls, because
@@ -833,14 +821,14 @@
                            TextTrimming="CharacterEllipsis" MaxLines="1"/>
             </StackPanel>
 
-            <StackPanel Grid.Column="2" x:Name="TransportButtons" Orientation="Horizontal" Spacing="4"
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                         VerticalAlignment="Center" Margin="16,0,16,0">
                 <Button x:Name="PrevButton" Classes="transport" ToolTip.Tip="Previous"/>
                 <Button x:Name="PlayPauseButton" Classes="transport big" ToolTip.Tip="Play / pause"/>
                 <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"/>
             </StackPanel>
 
-            <Grid Grid.Column="3" x:Name="TransportProgress" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+            <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
                   MinWidth="260" VerticalAlignment="Center">
                 <TextBlock Grid.Column="0" x:Name="ElapsedText" Classes="mono dim"
                            FontSize="11" VerticalAlignment="Center" Width="46"
