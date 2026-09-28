@@ -25,6 +25,10 @@ namespace AlbumWall.App;
 public partial class MainWindow
 {
     private bool _compact;
+    private long _compactLeft;
+    /// Where the wall was when the window went compact, to go back to. Only
+    /// where positions are knowable (see Settings.CompactX).
+    private PixelPoint? _wallPosition;
     private WindowState _beforeCompact = WindowState.Normal;
     private long _compactSince;
     private DateTime? _pausedSince;
@@ -129,6 +133,16 @@ public partial class MainWindow
         if (_beforeCompact != WindowState.Maximized) _beforeCompact = WindowState.Normal;
         if (WindowState != WindowState.Normal) WindowState = WindowState.Normal;
 
+        // The strip keeps its own place where the platform allows it (his ask,
+        // 2026-09-28, for Windows: on Wayland they share one, and that stays).
+        if (!Program.NativeWayland)
+        {
+            _wallPosition = Position;
+            if (_settings.CompactX is { } cx && _settings.CompactY is { } cy)
+                Dispatcher.UIThread.Post(() => { if (_compact) Position = new PixelPoint(cx, cy); },
+                                         DispatcherPriority.Background);
+        }
+
         MainDock.IsVisible = false;
         CompactHost.IsVisible = true;
         MinWidth = CompactMinWidth / 2;
@@ -193,6 +207,7 @@ public partial class MainWindow
     {
         if (!_compact) return;
         _compact = false;
+        _compactLeft = Environment.TickCount64;
 
         _meterTimer?.Stop();
         _meterTimer = null;
@@ -203,6 +218,8 @@ public partial class MainWindow
 
         if (_normalGeometry is { } g) { Width = g.W; Height = g.H; }
         else { Width = 1444; Height = 1080; }
+        if (!Program.NativeWayland && _wallPosition is { } wall) Position = wall;
+        _wallPosition = null;
         if (_beforeCompact == WindowState.Maximized) WindowState = WindowState.Maximized;
 
         _settings.Compact = false;
@@ -225,6 +242,11 @@ public partial class MainWindow
         if (Height > Width / 2) return;
         _settings.CompactWidth = Width;
         _settings.CompactHeight = Height;
+        if (!Program.NativeWayland)
+        {
+            _settings.CompactX = Position.X;
+            _settings.CompactY = Position.Y;
+        }
         SnapToAspect();
     }
 

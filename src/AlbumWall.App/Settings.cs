@@ -108,6 +108,11 @@ public sealed class Settings
     public bool? Compact { get; set; }
     public double? CompactWidth { get; set; }
     public double? CompactHeight { get; set; }
+    /// Where the strip was left, where the platform lets an app know (Windows,
+    /// X11). Native Wayland never tells an app its position, so there the strip
+    /// and the wall share one.
+    public int? CompactX { get; set; }
+    public int? CompactY { get; set; }
 
     /// ALBUMWALL_CONFIG_DIR moves the settings somewhere else, for test runs. A
     /// second instance pointed at the real file fights the first over window

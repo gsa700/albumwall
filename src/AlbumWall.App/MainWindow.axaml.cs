@@ -382,6 +382,12 @@ public partial class MainWindow : Window
         if (_compact) { RememberCompactSize(); return; }     // its own size, never the wall's
         if (double.IsNaN(Width) || double.IsNaN(Height)) return;
         if (Width <= 320 || Height <= 240) return;
+        // The strip's last size can land just AFTER leaving compact, and once it
+        // was written down as the wall's (a test wall came back 1480 x 320). Not
+        // in the first half second back, and never a strip's shape: no wall is
+        // three times wider than it is tall.
+        if (Environment.TickCount64 - _compactLeft < 500) return;
+        if (Width > Height * 3) return;
 
         // A "normal" window the size of the working area is not a window the user
         // sized: it is a maximized one whose state has not caught up, or one the
@@ -2160,9 +2166,19 @@ public partial class MainWindow : Window
             RememberNormalGeometry(); ScheduleSave();
             return;
         }
+        // "move 400 300": where a person drags it. Runs what a drag runs.
+        if (text.StartsWith("move ", StringComparison.OrdinalIgnoreCase)
+            && text[5..].Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var mx, var my]
+            && int.TryParse(mx, out var px) && int.TryParse(my, out var py))
+        {
+            Position = new PixelPoint(px, py);
+            RememberNormalGeometry(); ScheduleSave();
+            Console.WriteLine($"[wall] moved to {Position}");
+            return;
+        }
         if (text.Equals("screens", StringComparison.OrdinalIgnoreCase))
         {
-            var sc = Screens.ScreenFromWindow(this); Console.WriteLine($"[wall] screens: {Screens.ScreenCount}, window screen bounds={sc?.Bounds} working={sc?.WorkingArea} scaling={sc?.Scaling} renderScaling={RenderScaling} size={Width}x{Height}");
+            var sc = Screens.ScreenFromWindow(this); Console.WriteLine($"[wall] screens: {Screens.ScreenCount}, window screen bounds={sc?.Bounds} working={sc?.WorkingArea} scaling={sc?.Scaling} renderScaling={RenderScaling} size={Width}x{Height} pos={Position}");
             return;
         }
         if (text.Equals("compact", StringComparison.OrdinalIgnoreCase)) { EnterCompact(); return; }
