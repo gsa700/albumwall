@@ -30,12 +30,16 @@ public partial class MainWindow
     private DateTime? _pausedSince;
     private string _compactShown = "";
 
-    /// Three quarters of the panel's 1480 x 320, in the desktop's units. 740 x 160
-    /// (the panel's pixels on a 2x screen) was "a little small here" on his 6K,
-    /// 1480 x 320 too big; "ideal size on this screen is halfway between" (both
-    /// 2026-09-28). The shape is the panel's either way.
-    private const double CompactDefaultWidth = 1110;
-    private const double CompactDefaultHeight = 240;
+    /// The first compact size, as a SHARE OF THE SCREEN, in the panel's shape.
+    /// On his 6K (3072 wide in desktop units) 740 was "a little small", 1480 too
+    /// big, and "halfway between", 1110, ideal: 36% of the width. A fixed 1110
+    /// would have been more than half a 1080p screen ("thats pretty big on a
+    /// 1080p screen, maybe we should make it a ratio", 2026-09-28). Bounded so a
+    /// tiny screen still gets a readable strip and a huge one not a banner.
+    private const double CompactShareOfWidth = 0.36;
+    private const double CompactMinWidth = 600;
+    private const double CompactMaxWidth = 1480;
+    private const double CompactFallbackWidth = 1110;       // screen unknown
     private const double CompactAspect = 1480.0 / 320.0;
 
     /// The compact window's title size, in the view's own 1480 x 320 units.
@@ -125,13 +129,13 @@ public partial class MainWindow
 
         MainDock.IsVisible = false;
         CompactHost.IsVisible = true;
-        MinWidth = CompactDefaultWidth / 2;
-        MinHeight = CompactDefaultHeight / 2;
+        MinWidth = CompactMinWidth / 2;
+        MinHeight = MinWidth / CompactAspect;
 
         // After the state change has been handed to the window manager, or leaving
         // maximized can land its own size on top of this one.
-        var w = _settings.CompactWidth ?? CompactDefaultWidth;
-        var h = _settings.CompactHeight ?? CompactDefaultHeight;
+        var w = _settings.CompactWidth ?? DefaultCompactWidth();
+        var h = _settings.CompactHeight ?? Math.Round(w / CompactAspect);
         ApplyCompactSize(w, h);
 
         _settings.Compact = true;
@@ -168,6 +172,19 @@ public partial class MainWindow
         Width = w;
         Height = h;
         timer.Start();
+    }
+
+    /// The screen's width in desktop units. WorkingArea is in PHYSICAL pixels on
+    /// X11 and Windows (with Scaling the real factor) but already logical on
+    /// native Wayland, where Scaling reads 1 (measured on his 6K: 3072 x 1728,
+    /// Scaling 1, RenderScaling 2) - dividing by Scaling is right for both.
+    private double DefaultCompactWidth()
+    {
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (screen is null || screen.WorkingArea.Width <= 0) return CompactFallbackWidth;
+        var scale = screen.Scaling > 0 ? screen.Scaling : 1;
+        var width = screen.WorkingArea.Width / scale;
+        return Math.Round(Math.Clamp(width * CompactShareOfWidth, CompactMinWidth, CompactMaxWidth));
     }
 
     private void ExitCompact()
