@@ -149,6 +149,19 @@ public sealed class Player : IDisposable
             throw new InvalidOperationException($"mpv_initialize: {Mpv.ErrorText(rc)}");
         }
 
+        // THE LEVEL METERS' TAP: ffmpeg's astats, measuring every audio frame and
+        // passing it through untouched, results read back as filter metadata
+        // (Levels). Set before anything plays, because changing the filter chain
+        // under running audio reconfigures it, which is an audible gap.
+        //
+        // ONLY IF THIS LIBMPV HAS ASTATS. Our own builds before libmpv-0.41.0-4
+        // do not, and mpv does NOT drop a filter it cannot build: every file
+        // fails as its audio starts and the queue skips to the end (proved
+        // 2026-09-28 with the new app on the old library: 12, 13, 14 in
+        // seconds). mpv accepts `af add` without checking, so the check is ours.
+        Metering = HasMeterFilter() && Mpv.Command(_ctx, "af", "add", MeterFilter) >= 0;
+        Console.WriteLine($"[mpv] level meters: {(Metering ? "astats in the chain" : "unavailable")}");
+
         Mpv.mpv_observe_property(_ctx, 2, "pause", Mpv.Format.Flag);
         Mpv.mpv_observe_property(_ctx, 4, "playlist-pos", Mpv.Format.Int64);
         Mpv.mpv_observe_property(_ctx, 5, "idle-active", Mpv.Format.Flag);
@@ -360,6 +373,67 @@ public sealed class Player : IDisposable
     {
         Mpv.Command(_ctx, "seek", to.TotalSeconds.ToString("0.###"), "absolute");
         Seeked?.Invoke(this, to);
+    }
+
+    private const string MeterFilter =
+        "@vu:lavfi=[astats=metadata=1:reset=1:measure_perchannel=RMS_level:measure_overall=none]";
+
+    /// Whether the loaded libmpv carries ffmpeg's astats filter.
+    ///
+    /// mpv offers no list of ffmpeg's filters, and asking it to build one it
+    /// lacks costs the music (see the constructor). Every ffmpeg that includes
+    /// astats also includes its description string, so the library is searched
+    /// for that: about 9 MB, read once, a few milliseconds. Not knowing where
+    /// the library is counts as no.
+    private static bool HasMeterFilter()
+    {
+        if (Mpv.LoadedFile() is not { } path || !File.Exists(path)) return false;
+        try
+        {
+            var needle = System.Text.Encoding.ASCII.GetBytes("Show time domain statistics about audio frames");
+            var buffer = new byte[1 << 20];
+            var carry = 0;
+            using var f = File.OpenRead(path);
+            int n;
+            while ((n = f.Read(buffer, carry, buffer.Length - carry)) > 0)
+            {
+                var span = buffer.AsSpan(0, carry + n);
+                if (span.IndexOf(needle) >= 0) return true;
+                // Keep the tail, in case the string straddles two reads.
+                carry = Math.Min(needle.Length - 1, span.Length);
+                span[^carry..].CopyTo(buffer);
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return false;
+    }
+
+    /// Whether the meter filter was accepted. See Levels.
+    public bool Metering { get; }
+
+    /// The RMS level of the latest audio frame, left and right, in dBFS;
+    /// negative infinity for silence or when there is nothing to read. A mono
+    /// file reads the same on both sides.
+    ///
+    /// Measured where mpv DECODES, which runs a little ahead of the speakers by
+    /// the output buffer. Whoever draws this decides what to do about that.
+    public (double Left, double Right) Levels()
+    {
+        if (!Metering || _ctx == IntPtr.Zero) return (double.NegativeInfinity, double.NegativeInfinity);
+        var l = Level(1);
+        var r = Level(2);
+        return (l, double.IsNaN(r) ? l : r);
+
+        double Level(int channel)
+        {
+            var text = Mpv.GetString(_ctx, $"af-metadata/vu/by-key/lavfi.astats.{channel}.RMS_level");
+            if (text is null) return channel == 1 ? double.NegativeInfinity : double.NaN;
+            return double.TryParse(text, System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out var db)
+                ? db
+                : double.NegativeInfinity;     // "-inf" is how astats says silence
+        }
     }
 
     public TimeSpan Position =>

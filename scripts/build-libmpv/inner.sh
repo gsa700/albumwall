@@ -59,6 +59,10 @@ FFMPEG_FEATURES=(
     --enable-parser=flac,mpegaudio,aac,aac_latm,vorbis,opus
     --enable-protocol=file,http,tcp
     --enable-filter=aresample,aformat,anull,atrim
+    # astats: the level meters (compact view / front panel VU needles). It
+    # only MEASURES, passing every sample through untouched; the kiosk still
+    # has to prove that bit-exact before it goes on the stereo.
+    --enable-filter=astats
 )
 
 PREFIX=/opt/min

@@ -30,10 +30,20 @@ public partial class MainWindow
     private DateTime? _pausedSince;
     private string _compactShown = "";
 
-    /// 740 x 160 is the panel's 1480 x 320 at a scale of two: pixel for pixel
-    /// the front panel on a 2x desktop, and a sensible strip on a 1x one.
-    private const double CompactDefaultWidth = 740;
-    private const double CompactDefaultHeight = 160;
+    /// The panel's own 1480 x 320, in the desktop's units. It was 740 x 160 (the
+    /// panel's PIXELS on a 2x screen) and on his 6K that was "a little small
+    /// here" (2026-09-28): it read as the panel shrunk, not the panel.
+    private const double CompactDefaultWidth = 1480;
+    private const double CompactDefaultHeight = 320;
+    private const double CompactAspect = CompactDefaultWidth / CompactDefaultHeight;
+
+    /// The meters' levels are read where mpv decodes, which is ahead of the
+    /// speakers by its output buffer. Holding them back this long puts the
+    /// needles with the sound rather than a beat ahead of it.
+    private static readonly TimeSpan MeterDelay = TimeSpan.FromMilliseconds(200);
+    private readonly Queue<(long At, double L, double R)> _levels = new();
+    private DispatcherTimer? _meterTimer;
+    private DispatcherTimer? _aspectSnap;
 
     /// Paused for this long, the view gives way to the standby clock. Short
     /// enough that a paused record stops shouting its title across the room,
@@ -121,6 +131,8 @@ public partial class MainWindow
 
         _settings.Compact = true;
         ScheduleSave();
+        Compact.ShowMeters = _player?.Metering == true;
+        StartMeters();
         CompactTick();
         Console.WriteLine($"[compact] on  {w}x{h}  (was {_beforeCompact})");
     }
@@ -158,6 +170,9 @@ public partial class MainWindow
         if (!_compact) return;
         _compact = false;
 
+        _meterTimer?.Stop();
+        _meterTimer = null;
+        _aspectSnap?.Stop();
         CompactHost.IsVisible = false;
         MainDock.IsVisible = true;
         MinWidth = MinHeight = 0;
@@ -186,6 +201,52 @@ public partial class MainWindow
         if (Height > Width / 2) return;
         _settings.CompactWidth = Width;
         _settings.CompactHeight = Height;
+        SnapToAspect();
+    }
+
+    /// Once a resize has stopped, the window takes the panel's own shape, so the
+    /// view fills it with no bands ("the resize is not perfect"). Not during the
+    /// drag: the window manager owns the size while the edge is held, and a
+    /// window that argues with the pointer is worse than a band.
+    private void SnapToAspect()
+    {
+        _aspectSnap?.Stop();
+        _aspectSnap = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        _aspectSnap.Tick += (_, _) =>
+        {
+            _aspectSnap?.Stop();
+            if (!_compact || WindowState != WindowState.Normal) return;
+            var h = Math.Round(Width / CompactAspect);
+            if (Math.Abs(Height - h) < 1.5) return;
+            Height = h;
+            _settings.CompactHeight = h;
+            ScheduleSave();
+        };
+        _aspectSnap.Start();
+    }
+
+    /// Reads the levels about thirty times a second while compact and playing,
+    /// and hands the view the reading from MeterDelay ago.
+    private void StartMeters()
+    {
+        _levels.Clear();
+        if (_player?.Metering != true) return;
+        _meterTimer?.Stop();
+        _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        _meterTimer.Tick += (_, _) =>
+        {
+            if (!_compact || _player is null) return;
+            var now = Environment.TickCount64;
+            var (l, r) = _player.IsPlaying ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
+            if (!_player.IsPlaying) _levels.Clear();         // a pause drops the needles now, not in 200 ms
+            _levels.Enqueue((now, l, r));
+            var due = (At: now, L: l, R: r);
+            while (_levels.Count > 0 && now - _levels.Peek().At >= MeterDelay.TotalMilliseconds)
+                due = _levels.Dequeue();
+            if (_player.IsPlaying && _levels.Count > 0 && now - due.At < MeterDelay.TotalMilliseconds) return;
+            Compact.SetLevels(due.L, due.R);
+        };
+        _meterTimer.Start();
     }
 
     /// Four times a second while compact: the position always, the rest only

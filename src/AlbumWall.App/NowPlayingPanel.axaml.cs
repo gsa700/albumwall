@@ -187,6 +187,20 @@ public partial class NowPlayingPanel : UserControl
 
     public bool IsStandby => Standby.IsVisible;
 
+    /// Whether the meters are there at all: only when the player can measure.
+    public bool ShowMeters
+    {
+        get => Meters.IsVisible;
+        set => Meters.IsVisible = value;
+    }
+
+    /// The latest levels, in dBFS of RMS. The needles do their own moving.
+    public void SetLevels(double left, double right)
+    {
+        LeftMeter.SetLevel(left);
+        RightMeter.SetLevel(right);
+    }
+
     private void UpdateClock()
     {
         // The desktop's own choice of 12 or 24 hours, not ours.

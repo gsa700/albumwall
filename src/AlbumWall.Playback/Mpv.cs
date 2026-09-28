@@ -41,7 +41,7 @@ internal static class Mpv
             // unpacked its native libraries.
             foreach (var candidate in Candidates())
                 if (NativeLibrary.TryLoad(candidate, asm, DllImportSearchPath.AssemblyDirectory, out var ours))
-                    return ours;
+                    return _handle = ours;
 
             // A development checkout has no bundled copy and lands here, which
             // is right: it uses the distribution's libmpv, as it always did.
@@ -51,11 +51,27 @@ internal static class Mpv
             // machine that only has the runtime package installed.
             foreach (var candidate in Candidates())
                 if (NativeLibrary.TryLoad(candidate, out var handle))
-                    return handle;
+                    return _handle = handle;
 
             return IntPtr.Zero;
         });
     }
+
+    private static IntPtr _handle;
+
+    /// The file the library was loaded from, on any platform: /proc on Linux,
+    /// the module's own name on Windows. Null when it cannot be told.
+    public static string? LoadedFile()
+    {
+        if (OperatingSystem.IsLinux()) return LoadedFrom();
+        if (!OperatingSystem.IsWindows() || _handle == IntPtr.Zero) return null;
+        var buffer = new char[1024];
+        var n = GetModuleFileNameW(_handle, buffer, buffer.Length);
+        return n > 0 ? new string(buffer, 0, n) : null;
+    }
+
+    [DllImport("kernel32", CharSet = CharSet.Unicode)]
+    private static extern int GetModuleFileNameW(IntPtr module, [Out] char[] name, int size);
 
     private static IEnumerable<string> Candidates()
     {
@@ -184,6 +200,23 @@ internal static class Mpv
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     public static extern int mpv_get_property(IntPtr ctx,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string name, Format format, out long data);
+
+    /// Returns an mpv-owned string (free it with mpv_free), or null on error.
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr mpv_get_property_string(IntPtr ctx,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void mpv_free(IntPtr data);
+
+    /// A property as text, or null when mpv has none to give.
+    public static string? GetString(IntPtr ctx, string name)
+    {
+        var p = mpv_get_property_string(ctx, name);
+        if (p == IntPtr.Zero) return null;
+        try { return Marshal.PtrToStringUTF8(p); }
+        finally { mpv_free(p); }
+    }
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     public static extern int mpv_set_property(IntPtr ctx,
