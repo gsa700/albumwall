@@ -71,11 +71,19 @@ class Program
     /// it is (Position always reads 0,0), so the compositor decides where it opens, and the saved
     /// position is left alone rather than overwritten, ready for when GNOME can honour it.
     /// <c>ALBUMWALL_X11=1</c> goes back through XWayland, for testing whether mutter is fixed.
+    ///
+    /// <c>"Backend": "x11"</c> in settings.json does the same for good, on one machine. His call,
+    /// 2026-09-28, for positions: under XWayland the app can place its window and learn where it
+    /// is, so the wall reopens where it was left and the compact strip keeps its own spot. "until
+    /// they figure out window management": native Wayland stays the default for everyone else,
+    /// and deleting the line goes back. Not in Preferences: it is a workaround, not a choice
+    /// anyone should have to understand.
     /// </summary>
     public static readonly bool NativeWayland =
         OperatingSystem.IsLinux()
         && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
-        && Environment.GetEnvironmentVariable("ALBUMWALL_X11") != "1";
+        && Environment.GetEnvironmentVariable("ALBUMWALL_X11") != "1"
+        && !string.Equals(Settings.Load().Backend, "x11", StringComparison.OrdinalIgnoreCase);
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
@@ -101,7 +109,14 @@ class Program
     /// (see DrawnCaptions), so this makes every desktop look like GNOME does.
     private static AppBuilder WithBackend(AppBuilder builder)
     {
-        if (!NativeWayland) return builder;
+        if (!NativeWayland)
+        {
+            if (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
+                Console.WriteLine("[wall] backend: X11 through XWayland ("
+                                + (Environment.GetEnvironmentVariable("ALBUMWALL_X11") == "1"
+                                    ? "ALBUMWALL_X11=1" : "settings \"Backend\": \"x11\"") + ")");
+            return builder;
+        }
         Console.WriteLine("[wall] backend: native Wayland");
         // Marked experimental ("used mostly for testing"). If a future Avalonia drops it, this
         // stops compiling rather than silently regressing, and COSMIC is the desktop to recheck.
