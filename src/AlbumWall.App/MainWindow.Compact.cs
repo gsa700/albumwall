@@ -156,7 +156,6 @@ public partial class MainWindow
 
         _settings.Compact = true;
         ScheduleSave();
-        Compact.ShowMeters = _player?.Metering == true;
         StartMeters();
         CompactTick();
         Console.WriteLine($"[compact] on  {w}x{h}  (was {_beforeCompact})");
@@ -273,15 +272,22 @@ public partial class MainWindow
 
     /// Reads the levels about thirty times a second while compact and playing,
     /// and hands the view the reading from MeterDelay ago.
+    ///
+    /// Whether there are meters at all is decided HERE, on every tick, not once
+    /// on entering: a window that opens straight into compact gets there before
+    /// the player exists (restored session, 2026-09-28: compact at 0.96 s, the
+    /// player at 1.01 s), and a decision taken then hid the meters all session.
     private void StartMeters()
     {
         _levels.Clear();
-        if (_player?.Metering != true) return;
         _meterTimer?.Stop();
         _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _meterTimer.Tick += (_, _) =>
         {
-            if (!_compact || _player is null) return;
+            if (!_compact) return;
+            var metering = _player?.Metering == true;
+            if (Compact.ShowMeters != metering) Compact.ShowMeters = metering;
+            if (!metering || _player is null) return;
             var now = Environment.TickCount64;
             var (l, r) = _player.IsPlaying ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
             if (!_player.IsPlaying) _levels.Clear();         // a pause drops the needles now, not in 200 ms
