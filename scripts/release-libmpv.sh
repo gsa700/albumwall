@@ -84,4 +84,4 @@ ARGS=(--repo "$REPO" --prerelease --title "$TAG (audio-only libmpv, all three pl
 gh release create "$TAG" "${ARGS[@]}" "$WORK"/libmpv-*.zip "$WORK/SHA256SUMS" "${SOURCES[@]}"
 echo
 [ $PUBLISH -eq 1 ] && echo "published: https://github.com/$REPO/releases/tag/$TAG" \
-                   || echo "DRAFT created; check it, write the notes, publish from the page or with: gh release edit $TAG -R $REPO --draft=false"
+                   || echo "DRAFT created; check it${NOTES:+ (notes from $NOTES)}${NOTES:- and write the notes}, then publish from the page or with: gh release edit $TAG -R $REPO --draft=false"
