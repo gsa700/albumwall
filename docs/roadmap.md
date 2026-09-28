@@ -374,4 +374,10 @@ is ahead, the history is for what is behind.
   system's.
 - Any machine can publish every platform: the target framework follows the
   RuntimeIdentifier, not the build host. Keep it that way.
-- The repository stays private.
+- The repository is PUBLIC, from 2026-09-28 ("can we sanitize the current repo
+  and make it public?"). Its history was rewritten on the way: LAN addresses
+  became machine names and the author email became GitHub's no-reply address
+  (his calls: "use noreply email, name and callsign are fine ... keep machine
+  names"). Nothing private goes into a commit: no addresses, no keys, no
+  personal email. The pre-rewrite history stays in the private
+  `albumwall-private`, and is never pushed here.
