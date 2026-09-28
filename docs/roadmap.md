@@ -48,6 +48,11 @@ is ahead, the history is for what is behind.
      thing on the panel), USB-to-S/PDIF coax output bit-perfect, the remote's
      buttons (Flirc + the aluminium Apple Remote is the leading pick).
 
+  Later, maybe: a track list the compact view can drop open, as iTunes' mini
+  player did. His, 2026-09-28: "I think on itunes they used a menued tracklist
+  but lets not for now at least". The "Next ..." line is gone and not coming
+  back ("not needed").
+
 - **Kiosk mode: a bigger, look-ahead cover cache.** His ask, 2026-09-26, after
   the first 4K scroll test on the Pi 5 (Pi5-POE, full FLAC library, 294 albums):
   "pretty good ... a little stutter is expected but really not bad at all. as

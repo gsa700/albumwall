@@ -30,12 +30,16 @@ public partial class MainWindow
     private DateTime? _pausedSince;
     private string _compactShown = "";
 
-    /// The panel's own 1480 x 320, in the desktop's units. It was 740 x 160 (the
-    /// panel's PIXELS on a 2x screen) and on his 6K that was "a little small
-    /// here" (2026-09-28): it read as the panel shrunk, not the panel.
-    private const double CompactDefaultWidth = 1480;
-    private const double CompactDefaultHeight = 320;
-    private const double CompactAspect = CompactDefaultWidth / CompactDefaultHeight;
+    /// Three quarters of the panel's 1480 x 320, in the desktop's units. 740 x 160
+    /// (the panel's pixels on a 2x screen) was "a little small here" on his 6K,
+    /// 1480 x 320 too big; "ideal size on this screen is halfway between" (both
+    /// 2026-09-28). The shape is the panel's either way.
+    private const double CompactDefaultWidth = 1110;
+    private const double CompactDefaultHeight = 240;
+    private const double CompactAspect = 1480.0 / 320.0;
+
+    /// The compact window's title size, in the view's own 1480 x 320 units.
+    private const double CompactTitleSize = 54;
 
     /// The meters' levels are read where mpv decodes, which is ahead of the
     /// speakers by its output buffer. Holding them back this long puts the
@@ -55,6 +59,7 @@ public partial class MainWindow
     private void SetUpCompact()
     {
         CompactButton.Click += (_, _) => EnterCompact();
+        Compact.TitleSize = CompactTitleSize;
 
         Compact.ExpandRequested += ExitCompact;
         Compact.PlayPauseRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.TogglePause(); };
@@ -309,7 +314,6 @@ public partial class MainWindow
             Artist: vm.Artist,
             Album: vm.Title,
             Year: album.Year,
-            Next: i + 1 < _playingPaths.Count ? TrackTitle(_playingPaths[i + 1]) : null,
             Accent: Palette.For(album).Light,
             IsPlaying: playing);
     }

@@ -34,6 +34,15 @@ public partial class NowPlayingPanel : UserControl
     /// for the front panel, where a remote does the driving.
     public bool Interactive { get; set; } = true;
 
+    /// The title's size. 68 is the front panel's, read from across a room; a
+    /// window on a desk wants less ("shrink the title text in the window",
+    /// 2026-09-28), so the compact window sets its own.
+    public double TitleSize
+    {
+        get => Title.FontSize;
+        set => Title.FontSize = value;
+    }
+
     /// The window buttons, supplied by the window: which ones and in what order
     /// is the desktop's decision (see WindowButtons.Layout), not this view's.
     public Panel WindowButtons => WindowButtonsHost;
@@ -140,13 +149,6 @@ public partial class NowPlayingPanel : UserControl
         };
         if (np.Year > 0) Subtitle.Inlines.Add(new Run($" {np.Year}") { Foreground = Brush.Parse("#9C968C") });
 
-        NextLine.Inlines = new InlineCollection();
-        if (np.Next is { Length: > 0 } next)
-        {
-            NextLine.Inlines.Add(new Run("Next  "));
-            NextLine.Inlines.Add(new Run(next) { Foreground = Brush.Parse("#C9C3B9") });
-        }
-
         ProgressFill.Background = np.Accent;
         PlayGlyph.Data = Geometry.Parse(np.IsPlaying
             ? "M 5 1 L 5 29 M 21 1 L 21 29"         // pause
@@ -236,6 +238,5 @@ public sealed record NowPlaying(
     string Artist,
     string Album,
     int Year,
-    string? Next,           // the next track's title, or null at the end
     IBrush Accent,          // the playing album's light tone
     bool IsPlaying);

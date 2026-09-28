@@ -58,12 +58,12 @@
                                Foreground="#9C968C" VerticalAlignment="Center"/>
                 </Grid>
 
+                <!-- Elapsed and remaining only. The "Next ..." line that sat between
+                     them went, 2026-09-28: "get rid of the Next ... text totally.
+                     it's not needed". -->
                 <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
                     <TextBlock Grid.Column="0" x:Name="Elapsed" Classes="np npmono" FontSize="44"
                                FontWeight="Medium" Foreground="#E4DED4" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1" x:Name="NextLine" Classes="np" FontSize="30" FontWeight="Medium"
-                               Foreground="#9C968C" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" MaxLines="1" Margin="24,0"/>
                     <TextBlock Grid.Column="2" x:Name="Remaining" Classes="np npmono" FontSize="44"
                                FontWeight="Medium" Foreground="#E4DED4" VerticalAlignment="Center"/>
                 </Grid>
