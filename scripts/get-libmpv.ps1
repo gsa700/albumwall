@@ -18,10 +18,8 @@
 #
 # Then `dotnet run --project src\AlbumWall.App` as usual.
 #
-# THE REPOSITORY IS PRIVATE, so the download goes through the GitHub CLI and
-# needs `gh auth login` to have been done once on this machine. When the
-# repository is public the plain URL works and gh is no longer needed; the
-# script tries that by itself when gh is missing or not signed in.
+# The repository is public (since 2026-09-28), so the plain release URL works;
+# the GitHub CLI is used when it is there and signed in, and is not needed.
 #
 # WHY OURS AND NOT UPSTREAM'S. Until 2026-09-20 this fetched the newest build
 # from SourceForge: 120 MB, video and all, a moving target nobody here built.
@@ -41,10 +39,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# BUMP THIS WHEN A NEW libmpv RELEASE IS PUBLISHED -- after tools/gapless-check.cs
-# has passed against it ON WINDOWS. A cross-compiled DLL that has only been
-# measured on Linux has been measured on a different file.
-$tag  = 'libmpv-0.41.0-3'
+# THE PIN LIVES IN scripts/LIBMPV_RELEASE, shared with scripts/release.sh so the
+# engine a developer runs and the engine a release ships cannot drift apart. Bump
+# it when a new libmpv release is published -- after tools/gapless-check.cs has
+# passed against it ON WINDOWS. A cross-compiled DLL that has only been measured
+# on Linux has been measured on a different file.
+$tag  = (Get-Content (Join-Path $PSScriptRoot 'LIBMPV_RELEASE') -TotalCount 1).Trim()
 $repo = 'gsa700/albumwall'
 
 $root   = Split-Path -Parent $PSScriptRoot

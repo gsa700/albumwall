@@ -13,3 +13,6 @@ native/
 # Python bytecode, from running or importing tools/*.py
 __pycache__/
 *.pyc
+
+# scripts/release.sh --dry-run
+dist/
