@@ -127,6 +127,7 @@ public partial class MainWindow : Window
         DispatcherTimer.Run(() =>
         {
             if (_player is not null && _transportShown) UpdatePosition();
+            CompactTick();
             if (Environment.TickCount64 - _timelineSent > 2000) PushTimeline();
             return true;
         }, TimeSpan.FromMilliseconds(250));
@@ -143,6 +144,18 @@ public partial class MainWindow : Window
 
         FollowInputKind();
         SetUpFullScreenReveal();
+        SetUpCompact();
+        // Closed compact, opens compact: after the wall's own geometry is restored,
+        // so leaving compact later has a wall size to go back to.
+        Opened += async (_, _) =>
+        {
+            if (_settings.Compact != true) return;
+            // Not until the window has been placed: a size asked for while the
+            // window manager is still placing it is quietly lost (seen 2026-09-28,
+            // the strip came up wall-sized).
+            await _placed.Task;
+            EnterCompact();
+        };
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
 
         // The position is only worth as much as its last write, and a crash, a
@@ -366,6 +379,7 @@ public partial class MainWindow : Window
     private void RememberNormalGeometry()
     {
         if (!_restored || WindowState != WindowState.Normal) return;
+        if (_compact) { RememberCompactSize(); return; }     // its own size, never the wall's
         if (double.IsNaN(Width) || double.IsNaN(Height)) return;
         if (Width <= 320 || Height <= 240) return;
 
@@ -407,9 +421,11 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
-        _settings.Maximized = WindowState == WindowState.FullScreen
-            ? _beforeFullScreen == WindowState.Maximized
-            : WindowState == WindowState.Maximized;
+        _settings.Maximized = _compact
+            ? _beforeCompact == WindowState.Maximized
+            : WindowState == WindowState.FullScreen
+                ? _beforeFullScreen == WindowState.Maximized
+                : WindowState == WindowState.Maximized;
 
         // Only record geometry from a normal window. Saving a maximized or
         // minimized window's bounds means restoring to something that was never
@@ -1462,7 +1478,7 @@ public partial class MainWindow : Window
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         timer.Tick += (_, _) =>
         {
-            if (++tries > 6 || WindowState != WindowState.Normal) { timer.Stop(); return; }
+            if (++tries > 6 || WindowState != WindowState.Normal || _compact) { timer.Stop(); return; }
 
             var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
             if (screen is null) { timer.Stop(); return; }
@@ -2113,6 +2129,9 @@ public partial class MainWindow : Window
         // Window state, so that the corner squaring and the un-maximize geometry
         // can be checked by a script instead of by remembering what last night
         // looked like. Both were reported by eye on 2026-09-20.
+        if (text.Equals("compact", StringComparison.OrdinalIgnoreCase)) { EnterCompact(); return; }
+        if (text.StartsWith("compact ", StringComparison.OrdinalIgnoreCase)) { CompactDebug(text[8..].Trim().ToLowerInvariant()); return; }
+        if (text.Equals("expand", StringComparison.OrdinalIgnoreCase)) { ExitCompact(); return; }
         if (text.Equals("maximize", StringComparison.OrdinalIgnoreCase)
             || text.Equals("restore", StringComparison.OrdinalIgnoreCase))
         {
@@ -2859,10 +2878,10 @@ public partial class MainWindow : Window
     });
 
     private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
-        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); SaveSession(); });
+        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
-        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); SaveSession(); });
+        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); CompactTick(); SaveSession(); });
 
     /// Shows or hides the play controls, which SLIDE and which FLOAT.
     ///
@@ -3173,8 +3192,23 @@ public partial class MainWindow : Window
         var other = e.KeyModifiers & ~KeyModifiers.Control;
         if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift)) return;
 
+        // Compact first. Esc is the way back to the wall, and the keys that only
+        // mean something on the wall - search, go to the playing album - take you
+        // back to it first and then do their job there.
+        if (_compact)
+        {
+            if (e.Key == Key.Escape || (e.Key == Key.M && ctrl)) { ExitCompact(); e.Handled = true; return; }
+            if ((e.Key == Key.F && ctrl) || (e.Key == Key.L && ctrl)
+                || (e.Key == Key.OemQuestion && !ctrl && other == KeyModifiers.None))
+                ExitCompact();
+        }
+
         switch (e.Key)
         {
+            case Key.M when ctrl:
+                ToggleCompact();
+                break;
+
             case Key.Escape:
                 // Out of whatever was last gone into: the search first, then the album.
                 if (_filter.Length > 0 || (typing && !string.IsNullOrEmpty(SearchBox.Text))) SearchBox.Text = "";

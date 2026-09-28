@@ -102,6 +102,13 @@ public sealed class Settings
     /// change someone's setting.
     public string? Chrome { get; set; }
 
+    /// Compact mode: whether the window was left as the now-playing strip, and
+    /// the strip's own size. Kept apart from WindowWidth/Height, which are the
+    /// wall's, so going compact and back never costs the wall its size.
+    public bool? Compact { get; set; }
+    public double? CompactWidth { get; set; }
+    public double? CompactHeight { get; set; }
+
     /// ALBUMWALL_CONFIG_DIR moves the settings somewhere else, for test runs. A
     /// second instance pointed at the real file fights the first over window
     /// geometry and the library path, and whichever closes last wins — so

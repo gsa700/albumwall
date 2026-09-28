@@ -1,0 +1,165 @@
+<!--
+  AlbumWall - the now-playing view: the compact window, and later the kiosk's
+  front panel. Designed at 1480 x 320, the native size of the bar display it was
+  drawn for (Waveshare 11.9", about 144 PPI), and scaled uniformly by whoever
+  shows it (a Viewbox), so it is pixel-exact on the panel and simply smaller or
+  larger anywhere else.
+
+  THE PANEL'S GLASS HAS ROUNDED CORNERS, about 20 px (measured on the panel
+  2026-09-27). Nothing that matters goes in the 24 x 24 square at any corner. A
+  cover running to the edge may be clipped there: he likes how that looks.
+
+  The mockup, with his changes, is the spec:
+  https://claude.ai/artifact/F9MdxL1VavZV6cgLLEbJoJ
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AlbumWall.App.NowPlayingPanel"
+             Width="1480" Height="320">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.np">
+            <Setter Property="Foreground" Value="#F3EEE6"/>
+        </Style>
+        <Style Selector="TextBlock.npmono">
+            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+        </Style>
+        <!-- Round, borderless glyph buttons for the hover controls. -->
+        <Style Selector="Button.np">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="40"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.np:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF"/>
+        </Style>
+        <Style Selector="Button.np:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#55FFFFFF"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Panel x:Name="Root" Background="#0A0A09">
+
+        <!-- ================= NOW PLAYING ================= -->
+        <Grid x:Name="Playing" ColumnDefinitions="320,*">
+            <Panel Grid.Column="0" Width="320" Height="320">
+                <Border x:Name="CoverGround" Background="#1C1915"/>
+                <Image x:Name="Cover" Stretch="UniformToFill"/>
+            </Panel>
+
+            <DockPanel Grid.Column="1" Margin="44,26,44,26">
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="TrackLine" Classes="np" FontSize="20" LetterSpacing="2.8"
+                               Foreground="#9C968C" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" x:Name="FormatLine" Classes="np npmono" FontSize="20"
+                               Foreground="#9C968C" VerticalAlignment="Center"/>
+                </Grid>
+
+                <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
+                    <TextBlock Grid.Column="0" x:Name="Elapsed" Classes="np npmono" FontSize="44"
+                               FontWeight="Medium" Foreground="#E4DED4" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" x:Name="NextLine" Classes="np" FontSize="30" FontWeight="Medium"
+                               Foreground="#9C968C" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" MaxLines="1" Margin="24,0"/>
+                    <TextBlock Grid.Column="2" x:Name="Remaining" Classes="np npmono" FontSize="44"
+                               FontWeight="Medium" Foreground="#E4DED4" VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- The progress line. Pressing it seeks, in a window; the fill is
+                     sized in code as a fraction of the track. -->
+                <Border DockPanel.Dock="Bottom" x:Name="ProgressTrack" Height="6" CornerRadius="3"
+                        Background="#2A2926" Cursor="Hand">
+                    <Border x:Name="ProgressFill" Height="6" CornerRadius="3" Width="0"
+                            HorizontalAlignment="Left" Background="#9CC3EA"/>
+                </Border>
+
+                <StackPanel VerticalAlignment="Center" Margin="0,0,0,10">
+                    <TextBlock x:Name="Title" Classes="np" FontSize="68" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                    <TextBlock x:Name="Subtitle" Classes="np" FontSize="30" FontWeight="Medium"
+                               Foreground="#C9C3B9" Margin="0,10,0,0"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                </StackPanel>
+            </DockPanel>
+        </Grid>
+
+        <!-- ================= STANDBY =================
+             The separator is the exact centre of the panel (his call,
+             2026-09-28): the clock sits against it on the left, the paused card
+             against it on the right. -->
+        <Grid x:Name="Standby" ColumnDefinitions="*,2,*" ColumnSpacing="48" Margin="40,0"
+              IsVisible="False">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock x:Name="ClockText" Classes="np npmono" FontSize="150" Foreground="#8A857C"
+                           VerticalAlignment="Bottom"/>
+                <TextBlock x:Name="ClockSuffix" Classes="np npmono" FontSize="40" Foreground="#6E695F"
+                           LetterSpacing="2.4" Margin="16,0,0,22" VerticalAlignment="Bottom"/>
+            </StackPanel>
+            <Border Grid.Column="1" Width="2" Height="200" Background="#262522"/>
+            <StackPanel Grid.Column="2" x:Name="PausedCard" Orientation="Horizontal" Spacing="30"
+                        HorizontalAlignment="Left" VerticalAlignment="Center">
+                <Image x:Name="PausedCover" Width="184" Height="184" Stretch="UniformToFill" Opacity="0.55"/>
+                <StackPanel VerticalAlignment="Center" Spacing="10" MaxWidth="400">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M 3 2 L 3 14 M 11 2 L 11 14" Stroke="#6E695F" StrokeThickness="3"
+                              StrokeLineCap="Round" Width="14" Height="16" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="PausedAt" Classes="np" FontSize="26" LetterSpacing="3.6"
+                                   Foreground="#6E695F" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="PausedTitle" Classes="np" FontSize="46" FontWeight="SemiBold"
+                               Foreground="#9C968C" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                    <TextBlock x:Name="PausedSubtitle" Classes="np" FontSize="32" FontWeight="Medium"
+                               Foreground="#6E695F" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- ================= HOVER CONTROLS (compact window only) =================
+             Over standby, the pointer WAKES the playing screen, controls and all,
+             and standby comes back when it leaves: the clock is for looking at
+             from across the room, and a hand on the mouse wants the player.
+             The panel has no buttons: on the stereo a remote drives it. A window
+             needs a mouse's way in, so these come up while the pointer is over
+             the view (or for a few seconds after a touch) and are gone
+             otherwise. Everything sits over the cover, the one area that is
+             pure picture, plus the window buttons in the top-right corner of
+             the text area, 24 px in, where the format line fades out for them. -->
+        <Panel x:Name="HoverControls" Opacity="0" IsHitTestVisible="False">
+            <Panel.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18"/>
+                </Transitions>
+            </Panel.Transitions>
+            <Border x:Name="CoverOverlay" Width="320" Height="320" HorizontalAlignment="Left" Background="#99000000">
+                <Panel>
+                    <Button x:Name="ExpandButton" Classes="np" Width="56" Height="56"
+                            HorizontalAlignment="Left" VerticalAlignment="Top" Margin="26,26,0,0"
+                            ToolTip.Tip="Back to the wall (Esc)">
+                        <Path Data="M 1 8 L 1 1 L 8 1 M 22 8 L 22 1 L 15 1 M 1 15 L 1 22 L 8 22 M 22 15 L 22 22 L 15 22"
+                              Stroke="#F3EEE6" StrokeThickness="2.6" StrokeLineCap="Round" StrokeJoin="Round"/>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center"
+                                VerticalAlignment="Center" Margin="0,24,0,0">
+                        <Button x:Name="PrevControl" Classes="np" Width="64" Height="64" ToolTip.Tip="Previous">
+                            <Path Data="M 2 1 L 2 21 M 20 1 L 6 11 L 20 21 Z" Fill="#F3EEE6" Stroke="#F3EEE6"
+                                  StrokeThickness="2.4" StrokeLineCap="Round" StrokeJoin="Round"/>
+                        </Button>
+                        <Button x:Name="PlayControl" Classes="np" Width="84" Height="84" ToolTip.Tip="Play / pause">
+                            <Path x:Name="PlayGlyph" Data="M 3 1 L 25 15 L 3 29 Z" Fill="#F3EEE6" Stroke="#F3EEE6"
+                                  StrokeThickness="2.4" StrokeJoin="Round" StrokeLineCap="Round"/>
+                        </Button>
+                        <Button x:Name="NextControl" Classes="np" Width="64" Height="64" ToolTip.Tip="Next">
+                            <Path Data="M 20 1 L 20 21 M 2 1 L 16 11 L 2 21 Z" Fill="#F3EEE6" Stroke="#F3EEE6"
+                                  StrokeThickness="2.4" StrokeLineCap="Round" StrokeJoin="Round"/>
+                        </Button>
+                    </StackPanel>
+                </Panel>
+            </Border>
+            <StackPanel x:Name="WindowButtonsHost" Orientation="Horizontal" Spacing="10"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,24,44,0"/>
+        </Panel>
+    </Panel>
+</UserControl>

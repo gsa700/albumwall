@@ -25,6 +25,8 @@ public partial class PrefsWindow
             ("Ctrl + F   or   /", "Go to the search box."),
             ("Esc", "Clear the search; or, with nothing searched for, fold the open album."),
             ("Ctrl + L", "Go to the album that is playing, and open it."),
+            ("Ctrl + M", "Compact: the window becomes just what is playing. Again, or Esc, for the wall."),
+            ("F11", "Full screen, and back."),
             ("Ctrl + ,", "Preferences."),
             ("F1", "This page."));
         Note("The arrow keys alone, Page Up, Page Down, Home and End scroll the wall. Tab moves from cover to "

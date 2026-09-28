@@ -545,7 +545,7 @@
          11, where every other window is rounded. -->
     <Border x:Name="Surface" CornerRadius="12" ClipToBounds="True" Background="#14120F">
     <Panel>
-    <DockPanel>
+    <DockPanel x:Name="MainDock">
 
         <!-- 44 tall. It was 60, sized when it also carried the tuning bench, and
              nothing left in it is taller than 27 px. Windows 11 apps that draw
@@ -627,6 +627,17 @@
                     <!-- Full screen, and the way back out of it on a screen with no
                          keyboard: reveal the top bar and press this again. F11 does
                          the same. The glyph swaps between enter and exit. -->
+                    <!-- Compact: the window becomes the now-playing view, the same one
+                         the stereo's front panel shows. His idea, 2026-09-28: "the full
+                         albumwall could compact itself to mimic the little display while
+                         playing ... then a button back to the full wall". The glyph is
+                         the shape the window turns into. -->
+                    <Button x:Name="CompactButton" Classes="chrome" VerticalAlignment="Center"
+                            Padding="8,4" ToolTip.Tip="Compact (Ctrl+M)">
+                        <Path Stretch="Uniform" Width="17" Height="15"
+                              Stroke="#F3EEE6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="M 1 5 L 19 5 L 19 12 L 1 12 Z M 4 8.5 L 7 8.5"/>
+                    </Button>
                     <Button x:Name="FullScreenButton" Classes="chrome" VerticalAlignment="Center"
                             Padding="8,4" ToolTip.Tip="Full screen (F11)">
                         <Path x:Name="FullScreenGlyph" Stretch="Uniform" Width="15" Height="15"
@@ -886,6 +897,15 @@
         </StackPanel>
     </Border>
 
+    <!-- COMPACT. Over everything, and everything under it is switched off rather
+         than squeezed: the wall is not laid out at the compact size at all, so it
+         comes back exactly as it was left. The view is drawn at its design size and
+         scaled to the window; what the scale leaves over is the view's own black. -->
+    <Border x:Name="CompactHost" IsVisible="False" Background="#0A0A09">
+        <Viewbox Stretch="Uniform">
+            <app:NowPlayingPanel x:Name="Compact"/>
+        </Viewbox>
+    </Border>
 
     </Panel>
     </Border>

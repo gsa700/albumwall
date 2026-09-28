@@ -7,6 +7,47 @@ is ahead, the history is for what is behind.
 
 ## Wanted
 
+- **Compact view, and the same view as a hardware front panel.** His idea,
+  2026-09-28, while mocking up a front panel for a stereo component: "what if we
+  do add it to the main app as well as a 'Compact' display option? ... the full
+  albumwall could compact itself to mimic the little display while playing ...
+  then a button back to the full wall, pick a new album, hit it again and your
+  compact again." And the rule over all of it: "a great little player for the
+  stereo and still be awesome as a desktop app at the same time" — the component
+  side must never cost the desktop app anything.
+
+  ONE VIEW, TWO HOMES. It is designed at 1480 x 320, the native size of the
+  Waveshare 11.9" bar panel (HDMI, native portrait 320 x 1480, rotated 90; about
+  144 PPI; the glass has ~20 px rounded corners, so nothing that matters goes in
+  the 24 x 24 px square at any corner), and scales uniformly to whatever size it
+  is shown at. Mockup, with his changes: Design canvas
+  https://claude.ai/artifact/F9MdxL1VavZV6cgLLEbJoJ — now playing (cover flush
+  left, big title, 44 px times), browse strip, open album, standby (clock and
+  "paused at" card either side of a separator at the exact centre), and two meter
+  variants he liked: A, a pair of vintage yellowed analog VU meters with no L/R
+  letters; B, album-tinted ground with 32-segment L/R LED bars.
+
+  Order, each step usable on its own:
+  1. **Compact mode in the desktop app.** A button in the top bar (and a key)
+     shrinks the window to the view; a button in the view goes back to the wall
+     exactly as it was. Now playing and standby, with play controls on hover
+     (the panel itself has none; a remote drives it). Always-on-top is the
+     desktop's business: Wayland gives an app no way to ask.
+  2. **The kiosk front panel.** The same view in a second window, full screen on
+     the bar display; the kiosk's labwc places it by a window rule (on Wayland an
+     app cannot choose its output). Pi5-POE, HDMI-A-2.
+  3. **Meters.** Levels from libmpv's `astats` filter, PROVEN bit-exact before
+     it goes near the kiosk (the dedicated device is the bit-perfect one); a
+     PipeWire monitor tap is the fallback. VU needles simulated with real
+     ballistics (spring and damper, ~300 ms), LED bars with fast attack, slow
+     release and peak hold.
+  4. **Browse strip and open album on the panel**, with the remote. Needs the
+     arrow-key navigation below, and settles its open question: on a remote the
+     arrows must move, so seeking has to go somewhere else.
+  5. **Kiosk finish**: night dimming (the yellow VU faces are the brightest
+     thing on the panel), USB-to-S/PDIF coax output bit-perfect, the remote's
+     buttons (Flirc + the aluminium Apple Remote is the leading pick).
+
 - **Kiosk mode: a bigger, look-ahead cover cache.** His ask, 2026-09-26, after
   the first 4K scroll test on the Pi 5 (Pi5-POE, full FLAC library, 294 albums):
   "pretty good ... a little stutter is expected but really not bad at all. as
