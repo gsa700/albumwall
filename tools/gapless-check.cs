@@ -76,6 +76,15 @@ Option("audio-samplerate", "0");
 Option("vid", "no"); Option("terminal", "no"); Option("idle", "yes");
 Option("ao", "pcm"); Option("ao-pcm-file", wav); Option("ao-pcm-waveheader", "yes");
 Option("audio-format", "s16");
+// GAPLESS_AF puts an audio filter chain in, as the app does: the player adds its
+// level meter (astats) to every chain since 2026-09-28, and "the library is
+// gapless" is not the same claim as "the player is gapless" once it does.
+//   GAPLESS_AF='@vu:lavfi=[astats=metadata=1:reset=1:measure_perchannel=RMS_level:measure_overall=none]'
+if (Environment.GetEnvironmentVariable("GAPLESS_AF") is { Length: > 0 } af)
+{
+    Option("af", af);
+    Console.WriteLine($"  with filters: {af}");
+}
 
 if (initialize(ctx) < 0) { Console.Error.WriteLine("mpv would not initialize"); return 2; }
 Console.WriteLine($"{Marshal.PtrToStringUTF8(getString(ctx, "mpv-version"))}, ffmpeg {Marshal.PtrToStringUTF8(getString(ctx, "ffmpeg-version"))}");
