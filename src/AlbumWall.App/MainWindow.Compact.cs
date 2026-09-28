@@ -32,11 +32,13 @@ public partial class MainWindow
 
     /// The first compact size, as a SHARE OF THE SCREEN, in the panel's shape.
     /// On his 6K (3072 wide in desktop units) 740 was "a little small", 1480 too
-    /// big, and "halfway between", 1110, ideal: 36% of the width. A fixed 1110
-    /// would have been more than half a 1080p screen ("thats pretty big on a
-    /// 1080p screen, maybe we should make it a ratio", 2026-09-28). Bounded so a
-    /// tiny screen still gets a readable strip and a huge one not a banner.
-    private const double CompactShareOfWidth = 0.36;
+    /// big, and "halfway between", 1110, first chosen: 36% of the width. A fixed
+    /// 1110 would have been more than half a 1080p screen ("thats pretty big on a
+    /// 1080p screen, maybe we should make it a ratio", 2026-09-28). Then, living
+    /// with 36%: "too big. can we reduce the percent by 25% or so" - 27%, about
+    /// 829 x 179 on his. Bounded so a tiny screen still gets a readable strip
+    /// and a huge one not a banner.
+    private const double CompactShareOfWidth = 0.27;
     private const double CompactMinWidth = 600;
     private const double CompactMaxWidth = 1480;
     private const double CompactFallbackWidth = 1110;       // screen unknown
