@@ -93,6 +93,7 @@ for rid in "${RIDS[@]}"; do
     rm -rf "$ROOT/native/$rid"; mkdir -p "$ROOT/native/$rid"
     python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$zip" "$ROOT/native/$rid"
     chmod 755 "$ROOT"/native/"$rid"/libmpv* 2>/dev/null || true
+    printf '%s\n' "$LIBMPV" > "$ROOT/native/$rid/libmpv-source.txt"     # the stamp the build checks
     echo "   native/$rid <- $(head -1 "$ROOT/native/$rid/libmpv-build-info.txt")"
 done
 fi

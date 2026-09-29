@@ -115,4 +115,22 @@
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- A STALE ENGINE WARNS. native/<rid>/libmpv-source.txt names the libmpv-*
+       release the library came from (get-libmpv.ps1 and scripts/release.sh write
+       it; build-libmpv/build.sh writes "local build"). When it names a different
+       release than scripts/LIBMPV_RELEASE, the build says so. Found on Hambench,
+       2026-09-28: the pin had moved to libmpv-0.41.0-4 while native/win-x64 still
+       held -3, which has no astats, and the app did what it should without it -
+       hid the meters - so nothing said anything was wrong. A warning, not an
+       error: an old engine still plays. Releases are not affected; release.sh
+       fetches the engine by the pin. -->
+  <Target Name="CheckLibmpvPin" BeforeTargets="Build"
+          Condition="Exists('$(NativeDir)/libmpv-source.txt') and Exists('$(MSBuildProjectDirectory)/../../scripts/LIBMPV_RELEASE')">
+    <PropertyGroup>
+      <_LibmpvPin>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/../../scripts/LIBMPV_RELEASE').Trim())</_LibmpvPin>
+      <_LibmpvHave>$([System.IO.File]::ReadAllText('$(NativeDir)/libmpv-source.txt').Trim())</_LibmpvHave>
+    </PropertyGroup>
+    <Warning Condition="$(_LibmpvHave.StartsWith('libmpv-')) and '$(_LibmpvHave)' != '$(_LibmpvPin)'"
+             Text="native/$(NativeRid) holds $(_LibmpvHave) but scripts/LIBMPV_RELEASE says $(_LibmpvPin). Fetch the pinned engine (Windows: scripts/get-libmpv.ps1 -Force) or the build plays through the old one." />
+  </Target>
 </Project>

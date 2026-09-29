@@ -63,6 +63,10 @@ mkdir -p "$OUT"
     "docker.io/library/$IMAGE" \
     bash /work/inner.sh "$TARGET"
 
+# A library built here is not any libmpv-* release, whatever the pin says; the
+# stamp says so, and the project's stale-engine check leaves it alone.
+printf 'local build %s\n' "$(date +%F)" > "$OUT/libmpv-source.txt"
+
 echo
 echo "Built into: $OUT"
 cat "$OUT/libmpv-build-info.txt"
