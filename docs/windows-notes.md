@@ -632,12 +632,106 @@ Media keys can be tested without touching the keyboard: PowerShell can ask
 read back the title, artist and thumbnail Windows holds for it, and call
 `TrySkipNextAsync()` / `TryPauseAsync()` — the same path a key press takes.
 
+## 2026-09-25 — two libraries on Hambench, and the index forgot one
+
+David added the Techbench FLAC backup on the NAS as a second library
+(`\\NASBOX\NAS_data\Techbench\Music`, 294 albums) beside `~\Music` (1,034):
+"I cannot tell the files aren't local." First scan of the share: 54 s, 3,563
+files opened; after that it opens in about a second, like the local one, and
+FLAC from the share plays gapless track to track.
+
+**The index forgot the other library.** That first NAS scan logged
+`saved 4143 changed, 15556 gone`: every row of `~\Music`. The index is one
+file for every library and a complete scan dropped whatever it had not seen.
+Fixed in the commit "A scan of one library no longer forgets the others": a
+scan prunes only under the folder it walked. Proven live afterwards: the one
+rebuild of Music took 156 s (15,531 files, `0 gone`), and switching back to
+NAS Music took 1.4 s with no file opened.
+
+The layout of his own music was settled the same day and is in the roadmap
+("Libraries that are not always there"): Techbench is the first copy, its
+backup went to a folder of its own on the NAS (now `\\NASBOX\NAS_data\MusicFLAC`),
+and Hambench reads that directly.
+
+## 2026-09-28 — 0.2.0 on Hambench
+
+A test kit from the release session (`AlbumWall-win-x64.zip` built from
+58b27a7, `SHA256SUMS`, and `gapless-check.cs` with `libmpv-2.dll` from
+`libmpv-0.41.0-4`). The zip matched its sum.
+
+| Check | Result |
+|---|---|
+| gapless, `libmpv-0.41.0-4`, three iTunes AAC tracks (Amy Winehouse, iTunes Festival London 2007) from the NAS | PASS: 26,440,602 samples, within 6 of the files; the count the kit expected from Linux |
+| the same with the player's meter filter in the chain (`GAPLESS_AF`, astats) | PASS, identical count: the meters cost gapless nothing |
+| install over his installed copy | clean; settings carried over (backed up first); 0.2.0 in the log |
+| a library whose folder is gone (the old `Techbench\Music`, removed by the move) | "cannot be reached", retried every 30 s, index kept all 19,094 rows: absent, not deleted, on the first launch that could show it |
+| library picker on that screen | **could not be clicked** - fixed, below |
+| repointing that library to `MusicFLAC` | one scan, then 0.7 s with no file opened |
+| VU meters | there, once the build had the right engine - see "the stale DLL" |
+| close while compact, reopen | came back compact, meters present |
+| Rescan (new button), its Stop state and progress bar | good, by his eye |
+| Preferences at the height of its tallest tab | Help fits, no scrolling, by his eye |
+| compact's hover controls; wall and strip each keeping their own position | not yet reported |
+
+### The "cannot be reached" screen swallowed every click
+
+With the NAS library unreachable the wall showed its explanation, and the
+library picker in the bottom bar - the one way to a library that WAS there -
+did nothing. `EmptyState` covers the whole window and had
+`Background="Transparent"`, which is hit-testable, so it took every click
+meant for the bars around it: picker, search box, Preferences, the play
+controls, the window's own buttons. Not new in 0.2.0: the first-run "No music
+here yet" screen is the same overlay, so a new user with an empty Music folder
+could not reach Preferences or close the window with the mouse. No background
+now. Fixed in "The 'cannot be reached' screen no longer swallows every click".
+
+**New in the trigger rig: `hit <control name>`** says what a click on that
+control's centre would land on, REACHABLE or BLOCKED and by what. `libraries`
+opens the picker from code and so could never have seen this; before the fix
+`hit LibraryLink` said `Border EmptyState -> BLOCKED`.
+
+### The stale DLL: the meters were missing from my own builds
+
+The 0.2.0 kit had the meters; the two builds I then published here did not.
+The history had been rewritten (below) and I had pulled it, but
+`scripts/LIBMPV_RELEASE` had moved to `libmpv-0.41.0-4` while
+`native/win-x64/` still held `-3`, which has no astats. The app does the right
+thing without it - hides the meters - so nothing said anything was wrong.
+`get-libmpv.ps1` fetched `-4` (SHA-256 matched, and it is byte-identical to the
+kit's) and the log said `[mpv] level meters: astats in the chain` again.
+
+**After every pull, compare `scripts/LIBMPV_RELEASE` with
+`native/win-x64/libmpv-source.txt` and run `get-libmpv.ps1` if they differ.**
+Worth making the build refuse a mismatched DLL (Techbench's call).
+
+### The repository went public and its history was rewritten
+
+Done on Techbench for the first public release: every commit has a new id and
+the noreply author address. The Hambench clone was clean and every one of its
+commits had an equivalent upstream, so it was moved across with
+`git branch pre-rewrite-2026-09-28 master; git reset --hard origin/master`.
+That branch is local, kept only for reference, and must never be pushed.
+
+### Changed the same evening, from what he saw
+
+- Compact mode takes the playing album's color (`Palette.Panel`, the ground
+  an album opened on the wall gets); standby stays black, the front panel
+  will pass no color and stay black.
+- Rescan moved from its own section ("Read everything again", two paragraphs)
+  to a button on the row of the library on the wall; its explanation is the
+  tooltip. "Show" on the other rows is "Switch to".
+- Preferences is as tall as its tallest tab, measured as it opens (729 in a
+  scratch copy, was a fixed 700), and grows if the open tab's content does.
+- README: the compact-mode bullet points at the Wayland window-position note.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched
 to try a change should set it, together with `ALBUMWALL_SNAP`, and seed the
-directory with a `settings.json` whose `LibraryPath` points at a scratch
-library — a second instance on the real settings fights the first over window
+directory with a `settings.json` whose `Libraries` list points at a scratch
+library (`{ "Id": "...", "Name": "...", "Kind": "folder", "Path": "..." }`,
+plus `"CurrentLibrary"` naming it; the old single `LibraryPath` still works
+and is migrated) — a second instance on the real settings fights the first over window
 geometry and whichever closes last wins.
 
 A scratch library does not need real music: a 844-byte silent WAV tagged with

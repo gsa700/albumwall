@@ -16,8 +16,8 @@ It has been running daily on Fedora for two days and is in good shape there.
 
 ## Git on that machine
 
-**The repository is PRIVATE**, so a plain clone will fail before anything else
-happens. Authenticate first:
+**The repository is public since 2026-09-28**, so a plain
+`git clone https://github.com/gsa700/albumwall.git` works. To push, sign in:
 
 ```powershell
 winget install GitHub.cli        # if gh is not there already
@@ -26,8 +26,8 @@ gh repo clone gsa700/albumwall
 ```
 
 `gh` then acts as the credential helper and pushes work without further
-prompting. If the box already has git credentials for that account, a normal
-`git clone https://github.com/gsa700/albumwall.git` is fine.
+prompting. If the box already has git credentials for that account, those are
+fine too.
 
 Identity, so the history stays consistent with the commits already there:
 
@@ -45,6 +45,14 @@ and commits to the same branch, so both ends move. **Never force-push and never
 rewrite history**: the other machine may already have those commits, and there
 is no recovering someone else's work from a rewritten remote.
 
+The history WAS rewritten once, deliberately, for going public (2026-09-28).
+A clone from before that shows `ahead N, behind M` with every commit
+different. If it is clean and nothing in it is missing upstream
+(`git log --cherry-pick --left-only master...origin/master` lists only
+commits whose subjects exist upstream), keep the old history on a local
+branch and move across: `git branch pre-rewrite-2026-09-28 master`,
+`git reset --hard origin/master`. Never push that branch.
+
 Push as you go rather than in one lump at the end. If the Windows session ends
 badly, whatever is pushed is what survives.
 
@@ -60,12 +68,16 @@ dotnet run --project src\AlbumWall.App
 restore. If the box has 8 or 9, that is the first thing to fix:
 `winget install Microsoft.DotNet.SDK.10`.
 
-**`get-libmpv.ps1` needs the GitHub CLI, signed in**, for as long as this
-repository is private: since 2026-09-20 it fetches OUR libmpv from the pinned
-`libmpv-*` release here, checks it against the release's `SHA256SUMS`, and
-leaves a `libmpv-source.txt` beside it saying which one it is.
-`winget install GitHub.cli`, then `gh auth login`, if it complains. Once the
-repository is public it falls back to the plain URL by itself. The DLL lands in
+**`get-libmpv.ps1`** fetches OUR libmpv from the release named in
+`scripts/LIBMPV_RELEASE`, checks it against the release's `SHA256SUMS`, and
+leaves a `libmpv-source.txt` beside it saying which one it is. It uses the
+GitHub CLI when it is there and the plain URL otherwise.
+
+**Run it again whenever `scripts/LIBMPV_RELEASE` changes** - compare it with
+`native/win-x64/libmpv-source.txt` after every pull. A build with the old DLL
+still builds and plays, and silently loses whatever the new engine was for:
+on 2026-09-28 that was the VU meters, which need astats (`-4`) and hide
+themselves without it. The DLL lands in
 `native/win-x64/` (git-ignored) and the project copies it beside the exe.
 
 `-Upstream` fetches the official full build from SourceForge instead — the
