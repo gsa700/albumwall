@@ -136,7 +136,13 @@ is ahead, the history is for what is behind.
      **THE FIRST PUBLIC RELEASE MUST BUMP `<Version>`**: every test build so far
      reports 0.1.0, and nobody is offered the version they already have.
      Releases must carry `SHA256SUMS`; the updater refuses one that does not.
-     Not run on Linux.
+     **Run on Linux for real on 2026-09-28**, the evening 0.2.0 went public:
+     Techbench's installed 0.1.0 found v0.2.0, downloaded
+     `AlbumWall-linux-x64.zip`, matched it against `SHA256SUMS`, swapped its own
+     program once it had exited, removed the old unpacked copy, and came back
+     as 0.2.0 about 2 s after the button, settings (including `"Backend": "x11"`)
+     kept. His words: "albumwall found an update, downloaded and installed it
+     and restarted".
 
   **A release does not go out without these two, and they are paperwork, not
   engineering.** We distribute other people's GPL and LGPL code inside the
