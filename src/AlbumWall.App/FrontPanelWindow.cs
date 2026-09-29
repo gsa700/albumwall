@@ -11,6 +11,9 @@
 // window by its TITLE (FrontPanelWindow.WindowTitle), moves it to the panel's
 // output and makes it full screen. Keep the title and that rule in step.
 //
+// BY TITLE ONLY, not identifier="albumwall": the app_id is set after the window
+// appears, and rules are applied when it appears.
+//
 // IT IS A DISPLAY. No controls, no window buttons, never takes the keyboard (the
 // wall keeps it, and with it the remote's keys). The view is drawn at its design
 // size and scaled to the window; on the panel that is exactly 1:1.
@@ -49,5 +52,11 @@ public sealed class FrontPanelWindow : Window
         // so a tinted view never sits in a black frame.
         View.GroundChanged += ground => { host.Background = ground; Background = ground; };
         Content = host;
+
+        // Its Wayland app_id, as the main window claims its own. It had none, and the kiosk's
+        // window rule then matched on identifier="albumwall" never saw it (2026-09-28: the panel
+        // landed wherever the pointer was). The kiosk rules now match by TITLE alone, which does
+        // not wait for this; the app_id is still right to have.
+        Opened += (_, _) => WaylandShell.ClaimIdentity(this);
     }
 }
