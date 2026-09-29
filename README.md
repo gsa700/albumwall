@@ -65,7 +65,7 @@ could play music.
 - The play controls slide in when something is loaded and leave when the record
   ends. They sit above the bottom bar, or under the title bar if you prefer.
 
-<p>
+<p align="center">
   <img src="docs/screenshots/statistics.webp" width="40%" alt="Preferences: Statistics">
   <img src="docs/screenshots/appearance.webp" width="40%" alt="Preferences: Appearance, where the window's color comes from">
 </p>
