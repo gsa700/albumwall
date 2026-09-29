@@ -15,7 +15,7 @@ Early, and built for one person's library first. It works, on Linux and on
 Windows, and it has been its author's daily player on both since the day it
 could play music.
 
-<p>
+<p align="center">
   <img src="docs/screenshots/wall.webp" width="49%" alt="The wall: nothing but covers">
   <img src="docs/screenshots/dark-side.webp" width="49%" alt="The Dark Side of the Moon open, the panel tinted by its sleeve">
 </p>
