@@ -72,6 +72,9 @@ public partial class MainWindow
         Compact.TitleSize = CompactTitleSize;
 
         Compact.ExpandRequested += ExitCompact;
+        // The bars a window of another shape leaves around the view go the
+        // view's color, or a tinted panel sits in a black frame.
+        Compact.GroundChanged += ground => CompactHost.Background = ground;
         Compact.PlayPauseRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.TogglePause(); };
         Compact.NextRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.Next(); };
         Compact.PreviousRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.Previous(); };
@@ -362,7 +365,13 @@ public partial class MainWindow
             Album: vm.Title,
             Year: album.Year,
             Accent: Palette.For(album).Light,
-            IsPlaying: playing);
+            IsPlaying: playing,
+            // The same ground an album opened on the wall is tinted with, so the
+            // compact window is that record's color rather than a black box
+            // ("can we color the mini player window from the album art like we
+            // do in the main view?", 2026-09-28). The front panel will pass
+            // none and stay black; that is for a room, this is for a desk.
+            Ground: Palette.For(album).Panel);
     }
 
     private string TrackTitle(string path) =>

@@ -71,7 +71,7 @@
                 <!-- The progress line. Pressing it seeks, in a window; the fill is
                      sized in code as a fraction of the track. -->
                 <Border DockPanel.Dock="Bottom" x:Name="ProgressTrack" Height="6" CornerRadius="3"
-                        Background="#2A2926" Cursor="Hand">
+                        Background="#24FFFFFF" Cursor="Hand">
                     <Border x:Name="ProgressFill" Height="6" CornerRadius="3" Width="0"
                             HorizontalAlignment="Left" Background="#9CC3EA"/>
                 </Border>

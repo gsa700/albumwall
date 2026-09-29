@@ -14,6 +14,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 namespace AlbumWall.App;
@@ -29,6 +30,10 @@ public partial class NowPlayingPanel : UserControl
     public event Action<double>? SeekRequested;
     /// A press on the view's own background, which in a window means "move me".
     public event Action<PointerPressedEventArgs>? BackgroundPressed;
+
+    /// The view's ground has changed: whoever shows it at a size that leaves
+    /// bars around it fills them to match.
+    public event Action<IBrush>? GroundChanged;
 
     /// Whether the hover controls exist at all. On for the compact window, off
     /// for the front panel, where a remote does the driving.
@@ -47,9 +52,16 @@ public partial class NowPlayingPanel : UserControl
     /// is the desktop's decision (see WindowButtons.Layout), not this view's.
     public Panel WindowButtons => WindowButtonsHost;
 
+    // Standby is black whatever is paused: it is a clock to be read from across
+    // a room, and the dark is what lets it be. The playing screen is near-black
+    // unless it is given the album's own ground (NowPlaying.Ground).
+    private static readonly IBrush Black = new ImmutableSolidColorBrush(Color.Parse("#000000"));
+    private static readonly IBrush Night = new ImmutableSolidColorBrush(Color.Parse("#0A0A09"));
+
     private readonly DispatcherTimer _clock;
     private bool _standbyWanted;
     private bool _hasPlaying;
+    private IBrush? _ground;
     private bool _hover;
     private DispatcherTimer? _touchLinger;
     private TimeSpan _duration;
@@ -110,7 +122,12 @@ public partial class NowPlayingPanel : UserControl
         Standby.IsVisible = standby;
         Playing.IsVisible = !standby;
         CoverOverlay.IsVisible = !standby;
-        Root.Background = Brush.Parse(standby ? "#000000" : "#0A0A09");
+        var ground = standby ? Black : _ground ?? Night;
+        if (!ReferenceEquals(ground, Root.Background))
+        {
+            Root.Background = ground;
+            GroundChanged?.Invoke(ground);
+        }
         if (standby) { UpdateClock(); _clock.Start(); } else _clock.Stop();
     }
 
@@ -136,6 +153,7 @@ public partial class NowPlayingPanel : UserControl
 
         Cover.Source = np.Cover;
         CoverGround.Background = np.Accent;
+        _ground = np.Ground;
         TrackLine.Text = np.TrackLine.ToUpperInvariant();
         FormatLine.Text = np.Format;
         Title.Text = np.Title;
@@ -239,4 +257,5 @@ public sealed record NowPlaying(
     string Album,
     int Year,
     IBrush Accent,          // the playing album's light tone
-    bool IsPlaying);
+    bool IsPlaying,
+    IBrush? Ground = null); // the album's own ground; null is the panel's near-black
