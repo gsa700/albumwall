@@ -145,6 +145,7 @@ public partial class MainWindow : Window
         FollowInputKind();
         SetUpFullScreenReveal();
         SetUpCompact();
+        if (Program.FrontPanel) Opened += (_, _) => OpenFrontPanel();
         // Closed compact, opens compact: after the wall's own geometry is restored,
         // so leaving compact later has a wall size to go back to.
         Opened += async (_, _) =>
@@ -2416,6 +2417,19 @@ public partial class MainWindow : Window
                 shot.Render(prefs);
                 shot.Save(Path.ChangeExtension(trigger, null) + ".prefs.png");
                 Console.WriteLine($"[wall] snapshot of preferences {pw}x{ph} at {prefs.Position}");
+            }
+
+            // And the front panel, a window of its own (--front-panel).
+            if (_frontPanel is { } panel)
+            {
+                var fw = (int)Math.Ceiling(panel.ClientSize.Width * panel.RenderScaling);
+                var fh = (int)Math.Ceiling(panel.ClientSize.Height * panel.RenderScaling);
+                var fdpi = 96 * panel.RenderScaling;
+                using var shot = new Avalonia.Media.Imaging.RenderTargetBitmap(
+                    new PixelSize(fw, fh), new Vector(fdpi, fdpi));
+                shot.Render(panel);
+                shot.Save(Path.ChangeExtension(trigger, null) + ".frontpanel.png");
+                Console.WriteLine($"[wall] snapshot of the front panel {fw}x{fh}");
             }
 
             // And "What's inside", which hangs off the About tab.

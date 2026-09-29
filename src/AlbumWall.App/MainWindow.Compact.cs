@@ -32,7 +32,34 @@ public partial class MainWindow
     private WindowState _beforeCompact = WindowState.Normal;
     private long _compactSince;
     private DateTime? _pausedSince;
-    private string _compactShown = "";
+    /// What each live view was last given, so an unchanged screen is not rebuilt.
+    private readonly Dictionary<NowPlayingPanel, string> _shown = new();
+
+    /// The kiosk's second window, when --front-panel asked for one.
+    private FrontPanelWindow? _frontPanel;
+
+    /// Every now-playing view on screen right now: the compact strip while the
+    /// window is compact, and the front panel if there is one. Both are fed from
+    /// the same place, so they can never disagree.
+    private IEnumerable<NowPlayingPanel> LiveViews()
+    {
+        if (_compact) yield return Compact;
+        if (_frontPanel is { } panel) yield return panel.View;
+    }
+
+    /// Opens the front panel (Program.FrontPanel: the kiosk's launcher asks for it).
+    /// The compositor, not the app, puts it on the panel's screen; see
+    /// FrontPanelWindow.
+    private void OpenFrontPanel()
+    {
+        if (_frontPanel is not null) return;
+        _frontPanel = new FrontPanelWindow();
+        _frontPanel.Show();
+        Closing += (_, _) => _frontPanel?.Close();
+        StartMeters();
+        CompactTick();
+        Console.WriteLine($"[front-panel] open (\"{FrontPanelWindow.WindowTitle}\"; the compositor places it)");
+    }
 
     /// The first compact size, as a SHARE OF THE SCREEN, in the panel's shape.
     /// On his 6K (3072 wide in desktop units) 740 was "a little small", 1480 too
@@ -130,7 +157,7 @@ public partial class MainWindow
         if (_compact) return;
         _compact = true;
         _compactSince = Environment.TickCount64;
-        _compactShown = "";
+        _shown.Remove(Compact);
 
         _beforeCompact = WindowState == WindowState.FullScreen ? _beforeFullScreen : WindowState;
         if (_beforeCompact != WindowState.Maximized) _beforeCompact = WindowState.Normal;
@@ -211,8 +238,7 @@ public partial class MainWindow
         _compact = false;
         _compactLeft = Environment.TickCount64;
 
-        _meterTimer?.Stop();
-        _meterTimer = null;
+        if (_frontPanel is null) { _meterTimer?.Stop(); _meterTimer = null; }    // the panel still needs them
         _aspectSnap?.Stop();
         CompactHost.IsVisible = false;
         MainDock.IsVisible = true;
@@ -282,14 +308,15 @@ public partial class MainWindow
     /// player at 1.01 s), and a decision taken then hid the meters all session.
     private void StartMeters()
     {
+        if (_meterTimer is not null) return;        // one reading, every live view
         _levels.Clear();
-        _meterTimer?.Stop();
         _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _meterTimer.Tick += (_, _) =>
         {
-            if (!_compact) return;
+            var views = LiveViews().ToList();
+            if (views.Count == 0) return;
             var metering = _player?.Metering == true;
-            if (Compact.ShowMeters != metering) Compact.ShowMeters = metering;
+            foreach (var v in views) if (v.ShowMeters != metering) v.ShowMeters = metering;
             if (!metering || _player is null) return;
             var now = Environment.TickCount64;
             var (l, r) = _player.IsPlaying ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
@@ -299,7 +326,7 @@ public partial class MainWindow
             while (_levels.Count > 0 && now - _levels.Peek().At >= MeterDelay.TotalMilliseconds)
                 due = _levels.Dequeue();
             if (_player.IsPlaying && _levels.Count > 0 && now - due.At < MeterDelay.TotalMilliseconds) return;
-            Compact.SetLevels(due.L, due.R);
+            foreach (var v in views) v.SetLevels(due.L, due.R);
         };
         _meterTimer.Start();
     }
@@ -308,7 +335,8 @@ public partial class MainWindow
     /// when what should be on screen has changed.
     private void CompactTick()
     {
-        if (!_compact) return;
+        var views = LiveViews().ToList();
+        if (views.Count == 0) return;
 
         var playing = _player?.IsPlaying == true;
         if (playing) _pausedSince = null;
@@ -321,22 +349,24 @@ public partial class MainWindow
         // art has been decoded, and it has to be shown when it arrives.
         var key = hasTrack ? $"{_playingPaths[i]}|{playing}|{standby}|{_playingAlbum!.Cover is not null}" : "none";
 
-        if (key != _compactShown)
+        foreach (var view in views)
         {
-            _compactShown = key;
-            if (!hasTrack) Compact.ShowStandby(null, null, null, TimeSpan.Zero);
-            else
+            if (!_shown.TryGetValue(view, out var shown) || shown != key)
             {
-                // The playing screen is kept current under standby too: a pointer
-                // over the view wakes it.
-                Compact.ShowPlaying(NowPlayingInfo(i, playing));
-                if (standby)
-                    Compact.ShowStandby(_playingAlbum!.Cover, TrackTitle(_playingPaths[i]),
-                                        $"{_playingAlbum.Artist}  \u00b7  {_playingAlbum.Title}", _player!.Position);
+                _shown[view] = key;
+                if (!hasTrack) view.ShowStandby(null, null, null, TimeSpan.Zero);
+                else
+                {
+                    // The playing screen is kept current under standby too: a pointer
+                    // over the view wakes it.
+                    view.ShowPlaying(NowPlayingInfo(i, playing));
+                    if (standby)
+                        view.ShowStandby(_playingAlbum!.Cover, TrackTitle(_playingPaths[i]),
+                                         $"{_playingAlbum.Artist}  \u00b7  {_playingAlbum.Title}", _player!.Position);
+                }
             }
+            if (hasTrack) view.SetPosition(_player!.Position, _player.Duration);
         }
-
-        if (hasTrack) Compact.SetPosition(_player!.Position, _player.Duration);
     }
 
     private NowPlaying NowPlayingInfo(int i, bool playing)

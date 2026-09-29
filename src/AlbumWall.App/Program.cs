@@ -11,10 +11,16 @@ class Program
     /// Set when this run exists only to uninstall: ask, act, and go.
     public static bool PendingUninstall { get; private set; }
 
+    /// <c>--front-panel</c>: open the now-playing view in a second window, for a
+    /// dedicated player's second screen (see FrontPanelWindow). Only a kiosk's
+    /// launcher passes it; the desktop app never opens that window.
+    public static bool FrontPanel { get; private set; }
+
     [STAThread]
     public static void Main(string[] args)
     {
         LogFile.Start();
+        FrontPanel = args.Any(a => a.Equals("--front-panel", StringComparison.OrdinalIgnoreCase));
 
         // --install and --uninstall, the family's switches. Handled here, before
         // Avalonia, because the quiet forms must work with no display at all: a
