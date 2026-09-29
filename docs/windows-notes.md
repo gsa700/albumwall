@@ -671,7 +671,8 @@ A test kit from the release session (`AlbumWall-win-x64.zip` built from
 | close while compact, reopen | came back compact, meters present |
 | Rescan (new button), its Stop state and progress bar | good, by his eye |
 | Preferences at the height of its tallest tab | Help fits, no scrolling, by his eye |
-| compact's hover controls; wall and strip each keeping their own position | not yet reported |
+| compact's hover controls | work, by his eye |
+| the wall and the compact strip each keeping their own position | they stick, by his eye |
 
 ### The "cannot be reached" screen swallowed every click
 
