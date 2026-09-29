@@ -514,6 +514,12 @@ public partial class MainWindow : Window
         // click it is on whichever cover was clicked, and a bubbling handler would
         // only ever hear what that button did not want.
         AddHandler(KeyDownEvent, OnShortcutKey, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, (_, e) =>
+        {
+            if (e.Key != Key.Space) return;
+            _spaceHeld = false;
+            _spaceUpAt = Environment.TickCount64;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
         ScanLibrary();
 
         // The shell wants a media player on the bus whether or not anything is
@@ -2283,6 +2289,27 @@ public partial class MainWindow : Window
             if (!Enum.TryParse<Key>(name, true, out var key)) { Console.WriteLine($"[key] no such key: {parts[^1]}"); return; }
             var target = (FocusManager?.GetFocusedElement() as Interactive) ?? this;
             target.RaiseEvent(new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = key, KeyModifiers = mods, Source = target });
+            // And the release, as a real keypress has one: a press with no release
+            // is a HELD key, which Space now treats differently.
+            target.RaiseEvent(new KeyEventArgs { RoutedEvent = KeyUpEvent, Key = key, KeyModifiers = mods, Source = target });
+            return;
+        }
+
+        // "keyrepeat space 12": a key HELD, as X11 delivers it - one press, then a
+        // release and a press for every repeat, then the release. Space must toggle
+        // once for all of it.
+        if (text.StartsWith("keyrepeat ", StringComparison.OrdinalIgnoreCase)
+            && text[10..].Trim().Split(' ') is [var kn, var rn]
+            && Enum.TryParse<Key>(kn, true, out var rkey) && int.TryParse(rn, out var repeats))
+        {
+            var target = (FocusManager?.GetFocusedElement() as Interactive) ?? this;
+            var before = _player?.IsPlaying;
+            void Raise(RoutedEvent ev) => target.RaiseEvent(new KeyEventArgs { RoutedEvent = ev, Key = rkey, Source = target });
+            Raise(KeyDownEvent);
+            for (var i = 0; i < repeats; i++) { Raise(KeyUpEvent); Raise(KeyDownEvent); }
+            Raise(KeyUpEvent);
+            DispatcherTimer.RunOnce(() => Console.WriteLine(
+                $"[key] {rkey} held through {repeats} repeats: playing {before} -> {_player?.IsPlaying}"), TimeSpan.FromMilliseconds(400));
             return;
         }
         if (text.Equals("prefs appearance", StringComparison.OrdinalIgnoreCase)
@@ -3323,6 +3350,15 @@ public partial class MainWindow : Window
                 break;
 
             case Key.Space when !ctrl && !typing:
+                // ONE toggle per press, not per repeat. A held key repeats, and
+                // every repeat toggled: "it only plays while I hold SPACE down, then
+                // it rapidly cycles between states" (2026-09-28, compact, X11). X11
+                // sends a repeat as a release AND a press, so "still held" is not
+                // enough on its own: a press within SpaceRepeatMs of a release is
+                // that pair, not a new press. Avalonia 12 does not say which it is.
+                var repeat = _spaceHeld || Environment.TickCount64 - _spaceUpAt < SpaceRepeatMs;
+                _spaceHeld = true;
+                if (repeat) { e.Handled = true; return; }
                 if (_player is null || !_mprisState.HasTrack) return;
                 _player.TogglePause();
                 break;
@@ -3366,6 +3402,11 @@ public partial class MainWindow : Window
     }
 
     private const int SeekStep = 10;        // seconds
+
+    /// Space: held down, and when it last came up. See the Space case above.
+    private bool _spaceHeld;
+    private long _spaceUpAt;
+    private const long SpaceRepeatMs = 50;
     private const int VolumeStep = 5;       // of 100
 
     /// Takes the wall to the album that is playing, and opens it.
