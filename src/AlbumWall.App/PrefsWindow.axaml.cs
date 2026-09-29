@@ -146,9 +146,74 @@ public partial class PrefsWindow : Window
         };
 
         Fill();
+        Opened += (_, _) => FitToTallestTab();
     }
 
     public void Select(Tab tab) => Tabs.SelectedIndex = (int)tab;
+
+    /// ONE HEIGHT FOR EVERY TAB, the tallest one's, worked out as the window
+    /// opens: "the Help page is scrolling. Can we have the window auto size
+    /// length to the longest content automagically?" (2026-09-28). It was a
+    /// fixed 700, chosen by eye for tabs that have grown since, and Help and
+    /// Statistics depend on what is in them - the library's formats, the keys.
+    ///
+    /// Still one size for all of them, so nothing jumps between tabs. Only a
+    /// screen too short for the tallest tab leaves anything to scroll.
+    ///
+    /// Only the selected tab is in the visual tree, and a control outside it has
+    /// no styles or templates to measure with, so each tab is selected in turn
+    /// and its content host measured with unlimited height. All of it happens
+    /// inside one dispatcher job, and the renderer only ever sees the tab that
+    /// was selected before. Done once, as it opens: doing it again while it is
+    /// in use would take the focus out of whatever box he was typing in.
+    private void FitToTallestTab()
+    {
+        var selected = Tabs.SelectedIndex;
+        double tallest = 0, chrome = -1;
+        var tabs = Tabs.Items.OfType<TabItem>().ToList();
+        for (var i = 0; i < tabs.Count; i++)
+        {
+            Tabs.SelectedIndex = i;
+            UpdateLayout();
+            if (tabs[i].Content is not Control content || Avalonia.VisualTree.VisualExtensions.GetVisualParent(content) is not Control host)
+                continue;
+            if (chrome < 0) chrome = ClientSize.Height - host.Bounds.Height;
+            host.Measure(new Size(host.Bounds.Width, double.PositiveInfinity));
+            tallest = Math.Max(tallest, host.DesiredSize.Height);
+            host.InvalidateMeasure();
+        }
+        Tabs.SelectedIndex = selected;
+        if (chrome < 0 || tallest <= 0) return;
+
+        var want = Math.Ceiling(tallest + chrome);
+        if (Screens.ScreenFromWindow(this) is { } screen)
+            want = Math.Min(want, screen.WorkingArea.Height / screen.Scaling - 48);
+        Console.WriteLine($"[prefs] tallest tab {tallest:0} + {chrome:0} around it -> {want:0} high (was {Height:0})");
+        Height = want;
+        UpdateLayout();
+    }
+
+    /// What is in a tab can grow while the window is open - update notes on
+    /// About, a scan's progress under the library list - and a tab that is not
+    /// a scroller would be cut off at the foot. So after anything is filled in,
+    /// the tab on screen is measured again and the window GROWS if it must.
+    /// Never shrinks (a window jumping smaller as a line disappears is worse
+    /// than some spare room), and never selects another tab, so the focus stays
+    /// where it was.
+    private void GrowForSelectedTab()
+    {
+        if (Tabs.SelectedItem is not TabItem { Content: Control content }
+            || Avalonia.VisualTree.VisualExtensions.GetVisualParent(content) is not Control host
+            || host.Bounds.Height <= 0) return;
+        host.Measure(new Size(host.Bounds.Width, double.PositiveInfinity));
+        var want = Math.Ceiling(host.DesiredSize.Height + ClientSize.Height - host.Bounds.Height);
+        host.InvalidateMeasure();
+        if (Screens.ScreenFromWindow(this) is { } screen)
+            want = Math.Min(want, screen.WorkingArea.Height / screen.Scaling - 48);
+        if (want <= Height + 0.5) return;
+        Console.WriteLine($"[prefs] {((TabItem)Tabs.SelectedItem).Header} grew: {Height:0} -> {want:0} high");
+        Height = want;
+    }
 
     // ------------------------------------------------------------------ updates
 
@@ -440,6 +505,7 @@ public partial class PrefsWindow : Window
     public void Fill()
     {
         if (_host is null) return;
+        if (IsVisible) Avalonia.Threading.Dispatcher.UIThread.Post(GrowForSelectedTab, Avalonia.Threading.DispatcherPriority.Background);
 
         FillStatistics();
 
