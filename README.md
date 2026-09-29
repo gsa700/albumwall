@@ -40,7 +40,9 @@ could play music.
   becomes a strip showing what is playing — cover, track, format, progress —
   with a pair of analog VU meters that swing like real ones. Hover it for the
   play controls and the way back; Esc or Ctrl+M returns to the wall exactly as
-  you left it. After two minutes paused it shows a clock instead.
+  you left it. After two minutes paused it shows a clock instead. On a Linux
+  Wayland desktop the strip and the wall share one window position; see
+  [where the window opens](#linux-where-the-window-opens).
 
   ![Compact mode: the now-playing strip with its VU meters](docs/screenshots/compact.webp)
 
