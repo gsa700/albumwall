@@ -287,6 +287,23 @@ is ahead, the history is for what is behind.
   Small, found the same day: Forget leaves the forgotten library's rows in
   `index.db`. Harmless (a few MB nothing reads), but Forget should drop them.
 
+  5. RESCANNING A LIBRARY THAT IS NOT ON THE WALL (2026-09-28: "would it work
+     on a library in the background? like could I rescan Music while
+     listening to NAS Music?"). Not today: Rescan is on the row of the library
+     on the wall only, and the app runs one scan at a time. It is safe to
+     build, since e7ad028 a scan only touches index rows under its own root,
+     so a background scan of one library refreshes its rows and leaves the
+     wall, the playing library and every other library alone; it would show
+     its progress on its own row. Deliberately NOT built yet, because it buys
+     little: switching already runs a scan through the index, which re-reads
+     every file whose size or date moved, so additions, removals and nearly
+     every tag edit show up without it. Rescan is only for an edit that kept
+     both, and on Linux, which reads everything on every switch, it buys
+     nothing at all. It becomes worth building with libraries that change
+     while nobody is looking at them - a Navidrome server, a USB drive - where
+     "keep the other libraries fresh in the background" is a feature rather
+     than a button.
+
   How David's own is laid out, decided the same day: Techbench stays the first
   copy, where files are added and tagged. Its `~/Music` backup moves out of the
   machine backup into a folder of its own on the NAS (a stable path that does

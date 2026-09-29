@@ -34,7 +34,7 @@
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="12" Margin="0,0,14,0">
                 <!-- THE LIST. One row per library, built in code (FillLibraries);
-                     the one on the wall is marked, the others can be shown or
+                     the one on the wall is marked, the others can be switched to or
                      forgotten. Forgetting touches nothing on disk. -->
                 <TextBlock Text="Libraries" FontSize="14" FontWeight="SemiBold"/>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
@@ -42,7 +42,7 @@
                 <StackPanel x:Name="LibraryList" Spacing="6"/>
 
                 <!-- RESCAN IS A BUTTON ON THE ROW OF THE LIBRARY ON THE WALL, beside
-                     Show and Forget on the others ("lets remove and relocate it to a
+                     Switch to and Forget on the others ("lets remove and relocate it to a
                      'Rescan' button in the library selector section", 2026-09-28).
                      It had a section of its own with a paragraph of warning; the
                      warning is the button's tooltip now, and there is still no "are

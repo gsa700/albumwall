@@ -342,9 +342,15 @@ public partial class PrefsWindow : Window
     }
 
     /// One row per library: its name and where it is; Rescan on the one on the
-    /// wall, Show on the others, and Forget on all of them but the last, since
-    /// the wall has to show something. Rescan reads the library ON THE WALL, so
-    /// that is the only row it goes on: another library is shown first.
+    /// wall, Switch to on the others, and Forget on all of them but the last,
+    /// since the wall has to show something. Rescan reads the library ON THE
+    /// WALL, so that is the only row it goes on: another is switched to first.
+    ///
+    /// "Switch to" was "Show" until 2026-09-28: "Clicking isn't going to show
+    /// the library it's going to Load it and switch to it." It is the words the
+    /// tab already uses ("Switch between them with the name in the bottom
+    /// bar"), and it promises nothing heavy, because on Windows the index
+    /// brings a known library up in about a second.
     private void FillLibraries()
     {
         if (_host is null) return;
@@ -397,10 +403,11 @@ public partial class PrefsWindow : Window
             }
             else
             {
-                var show = new Button { Content = "Show" };
-                show.Classes.Add("panel");
-                show.Click += (_, _) => { _host.SwitchLibrary(id); Fill(); };
-                buttons.Children.Add(show);
+                var switchTo = new Button { Content = "Switch to" };
+                switchTo.Classes.Add("panel");
+                Avalonia.Controls.ToolTip.SetTip(switchTo, "Puts this library on the wall. The music keeps playing.");
+                switchTo.Click += (_, _) => { _host.SwitchLibrary(id); Fill(); };
+                buttons.Children.Add(switchTo);
             }
             if (all.Count > 1)
             {
