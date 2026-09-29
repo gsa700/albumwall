@@ -316,6 +316,42 @@ is ahead, the history is for what is behind.
   deletion together. If protection against that is wanted, it is --backup-dir
   or no --delete on the one job, not another mirror.
 
+- **macOS** (2026-09-28, an idea, not a plan: "would albumwall be a good
+  experience ported to Mac OS?"). Probably the platform it is most at home
+  on: Mac users with iTunes-era libraries are exactly who a streaming-first
+  Music app left behind, and a wall of covers is Cover Flow's descendant.
+  WHAT CARRIES OVER: .NET 10 and Avalonia run on Apple Silicon; mpv has a
+  CoreAudio output; the scanner, index, libraries, palette and compact view
+  are platform-neutral. Better than Linux in one respect: macOS lets an app
+  place its windows, so compact keeps its own position as on Windows.
+  WHAT IT TAKES:
+  1. A Mac to build and test on. The libmpv recipe cross-compiles Windows
+     from a Linux container; macOS realistically needs a Mac or a macOS CI
+     runner, and a `libmpv.dylib` target in the same recipe (same pins,
+     same decoder list). Gapless re-proven with `tools/gapless-check.cs`, as
+     on every platform.
+  2. The Mac's conventions: Cmd for Ctrl in the shortcuts (and the Help
+     tab), the window buttons on the LEFT (WindowButtons.Layout already
+     handles left-hand buttons for Linux desktops), a real menu bar
+     (Avalonia's NativeMenu), and Now Playing and media keys through
+     MPNowPlayingInfoCenter / MPRemoteCommandCenter - the Mac's SMTC and
+     MPRIS, which means native interop.
+  3. SIGNING AND NOTARIZATION, the real gate. An unsigned download is
+     stopped by Gatekeeper, and "right-click, Open, allow it in System
+     Settings" is a poor first impression. The Apple Developer Program
+     ($99 a year as of 2026) includes the Developer ID Application
+     certificate (about five years) and unlimited notarization; an
+     individual membership shows his legal name as the developer. Apps
+     already signed and notarized keep running if it lapses; new releases
+     cannot be. The app ships as a signed `.app` in a `.dmg`, and the
+     updater has to replace a signed bundle without breaking its signature.
+     The Mac App Store is in the same membership, but its sandbox fights a
+     player that reads arbitrary folders and network shares.
+  Whether the library index is trusted there is its own question: macOS
+  has no per-open antivirus scan like Defender, so the Windows reason does
+  not apply, but a tagger that preserves modification times would bite as
+  it does on Linux.
+
 
 ## Decided
 
