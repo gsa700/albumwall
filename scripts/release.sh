@@ -72,6 +72,20 @@ git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && must "tag $TAG already 
 git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 && must "tag $TAG already exists on origin"
 gh release view "$TAG" -R "$REPO" >/dev/null 2>&1 && must "release $TAG already exists"
 
+# PRIVACY (see CLAUDE.md). The repository is public; a release is the moment its
+# state is announced to everyone. Every author and committer in the history must be
+# the GitHub no-reply address, and no tracked file may carry a private LAN address
+# (four-part 10.x, 192.168.x, 172.16-31.x; a Windows SDK version like 10.0.19041.0
+# is not one). Both slipped once, on the day it went public.
+NOREPLY="298062495+gsa700@users.noreply.github.com"
+bad=$(git log HEAD --format='%ae%n%ce' | sort -u | grep -vx "$NOREPLY" || true)
+[ -z "$bad" ] || die "commits by an address other than the no-reply one: $bad (rewrite them before releasing; CLAUDE.md)"
+PRIVATE='\b(10(\.[0-9]{1,3}){3}|192\.168(\.[0-9]{1,3}){2}|172\.(1[6-9]|2[0-9]|3[01])(\.[0-9]{1,3}){2})\b'
+if git grep -qE "$PRIVATE" -- .; then
+    git grep -nE "$PRIVATE" -- . | head -5 >&2
+    die "a tracked file holds a private network address (above); use the machine's name instead"
+fi
+
 LIBMPV=$(tr -d '[:space:]' < "$HERE/LIBMPV_RELEASE")
 [ -n "$LIBMPV" ] || die "scripts/LIBMPV_RELEASE is empty"
 
