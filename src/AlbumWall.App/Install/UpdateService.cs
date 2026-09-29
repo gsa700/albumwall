@@ -278,6 +278,25 @@ public static class UpdateService
         var targetDir = Path.GetDirectoryName(target)!;
         var marker = FailedMarkerPath(target);
         var pid = Environment.ProcessId;
+        // Relaunch as launched: a kiosk's copy runs with --front-panel and must come back with it.
+        var args = Environment.GetCommandLineArgs().Skip(1).ToArray();
+
+        // SUPERVISED (ALBUMWALL_SUPERVISED=1, set by a kiosk's launcher): something else restarts the
+        // app when it exits, so the helper must not, or two copies run - which is what the Pi kiosk
+        // got from the first update it took (2026-09-28: two walls). And the new program has to be in
+        // place BEFORE this process exits, because the supervisor starts whatever file is there a
+        // second later. Linux lets a running program's file be replaced: copy beside it, then rename
+        // over it, which is atomic; this process keeps running from the old one until it exits.
+        if (Supervised && !OperatingSystem.IsWindows())
+        {
+            var fresh = target + ".new";
+            File.Copy(stagedExe, fresh, overwrite: true);
+            File.SetUnixFileMode(fresh, File.GetUnixFileMode(fresh) | UnixFileMode.UserExecute
+                                       | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+            File.Move(fresh, target, overwrite: true);
+            if (File.Exists(marker)) File.Delete(marker);
+            Console.WriteLine($"[update] supervised: {target} replaced in place; the supervisor restarts it");
+        }
 
         // The helper lives in the temp root, not in the staging folder: it deletes that folder, and a
         // script cannot sit in the folder it is removing.
@@ -285,7 +304,7 @@ public static class UpdateService
         {
             var ps1 = Path.Combine(Path.GetTempPath(), "albumwall-apply-update.ps1");
             File.WriteAllText(ps1, UpdateApplyScript.Windows(pid, stagedExe, target, marker, targetDir,
-                                                             StageRoot, InstallService.OwnExtractionDir, ps1));
+                                                             StageRoot, InstallService.OwnExtractionDir, ps1, args));
             Process.Start(new ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -299,7 +318,7 @@ public static class UpdateService
         {
             var sh = Path.Combine(Path.GetTempPath(), "albumwall-apply-update.sh");
             File.WriteAllText(sh, UpdateApplyScript.Unix(pid, stagedExe, target, marker, targetDir,
-                                                         StageRoot, InstallService.OwnExtractionDir, sh));
+                                                         StageRoot, InstallService.OwnExtractionDir, sh, args, Supervised));
             Process.Start(new ProcessStartInfo
             {
                 FileName = "/bin/sh",
@@ -311,6 +330,9 @@ public static class UpdateService
         Console.WriteLine($"[update] helper started; swapping {target} once pid {pid} has gone; "
                         + $"then removing {InstallService.OwnExtractionDir ?? "(nothing unpacked)"}");
     }
+
+    /// <summary>Set by a kiosk's launcher: something restarts the app when it exits.</summary>
+    public static bool Supervised => Environment.GetEnvironmentVariable("ALBUMWALL_SUPERVISED") == "1";
 
     private static string FailedMarkerPath(string targetExe) =>
         Path.Combine(Path.GetDirectoryName(targetExe) ?? ".", ".albumwall-update-failed");

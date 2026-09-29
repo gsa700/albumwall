@@ -42,10 +42,14 @@ public static class UpdateApplyScript
     /// <param name="stageRoot">Staging folder to remove once the swap is done.</param>
     /// <param name="ownExtractionDir">The folder THIS build unpacked into, or null if it unpacked nothing.</param>
     /// <param name="scriptPath">This script, removed last so it does not linger in temp.</param>
+    /// <param name="relaunchArgs">The arguments the app was started with, passed again on relaunch:
+    /// a copy started with --front-panel must come back with it (2026-09-28, the Pi kiosk).</param>
     public static string Windows(int pid, string stagedExe, string targetExe, string failedMarker,
-        string workingDirectory, string stageRoot, string? ownExtractionDir, string scriptPath)
+        string workingDirectory, string stageRoot, string? ownExtractionDir, string scriptPath,
+        IReadOnlyList<string>? relaunchArgs = null)
     {
         static string Q(string path) => "'" + path.Replace("'", "''") + "'";
+        var argList = relaunchArgs is { Count: > 0 } a ? " -ArgumentList " + string.Join(",", a.Select(Q)) : "";
         return
             $"while (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ Start-Sleep -Milliseconds 300 }}\n" +
             // Forty tries, a quarter second apart. -ErrorAction Stop turns Copy-Item's failure into
@@ -61,7 +65,9 @@ public static class UpdateApplyScript
             // build share one unpacked folder. Matched on the folder's own name, the bundle id,
             // because the same path turns up spelled both ways on Windows (DAVIDE~1 and in full).
             (ownExtractionDir is null ? "" :
-            $"  $mine = {Q("*\\" + Path.GetFileName(ownExtractionDir.TrimEnd('\\', '/')) + "\\*")}\n" +
+            // The folder's own name, split on BOTH slashes: Path.GetFileName only knows this
+            // machine's, and the checks in tools/update-check.cs run on Linux too.
+            $"  $mine = {Q("*\\" + ownExtractionDir.TrimEnd('\\', '/').Split('\\', '/')[^1] + "\\*")}\n" +
             "  $inUse = Get-Process -Name AlbumWall -ErrorAction SilentlyContinue | Where-Object { $_.Modules | Where-Object { $_.FileName -like $mine } }\n" +
             "  if (-not $inUse) {\n" +
             $"    Remove-Item -LiteralPath {Q(ownExtractionDir)} -Recurse -Force -ErrorAction SilentlyContinue\n" +
@@ -69,19 +75,33 @@ public static class UpdateApplyScript
             "} else {\n" +
             $"  New-Item -ItemType File -Path {Q(failedMarker)} -Force | Out-Null\n" +
             "}\n" +
-            $"Start-Process -FilePath {Q(targetExe)} -WorkingDirectory {Q(workingDirectory)}\n" +
+            $"Start-Process -FilePath {Q(targetExe)}{argList} -WorkingDirectory {Q(workingDirectory)}\n" +
             $"Remove-Item -LiteralPath {Q(stageRoot)} -Recurse -Force -ErrorAction SilentlyContinue\n" +
             $"Remove-Item -LiteralPath {Q(scriptPath)} -Force -ErrorAction SilentlyContinue\n";
     }
 
     /// <inheritdoc cref="Windows"/>
+    /// <param name="relaunchArgs">See <see cref="Windows"/>.</param>
+    /// <param name="supervised">Something else restarts the app (a kiosk's loop), and the app has
+    /// already put the new executable in place before exiting: swap nothing and launch nothing, or
+    /// the supervisor's copy and this one both run (2026-09-28, the Pi: two walls). Only tidy up.</param>
     public static string Unix(int pid, string stagedExe, string targetExe, string failedMarker,
-        string workingDirectory, string stageRoot, string? ownExtractionDir, string scriptPath)
+        string workingDirectory, string stageRoot, string? ownExtractionDir, string scriptPath,
+        IReadOnlyList<string>? relaunchArgs = null, bool supervised = false)
     {
         // Inside single quotes the shell reads everything literally, so an apostrophe is written by
         // closing the quotes, escaping one, and opening them again.
         const string Apostrophe = "'\\''";
         static string Q(string path) => "'" + path.Replace("'", Apostrophe) + "'";
+        var args = relaunchArgs is { Count: > 0 } a ? " " + string.Join(" ", a.Select(Q)) : "";
+        if (supervised)
+            return
+                "#!/bin/sh\n" +
+                $"while kill -0 {pid} 2>/dev/null; do sleep 0.3; done\n" +
+                // The OLD build's unpacked folder; the new one unpacks into a folder of its own.
+                (ownExtractionDir is null ? "" : $"rm -rf {Q(ownExtractionDir)}\n") +
+                $"rm -rf {Q(stageRoot)}\n" +
+                $"rm -f {Q(scriptPath)}\n";
         return
             "#!/bin/sh\n" +
             $"while kill -0 {pid} 2>/dev/null; do sleep 0.3; done\n" +
@@ -101,7 +121,7 @@ public static class UpdateApplyScript
             $"  : > {Q(failedMarker)}\n" +
             "fi\n" +
             // cd first, for the same reason -WorkingDirectory is set on Windows.
-            $"(cd {Q(workingDirectory)} && {Q(targetExe)} &)\n" +
+            $"(cd {Q(workingDirectory)} && {Q(targetExe)}{args} &)\n" +
             $"rm -rf {Q(stageRoot)}\n" +
             $"rm -f {Q(scriptPath)}\n";
     }

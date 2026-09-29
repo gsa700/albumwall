@@ -93,6 +93,22 @@ Check(unix.Contains("kill -0 4242"), "unix: waits for the pid");
 Check(unix.Contains(@"o'\''brien"), "unix: an apostrophe in a path is closed, escaped and reopened");
 Check(unix.Contains("pgrep -x AlbumWall") && unix.Contains("rm -rf '/home/u/.net/AlbumWall/AbC123'"), "unix: removes its own unpacked folder, unless another copy runs");
 Check(!unix.Contains("\r"), "unix: no carriage returns");
+Check(unix.Contains("AlbumWall' &)"), "unix: relaunches with no arguments when it was started with none");
+
+// Relaunch as launched (2026-09-28: the Pi kiosk's copy runs with --front-panel).
+var withArgs = UpdateApplyScript.Unix(4242, "/tmp/s/AlbumWall", "/opt/AlbumWall", "/x/.failed", "/opt", "/tmp/AlbumWall-update",
+                                      null, "/tmp/apply.sh", ["--front-panel", "it's"]);
+Check(withArgs.Contains("'/opt/AlbumWall' '--front-panel' 'it'\\''s' &)"), "unix: relaunches with the arguments it was started with, quoted");
+var winArgs = UpdateApplyScript.Windows(1, "a", "b", "c", "d", "e", null, "f", ["--front-panel"]);
+Check(winArgs.Contains("-ArgumentList '--front-panel'"), "windows: relaunches with its arguments");
+
+// Supervised (a kiosk's loop restarts the app): the helper swaps nothing and launches nothing,
+// or the loop's copy and the helper's both run - the Pi's two walls.
+var sup = UpdateApplyScript.Unix(4242, "/tmp/s/AlbumWall", "/opt/AlbumWall", "/x/.failed", "/opt", "/tmp/AlbumWall-update",
+                                 "/home/u/.net/AlbumWall/Old", "/tmp/apply.sh", ["--front-panel"], supervised: true);
+Check(sup.Contains("kill -0 4242"), "supervised: still waits for the pid");
+Check(!sup.Contains("cp -f") && !sup.Contains(" &)"), "supervised: no swap and no relaunch");
+Check(sup.Contains("rm -rf '/home/u/.net/AlbumWall/Old'") && sup.Contains("rm -rf '/tmp/AlbumWall-update'"), "supervised: still tidies up");
 
 Console.WriteLine(failures == 0 ? "PASS" : $"{failures} FAILED");
 return failures == 0 ? 0 : 1;
