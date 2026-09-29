@@ -48,12 +48,6 @@ public partial class PrefsWindow : Window
         // keystroke: the picker would otherwise show each letter as it came.
         LibraryName.LostFocus += (_, _) => RenameCurrent();
         LibraryName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) RenameCurrent(); };
-        Rescan.Click += (_, _) =>
-        {
-            if (host.RescanRunning) host.StopRescan();
-            else { RescanResult.Text = ""; host.Rescan(); }
-            Fill();
-        };
 
         // Written straight through: there is no OK button to forget, and a
         // setting that only takes effect at the next launch has nothing to
@@ -296,19 +290,49 @@ public partial class PrefsWindow : Window
         ScanRow.IsVisible = true;
         ScanFill.Width = fraction * ScanRow.Bounds.Width;
         ScanDetail.Text = detail;
-        Rescan.Content = mine ? "Stop" : "Read everything again";
-        Rescan.IsEnabled = mine;        // not while another scan has the floor
+        if (_rescan is not null)
+        {
+            _rescan.Content = mine ? "Stop" : "Rescan";
+            _rescan.IsEnabled = mine;       // not while another scan has the floor
+        }
     }
 
     public void ScanEnded()
     {
         ScanRow.IsVisible = false;
         ScanFill.Width = 0;
-        Rescan.Content = "Read everything again";
-        Rescan.IsEnabled = true;
+        if (_rescan is not null)
+        {
+            _rescan.Content = "Rescan";
+            _rescan.IsEnabled = true;
+        }
     }
 
-    public void ShowRescanResult(string text) => RescanResult.Text = text;
+    public void ShowRescanResult(string text)
+    {
+        RescanResult.Text = text;
+        RescanResult.IsVisible = text.Length > 0;
+    }
+
+    /// The Rescan button on the row of the library on the wall. Rebuilt with
+    /// the rows, so whatever a scan last said about it is said again then.
+    private Button? _rescan;
+
+    /// What Rescan does, in the terms he will experience it: when to press it,
+    /// what it costs, and that it can be stopped. Two stories, because the app
+    /// really does behave differently on the two platforms - see
+    /// MainWindow.TrustsIndex - and promising a Linux user that this is how a
+    /// missed tag edit gets picked up would describe a problem he cannot have.
+    private string RescanTip()
+    {
+        var n = _host?.LibraryTrackCount ?? 0;
+        var every = n > 0 ? $"all {n:N0} tracks" : "every track";
+        return OperatingSystem.IsWindows()
+            ? $"Reads {every} again. Only needed if a tag edit hasn't shown up. It can take several "
+            + "minutes while Windows Security checks each file. Keep listening; stop it any time."
+            : $"Reads {every} again. Rarely needed: every scan already reads them all, so tag edits "
+            + "always show up. Keep listening; stop it any time.";
+    }
 
     private void RenameCurrent()
     {
@@ -317,9 +341,10 @@ public partial class PrefsWindow : Window
         FillLibraries();
     }
 
-    /// One row per library: its name and where it is, and for any but the one
-    /// on the wall, Show and Forget. The last library has no Forget, since the
-    /// wall has to show something.
+    /// One row per library: its name and where it is; Rescan on the one on the
+    /// wall, Show on the others, and Forget on all of them but the last, since
+    /// the wall has to show something. Rescan reads the library ON THE WALL, so
+    /// that is the only row it goes on: another library is shown first.
     private void FillLibraries()
     {
         if (_host is null) return;
@@ -330,6 +355,7 @@ public partial class PrefsWindow : Window
         if (!LibraryName.IsFocused) LibraryName.Text = current.Name;
 
         LibraryList.Children.Clear();
+        _rescan = null;
         foreach (var library in all)
         {
             var id = library.Id;
@@ -354,7 +380,22 @@ public partial class PrefsWindow : Window
 
             var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 7,
                                            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            if (!shown)
+            if (shown)
+            {
+                var running = _host.RescanRunning;
+                var rescan = new Button { Content = running ? "Stop" : "Rescan" };
+                rescan.Classes.Add("panel");
+                Avalonia.Controls.ToolTip.SetTip(rescan, RescanTip());
+                rescan.Click += (_, _) =>
+                {
+                    if (_host.RescanRunning) _host.StopRescan();
+                    else { ShowRescanResult(""); _host.Rescan(); }
+                    Fill();
+                };
+                buttons.Children.Add(rescan);
+                _rescan = rescan;
+            }
+            else
             {
                 var show = new Button { Content = "Show" };
                 show.Classes.Add("panel");
@@ -398,29 +439,6 @@ public partial class PrefsWindow : Window
         _filling = true;
         FillLibraries();
         LibraryPath.Text = _host.LibraryRootPath;
-
-        // What the button does, in the terms he will experience it. The count is
-        // the honest size of the job; the reason it is slow is Windows' and is
-        // only claimed on Windows.
-        var n = _host.LibraryTrackCount;
-        var every = n > 0 ? $"all {n:N0} tracks" : "every track";
-        // Two different stories, because the app genuinely behaves differently on
-        // the two platforms — see MainWindow.TrustsIndex. Promising a Linux user
-        // that this is how a missed tag edit gets picked up would be describing a
-        // problem he cannot have.
-        RescanAbout.Text = OperatingSystem.IsWindows()
-            ? $"{App.DisplayName} notices music that is added, changed or removed by itself, and remembers what it "
-            + $"has read so that it opens quickly. This sets that memory aside and opens {every} again. "
-            + "Windows Security checks each file as it is opened, so it can take several minutes. "
-            + "You can keep listening while it runs, and stop it whenever you like.\n\n"
-            + "You should only need it when a tag edit has not shown up. That can happen if a tool changed a file "
-            + $"while keeping its size and date the same, and {App.DisplayName} was closed at the time."
-
-            : $"{App.DisplayName} notices music that is added, changed or removed by itself, and opens {every} "
-            + "every time it scans — so a tag edit always shows up, whatever tool made it and whether or not "
-            + $"{App.DisplayName} was running at the time. This scans again now, which you should rarely need.\n\n"
-            + "On a big library, or one on a network drive, it can take a while. You can keep listening while it "
-            + "runs, and stop it whenever you like.";
 
         // Resume is on unless turned off; auto-play is off unless turned on.
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;

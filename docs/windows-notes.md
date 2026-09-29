@@ -118,9 +118,10 @@ file is the entire cost on Windows. What stands in for it:
   the watcher trust the index; only Rescan does not. On Windows that is
   minutes, which is why nothing automatic may ask for it — and why it **left
   the main menu**, where it sat one slip below Preferences from the days when
-  it cost four seconds. It is now "Read everything again" on the Library tab
-  of Preferences, under a paragraph that says what it does, how many files,
-  why it is slow, and when you would want it. His call: "move the rescan from
+  it cost four seconds. It is now a Rescan button on the row of the library on
+  the wall, Preferences › Library (it was a section of its own, "Read
+  everything again", until 2026-09-28), with a tooltip that says how many
+  files, why it is slow, and when you would want it. His call: "move the rescan from
   the hamburger menu into the prefs proper with a warning about what is
   actually going to happen". The button becomes **Stop** while it runs;
   stopping leaves the wall as it was and keeps what had been re-read. The tab

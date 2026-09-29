@@ -852,7 +852,7 @@ public partial class MainWindow : Window
                 Domain.LibraryUnreachableException.Reason.Empty =>
                     $"{root} is there but empty, and last time it held {library.Tracks:N0} tracks. "
                     + "That usually means the drive or share behind it is not connected or not mounted."
-                    + after + " If the music really has gone, \"Read everything again\" in Preferences will believe it.",
+                    + after + " If the music really has gone, Rescan, in Preferences › Library, will believe it.",
                 Domain.LibraryUnreachableException.Reason.Failed =>
                     $"{root} stopped answering while it was being read." + after,
                 _ => $"{root} is not there right now. If it lives on a NAS or a drive, that may be "

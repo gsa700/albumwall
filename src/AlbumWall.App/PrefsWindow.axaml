@@ -40,6 +40,31 @@
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                            Text="The wall shows one library at a time and never mixes them. Switch between them with the name in the bottom bar, beside the counts."/>
                 <StackPanel x:Name="LibraryList" Spacing="6"/>
+
+                <!-- RESCAN IS A BUTTON ON THE ROW OF THE LIBRARY ON THE WALL, beside
+                     Show and Forget on the others ("lets remove and relocate it to a
+                     'Rescan' button in the library selector section", 2026-09-28).
+                     It had a section of its own with a paragraph of warning; the
+                     warning is the button's tooltip now, and there is still no "are
+                     you sure", because it can be stopped and stopping loses nothing.
+                     It was in the main menu before that, one slip from Preferences,
+                     back when a rescan was four seconds.
+
+                     Its progress and result sit right under the list, beside the
+                     button that started them. ANY scan that takes long enough to
+                     notice shows here, not only a rescan: choosing a new folder
+                     starts one too, and this window is very likely covering the
+                     main window's own progress line when it does. -->
+                <StackPanel x:Name="ScanRow" Spacing="7" IsVisible="False">
+                    <Border Height="4" CornerRadius="2" Background="{DynamicResource SheetBg}">
+                        <Border x:Name="ScanFill" Height="4" CornerRadius="2" Width="0" Opacity="0.72"
+                                HorizontalAlignment="Left"
+                                Background="{Binding $parent[Window].Foreground}"/>
+                    </Border>
+                    <TextBlock x:Name="ScanDetail" Classes="dim mono" FontSize="12"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <TextBlock x:Name="RescanResult" Classes="dim" FontSize="13" TextWrapping="Wrap" IsVisible="False"/>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <Button x:Name="AddFolderLibrary" Classes="panel" Content="Add a folder…"/>
                 </StackPanel>
@@ -58,39 +83,6 @@
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <Button x:Name="ChooseFolder" Classes="panel" Content="Choose folder…"/>
                     <Button x:Name="UseDefault" Classes="panel" Content="Use my Music folder"/>
-                </StackPanel>
-
-                <!-- RESCAN LIVES HERE AND NOWHERE ELSE. It was in the main menu, one
-                     slip from Preferences, back when a rescan was four seconds. With
-                     the index it is the one thing in the app that opens every file
-                     — minutes, on Windows — so it sits beside the words that say so.
-                     "we should move the rescan from the hamburger menu into the
-                     prefs proper with a warning about what is actually going to
-                     happen". The words are the warning; there is no second "are you
-                     sure", because it can be stopped and stopping loses nothing. -->
-                <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
-                <TextBlock Text="Read everything again" FontSize="14" FontWeight="SemiBold"/>
-                <TextBlock x:Name="RescanAbout" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Button x:Name="Rescan" Classes="panel" Content="Read everything again"/>
-                    <TextBlock x:Name="RescanResult" Classes="dim" FontSize="13" VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <!-- ANY scan that takes long enough to notice shows here, not just
-                     the one asked for above: choosing a new folder starts one too,
-                     and this window is very likely sitting on top of the main
-                     window's own progress line when it does. LAST in the tab, so
-                     that appearing moves nothing else. A scan through the
-                     index is over before this would finish appearing, so the main
-                     window only reports the ones that last. -->
-                <StackPanel x:Name="ScanRow" Spacing="7" IsVisible="False">
-                    <Border Height="4" CornerRadius="2" Background="{DynamicResource SheetBg}">
-                        <Border x:Name="ScanFill" Height="4" CornerRadius="2" Width="0" Opacity="0.72"
-                                HorizontalAlignment="Left"
-                                Background="{Binding $parent[Window].Foreground}"/>
-                    </Border>
-                    <TextBlock x:Name="ScanDetail" Classes="dim mono" FontSize="12"
-                               TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

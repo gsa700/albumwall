@@ -271,7 +271,7 @@ is ahead, the history is for what is behind.
      root, so this is per library, not all of them.
      DONE (2026-09-25): LibraryUnreachableException. "Was full" is the
      library's track count from its last scan (settings), or on Windows the
-     index; "Read everything again" is the one scan that believes an empty folder. Found on the
+     index; Rescan is the one scan that believes an empty folder. Found on the
      way: a file that could not be OPENED was remembered as "not audio" and
      stayed off the wall until its size or time changed; now it is only
      skipped, and a scan with skips prunes nothing. `tools/absent-check.cs`.
