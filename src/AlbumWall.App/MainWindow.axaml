@@ -883,7 +883,15 @@
         </StackPanel>
     </Border>
 
-    <Border x:Name="EmptyState" IsVisible="False" Background="Transparent">
+    <!-- NO BACKGROUND, not a transparent one. This covers the whole window, and a
+         Transparent brush is hit-testable: it swallowed every click on the bars
+         above and below it, so with an unreachable library on Hambench the
+         library picker - the one way to switch to a library that IS there -
+         could not be pressed (2026-09-28, 0.2.0 test), and neither could the
+         search box, Preferences, the play controls or the window's own
+         buttons. With no background only the text and buttons below take the
+         pointer, and everything around them works. -->
+    <Border x:Name="EmptyState" IsVisible="False">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="20" MaxWidth="520">
             <TextBlock x:Name="EmptyTitle" Text="No music here yet" FontSize="25" FontWeight="Bold"

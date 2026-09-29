@@ -2300,6 +2300,23 @@ public partial class MainWindow : Window
         }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }
         if (text.Equals("libraries", StringComparison.OrdinalIgnoreCase)) { OpenLibraryPicker(); return; }
+
+        // What a click would land on, for the named control's centre: "hit
+        // LibraryLink". Opening the picker from here says nothing about whether
+        // a pointer can reach it - an overlay swallowing clicks is exactly the
+        // bug that command cannot see.
+        if (text.StartsWith("hit ", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = text[4..].Trim();
+            if (this.FindControl<Control>(name) is not { } target) { Console.WriteLine($"[hit] no control named {name}"); return; }
+            var centre = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), this);
+            var landed = centre is { } p ? this.InputHitTest(p) as Visual : null;
+            var owner = landed;
+            while (owner is not null && owner != target) owner = owner.GetVisualParent();
+            Console.WriteLine($"[hit] {name}: lands on {landed?.GetType().Name ?? "nothing"}"
+                            + $"{(landed is Control { Name: { Length: > 0 } n } ? " " + n : "")} -> {(owner == target ? "REACHABLE" : "BLOCKED")}");
+            return;
+        }
         if (text.StartsWith("library ", StringComparison.OrdinalIgnoreCase))
         {
             // Switches by name, as the picker would: "library MusicFolder".
