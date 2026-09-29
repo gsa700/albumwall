@@ -1,0 +1,17 @@
+#!/bin/sh
+# albumwall-kiosk-mode on|off|status [now] - which session the login manager (lightdm)
+# logs into automatically: the AlbumWall kiosk, or the normal desktop. Takes effect at the
+# next login; "now" restarts the display at once. Needs sudo for lightdm's config.
+CONF=/etc/lightdm/lightdm.conf
+SETTINGS="$HOME/.config/albumwall-kiosk/kiosk.conf"
+[ -f "$SETTINGS" ] && . "$SETTINGS"
+case "$1" in
+  on)  S=albumwall-kiosk ;;
+  off) S=${DESKTOP_SESSION_NAME:-rpd-labwc} ;;
+  status) grep -E "^autologin-session" "$CONF"; exit ;;
+  *) echo "usage: $0 on|off|status [now]"; exit 2 ;;
+esac
+grep -qE "^autologin-session=" "$CONF" || { echo "no autologin-session line in $CONF: set up autologin first (docs/kiosk.md)"; exit 1; }
+sudo sed -i "s/^autologin-session=.*/autologin-session=$S/" "$CONF"
+grep -E "^autologin-session" "$CONF"
+[ "$2" = now ] && sudo systemctl restart lightdm

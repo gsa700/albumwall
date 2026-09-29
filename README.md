@@ -162,6 +162,13 @@ it through XWayland instead: with AlbumWall closed, open its settings file
 Set it back to `null` to return to Wayland. On Windows, and on an X11 desktop, the window
 remembers where it was, and compact mode keeps a place of its own.
 
+### A dedicated player
+
+AlbumWall can also be the only thing a machine runs: full screen on its main
+screen, with an optional front panel — a small bar display showing what is
+playing, VU meters and all — for a player built into a stereo. Setting that up on
+a Raspberry Pi is in [docs/kiosk.md](docs/kiosk.md); the files are in `kiosk/`.
+
 ## Building it
 
 Needs the **.NET 10 SDK** and **libmpv**. Everything else comes from NuGet.

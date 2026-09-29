@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!-- AlbumWall kiosk: labwc with nothing but AlbumWall. Loaded by albumwall-kiosk
+     (labwc -C this directory); the normal desktop's config is untouched.
+     Made by kiosk/install.sh from kiosk/rc.xml.in: run it again rather than editing here. -->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  @TOUCH@
+  <!-- Defining keybinds replaces labwc's defaults: no Alt-Tab, no launcher, no way out but SSH. -->
+  <keyboard>
+    <!-- Media keys, from a keyboard or a remote, go to AlbumWall over MPRIS whether or not it has focus. -->
+    <keybind key="XF86AudioPlay"><action name="Execute" command="dbus-send --session --type=method_call --dest=org.mpris.MediaPlayer2.albumwall /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause"/></keybind>
+    <keybind key="XF86AudioPause"><action name="Execute" command="dbus-send --session --type=method_call --dest=org.mpris.MediaPlayer2.albumwall /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Pause"/></keybind>
+    <keybind key="XF86AudioStop"><action name="Execute" command="dbus-send --session --type=method_call --dest=org.mpris.MediaPlayer2.albumwall /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Stop"/></keybind>
+    <keybind key="XF86AudioNext"><action name="Execute" command="dbus-send --session --type=method_call --dest=org.mpris.MediaPlayer2.albumwall /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next"/></keybind>
+    <keybind key="XF86AudioPrev"><action name="Execute" command="dbus-send --session --type=method_call --dest=org.mpris.MediaPlayer2.albumwall /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous"/></keybind>
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"/></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"/></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>
+  </keyboard>
+  <windowRules>
+    <!-- BY TITLE ONLY. The app sets its app_id just after a window appears, and labwc applies
+         rules when it appears: a rule that also asked for identifier="albumwall" missed the
+         front panel, which then landed wherever the pointer was. -->
+    <!-- The wall. Sent to its screen explicitly (labwc opens a window on the screen under the
+         pointer), then full screen; AlbumWall follows the real window state, so this is F11. -->
+    <windowRule title="AlbumWall" serverDecoration="no">
+      <action name="MoveToOutput" output="@MAIN_OUTPUT@"/>
+      <action name="ToggleFullscreen"/>
+    </windowRule>
+    <!--PANEL-BEGIN-->
+    <!-- The front panel. An app cannot choose its screen on Wayland, so this does. Move FIRST,
+         then full screen: labwc will not move a full-screen window. The title must match
+         FrontPanelWindow.WindowTitle in the app. -->
+    <windowRule title="AlbumWall Front Panel" serverDecoration="no">
+      <action name="MoveToOutput" output="@PANEL_OUTPUT@"/>
+      <action name="ToggleFullscreen"/>
+    </windowRule>
+    <!--PANEL-END-->
+  </windowRules>
+</openbox_config>

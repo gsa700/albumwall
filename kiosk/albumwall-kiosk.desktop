@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=AlbumWall Kiosk
+Comment=AlbumWall alone, full screen, under a stripped labwc
+Exec=/usr/local/bin/albumwall-kiosk
+Type=Application
+DesktopNames=labwc:wlroots

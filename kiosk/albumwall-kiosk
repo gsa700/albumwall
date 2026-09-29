@@ -1,0 +1,49 @@
+#!/bin/sh
+# AlbumWall kiosk session: labwc with its own stripped config, running only AlbumWall
+# (and its front panel, if kiosk.conf names a screen for one). Started by the login
+# manager as the "AlbumWall Kiosk" session; see docs/kiosk.md.
+#
+#   Settings: ~/.config/albumwall-kiosk/kiosk.conf
+#   labwc:    ~/.config/albumwall-kiosk/labwc/   (the normal desktop's config is untouched)
+#   Log:      ~/.cache/albumwall-kiosk.log
+#   Switch:   albumwall-kiosk-mode on|off|status [now]
+#
+# Why labwc and not Cage: Cage was tried first (2026-09-27) and AlbumWall hit a Wayland
+# protocol error under it, a buffer not divisible by the scale.
+CONF="$HOME/.config/albumwall-kiosk/kiosk.conf"
+[ -f "$CONF" ] && . "$CONF"
+APP="$HOME/.local/share/albumwall/AlbumWall"
+
+if [ "$1" = "--inside" ]; then
+    # labwc has no screen settings of its own here; set them as a desktop's kanshi would.
+    if [ -n "$MAIN_OUTPUT" ]; then
+        wlr-randr --output "$MAIN_OUTPUT" ${MAIN_MODE:+--mode "$MAIN_MODE"} --scale "${MAIN_SCALE:-1}" || true
+    fi
+    ARGS=""
+    if [ -n "$PANEL_OUTPUT" ]; then
+        # --on: a desktop session may keep the panel switched off; the kiosk wants it.
+        wlr-randr --output "$PANEL_OUTPUT" --on --transform "${PANEL_TRANSFORM:-normal}" 2>/dev/null || true
+        ARGS="--front-panel"
+    fi
+
+    # SUPERVISED: this loop restarts AlbumWall whenever it exits, so its updater must not
+    # start one too (2026-09-28: two copies after the first update). With this set, an
+    # update puts the new program in place before exiting and leaves the restart to here.
+    # NOTE: a change to this file reaches a running kiosk only when the SESSION restarts.
+    export ALBUMWALL_SUPERVISED=1
+
+    # Closed or crashed: start it again. Three quick exits in a row means something is
+    # wrong, so stop rather than spin, and leave the log to say why.
+    quick=0
+    while [ $quick -lt 3 ]; do
+        started=$(date +%s)
+        "$APP" $ARGS
+        echo "[kiosk] AlbumWall exited with $? after $(( $(date +%s) - started )) s"
+        if [ $(( $(date +%s) - started )) -lt 20 ]; then quick=$((quick + 1)); else quick=0; fi
+        sleep 1
+    done
+    echo "[kiosk] three quick exits in a row, not restarting"
+    exit 0
+fi
+
+exec labwc -C "$HOME/.config/albumwall-kiosk/labwc" -s "$0 --inside" >"$HOME/.cache/albumwall-kiosk.log" 2>&1
