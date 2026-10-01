@@ -292,8 +292,9 @@ Explorer). It should offer to install. Accept, and check:
    written by `WindowsShell.WriteShortcut`, not Windows Script Host, for exactly
    that reason. Pin it to the taskbar: the running window should group with the
    pin rather than appearing beside it.
-4. A desktop shortcut appears, once. Delete it and start the app again: it
-   comes back (never overwrites, but does recreate — the family's behavior).
+4. A desktop shortcut appears, once, at install. Delete it and start the app
+   again: it stays gone. Startup and updates never make one (changed
+   2026-09-30; it used to be recreated at every start).
 5. Every later start logs `[install] startup: ok` — registration is re-asserted
    at every launch, never check-and-skipped.
 6. **Uninstall from Installed apps** runs `--uninstall --quiet`: program, entry

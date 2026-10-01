@@ -213,16 +213,19 @@ public static class InstallService
 
     /// <summary>
     /// Register, and record what happened — every path writes exactly one log line.
+    /// The desktop shortcut is made on the "install" trigger only: the startup re-assert must
+    /// not put back a shortcut the user deleted (his report, 2026-09-30).
     /// </summary>
     public static bool Register(string exePath, string trigger)
     {
         var detail = "";
         var ok = false;
+        var desktopShortcut = trigger == "install";
         try
         {
             ok = OperatingSystem.IsWindows()
-                ? RegisterWindows(exePath, out detail)
-                : RegisterUnix(exePath, out detail);
+                ? RegisterWindows(exePath, desktopShortcut, out detail)
+                : RegisterUnix(exePath, desktopShortcut, out detail);
         }
         catch (Exception ex)
         {
@@ -272,7 +275,7 @@ public static class InstallService
         catch (UnauthorizedAccessException) { }
     }
 
-    private static bool RegisterUnix(string exePath, out string detail)
+    private static bool RegisterUnix(string exePath, bool desktopShortcut, out string detail)
     {
         var steps = new List<string>();
         string? icon = null;
@@ -321,7 +324,7 @@ public static class InstallService
         catch (IOException ex) { steps.Add($"symlink failed: {ex.Message}"); }
         catch (UnauthorizedAccessException ex) { steps.Add($"symlink failed: {ex.Message}"); }
 
-        steps.Add(EnsureDesktopShortcut(exePath));
+        if (desktopShortcut) steps.Add(EnsureDesktopShortcut(exePath));
 
         var ok = File.Exists(DesktopFilePath);
         if (!ok) steps.Add("no .desktop entry on disk afterwards");
@@ -331,7 +334,8 @@ public static class InstallService
 
     /// <summary>
     /// Put a launcher on the desktop, unless something is already there. <b>Never overwrites</b> —
-    /// an existing file at that path is the user's, and this runs at every start.
+    /// an existing file at that path is the user's. Runs at install only, never at startup or
+    /// after an update: a shortcut the user deleted stays deleted.
     /// </summary>
     private static string EnsureDesktopShortcut(string exePath)
     {
@@ -385,7 +389,7 @@ public static class InstallService
     /// than written once and assumed (LP-100A's field failure: a reg spawn that silently does
     /// not take looks exactly like success).
     /// </summary>
-    private static bool RegisterWindows(string exePath, out string detail)
+    private static bool RegisterWindows(string exePath, bool desktopShortcut, out string detail)
     {
         detail = "";
         if (!OperatingSystem.IsWindows()) { detail = "not Windows"; return false; }
@@ -407,12 +411,12 @@ public static class InstallService
         // WindowsShell and not Windows Script Host. It is REWRITTEN every time: the path it
         // points at is this installer's to keep right.
         var shortcut = WindowsShell.WriteShortcut(WindowsShell.ShortcutPath, exePath);
-        var desktop = EnsureDesktopShortcut(exePath);
+        var desktop = desktopShortcut ? EnsureDesktopShortcut(exePath) : null;
 
         detail = $"reg import exit {importExit}{(retried ? ", after retry" : "")}"
                + (verified ? "" : wrote ? ", but the verify query found no entry" : "")
                + (shortcut is null ? "; start menu ok" : $"; start menu: {shortcut}")
-               + $"; {desktop}";
+               + (desktop is null ? "" : $"; {desktop}");
         return verified;
     }
 
