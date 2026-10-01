@@ -84,12 +84,25 @@ class Program
     /// they figure out window management": native Wayland stays the default for everyone else,
     /// and deleting the line goes back. Not in Preferences: it is a workaround, not a choice
     /// anyone should have to understand.
+    ///
+    /// The setting is honoured on GNOME only, because mutter's window placement is the whole
+    /// reason for it. COSMIC (1.8, Fedora 45, 2026-09-30) does not scale XWayland clients and
+    /// sets no Xft.dpi, so through XWayland on the 6K at 200% the app saw scaling=1 and drew at
+    /// half size. Native Wayland gets the output scale. ALBUMWALL_X11=1 still applies everywhere.
     /// </summary>
     public static readonly bool NativeWayland =
         OperatingSystem.IsLinux()
         && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
         && Environment.GetEnvironmentVariable("ALBUMWALL_X11") != "1"
-        && !string.Equals(Settings.Load().Backend, "x11", StringComparison.OrdinalIgnoreCase);
+        && !(OnGnome && SettingsAskX11);
+
+    private static bool SettingsAskX11 =>
+        string.Equals(Settings.Load().Backend, "x11", StringComparison.OrdinalIgnoreCase);
+
+    /// XDG_CURRENT_DESKTOP is a colon-separated list ("GNOME", "ubuntu:GNOME").
+    private static bool OnGnome =>
+        (Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "")
+            .Split(':').Contains("GNOME", StringComparer.OrdinalIgnoreCase);
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
@@ -123,7 +136,8 @@ class Program
                                     ? "ALBUMWALL_X11=1" : "settings \"Backend\": \"x11\"") + ")");
             return builder;
         }
-        Console.WriteLine("[wall] backend: native Wayland");
+        Console.WriteLine("[wall] backend: native Wayland"
+                        + (SettingsAskX11 ? " (settings \"Backend\": \"x11\" is for GNOME only)" : ""));
         // Marked experimental ("used mostly for testing"). If a future Avalonia drops it, this
         // stops compiling rather than silently regressing, and COSMIC is the desktop to recheck.
 #pragma warning disable AVALONIA_WAYLAND_FORCE_CSD

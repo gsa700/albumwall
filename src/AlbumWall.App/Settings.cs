@@ -111,7 +111,7 @@ public sealed class Settings
     /// Where the strip was left, where the platform lets an app know (Windows,
     /// X11). Native Wayland never tells an app its position, so there the strip
     /// and the wall share one.
-    /// "x11" runs under XWayland on a Wayland desktop (see Program.NativeWayland).
+    /// "x11" runs under XWayland on a GNOME Wayland session (see Program.NativeWayland).
     /// Hand-edited, not in Preferences; absent means the default, native Wayland.
     public string? Backend { get; set; }
 
