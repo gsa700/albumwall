@@ -146,12 +146,6 @@
             </Panel.Transitions>
             <Border x:Name="CoverOverlay" Width="320" Height="320" HorizontalAlignment="Left" Background="#99000000">
                 <Panel>
-                    <Button x:Name="ExpandButton" Classes="np" Width="56" Height="56"
-                            HorizontalAlignment="Left" VerticalAlignment="Top" Margin="26,26,0,0"
-                            ToolTip.Tip="Back to the wall (Esc)">
-                        <Path Data="M 1 8 L 1 1 L 8 1 M 22 8 L 22 1 L 15 1 M 1 15 L 1 22 L 8 22 M 22 15 L 22 22 L 15 22"
-                              Stroke="#F3EEE6" StrokeThickness="2.6" StrokeLineCap="Round" StrokeJoin="Round"/>
-                    </Button>
                     <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center"
                                 VerticalAlignment="Center" Margin="0,24,0,0">
                         <Button x:Name="PrevControl" Classes="np" Width="64" Height="64" ToolTip.Tip="Previous">
@@ -168,6 +162,19 @@
                         </Button>
                     </StackPanel>
                 </Panel>
+            </Border>
+            <!-- Expand lives OUTSIDE the cover overlay, in a box of the same size
+                 and place. Standby hides the overlay (nothing to play, nothing to
+                 darken), and with Expand inside it an album that ended in compact
+                 left only Esc as the way out, with nothing on screen to say so
+                 (Windows, 2026-09-29). The way back to the wall shows in every state. -->
+            <Border Width="320" Height="320" HorizontalAlignment="Left">
+                <Button x:Name="ExpandButton" Classes="np" Width="56" Height="56"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="26,26,0,0"
+                        ToolTip.Tip="Back to the wall (Esc)">
+                    <Path Data="M 1 8 L 1 1 L 8 1 M 22 8 L 22 1 L 15 1 M 1 15 L 1 22 L 8 22 M 22 15 L 22 22 L 15 22"
+                          Stroke="#F3EEE6" StrokeThickness="2.6" StrokeLineCap="Round" StrokeJoin="Round"/>
+                </Button>
             </Border>
             <StackPanel x:Name="WindowButtonsHost" Orientation="Horizontal" Spacing="10"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,24,44,0"/>
