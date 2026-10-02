@@ -143,6 +143,12 @@ is ahead, the history is for what is behind.
      as 0.2.0 about 2 s after the button, settings (including `"Backend": "x11"`)
      kept. His words: "albumwall found an update, downloaded and installed it
      and restarted".
+     **And on Windows for real on 2026-10-02**: Hambench's installed 0.2.0
+     (a local build, updates switched off in its settings) was asked from the
+     About tab, found v0.2.6, matched `AlbumWall-win-x64.zip` against
+     `SHA256SUMS`, swapped its exe once it had exited, removed its own unpacked
+     copy, and was running as 0.2.6 about a second later. Details in
+     `docs/windows-notes.md`.
 
   **A release does not go out without these two, and they are paperwork, not
   engineering.** We distribute other people's GPL and LGPL code inside the

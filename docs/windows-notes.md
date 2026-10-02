@@ -725,6 +725,23 @@ That branch is local, kept only for reference, and must never be pushed.
   scratch copy, was a fixed 700), and grows if the open tab's content does.
 - README: the compact-mode bullet points at the Wayland window-position note.
 
+## 2026-10-02 — the updater, for real, on Windows
+
+The first real update on Windows, against a public release rather than the
+local fake feed of 2026-09-20. His installed copy was 0.2.0 plus that week's
+fixes, built locally, with `"CheckForUpdates": false`, so nothing was offered
+at launch; he asked from Preferences > About. From the log:
+
+| Step | Seen |
+|---|---|
+| check | `latest v0.2.6, have 0.2.0, newer=True, asset=AlbumWall-win-x64.zip` |
+| download | the zip matched `SHA256SUMS` |
+| swap | the helper waited for the old process to exit, replaced `AlbumWall.exe` in `%LocalAppData%\Programs\AlbumWall`, and removed that copy's own folder under `%TEMP%\.net\AlbumWall` |
+| relaunch | 0.2.6 running about a second after the old one exited; the installed exe reports `0.2.6+997c9274`, the release commit |
+| after | settings kept; the NAS library came up from the index with no file opened; meters present (`libmpv-0.41.0-4` is inside the release); startup said `start menu ok` and no longer mentions the desktop shortcut, 0.2.6's install-only shortcut |
+
+So the updater is now proven on both platforms against a real release.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched
