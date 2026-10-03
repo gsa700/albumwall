@@ -192,6 +192,14 @@ public sealed class Library
     /// scan, which has nothing to compare with.
     public int? Tracks { get; set; }
 
+    /// Whether the folder was on a network share the last time a scan of it
+    /// finished. A library on one trusts the index, where opening every file
+    /// at every launch is the better part of a minute rather than of a second
+    /// (see MainWindow.TrustsIndex). Remembered, not only asked each time,
+    /// because a share that is down looks like a local folder. Not kept on
+    /// Windows, which trusts the index everywhere.
+    public bool? Network { get; set; }
+
     [JsonIgnore]
     public bool IsFolder => Kind == "folder";
 

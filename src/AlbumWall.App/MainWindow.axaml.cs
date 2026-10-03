@@ -586,30 +586,62 @@ public partial class MainWindow : Window
     /// and a fair one for seconds. Growth alone does not trigger it — this library
     /// is replacing ~1,100 lossy albums with FLAC over years, and five times its
     /// present size is still about a second.
-    private static bool TrustsIndex => OperatingSystem.IsWindows();
+    ///
+    /// REVISITED 2026-10-03, for exactly that NAS-backed root: 15,565 lossy files
+    /// over NFS were 27 s at every launch. His call: "just add it for network
+    /// Libraries". So a library on a network folder trusts the index on Linux
+    /// too, and a local one still opens every file. The change-time key stays in
+    /// reserve; a network library is not where `--preserve-modtime` is at work,
+    /// and Rescan is the way out if an edit there is ever missed.
+    private static bool TrustsIndex(Library library) =>
+        OperatingSystem.IsWindows() || library.Network == true;
+
+    /// Whether `root` is on a network share, asked of the filesystem itself. An
+    /// automount point nothing has mounted yet (autofs) counts: what goes there
+    /// is a share, and one that is down must not look like a local folder.
+    private static bool OnNetwork(string root)
+    {
+        try
+        {
+            var drive = new DriveInfo(root);
+            return drive.DriveType == DriveType.Network || drive.DriveFormat == "autofs";
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     /// What the scanner read last time, so that an unchanged file is not opened
     /// again — see LibraryIndex for why opening is the cost. Beside the settings,
     /// so a scratch ALBUMWALL_CONFIG_DIR gets a scratch index. Loaded on first
-    /// use, which is on the scan's thread and not this one.
-    ///
-    /// Null where the index is not trusted: an index nobody reads is not a cache,
-    /// it is a second copy of the library to keep in step and a file to explain.
-    private readonly Lazy<Domain.LibraryIndex?> _index = new(() =>
+    /// use, which is on the scan's thread and not this one — and only for a
+    /// library that trusts it, see IndexFor.
+    private static string IndexPath => Path.Combine(Path.GetDirectoryName(Settings.Path)!, "index.db");
+    private readonly Lazy<Domain.LibraryIndex> _index = new(() => Domain.LibraryIndex.Open(IndexPath));
+    private bool _staleIndexLookedFor;
+
+    /// The index, for a library that trusts it. Null for one that does not: an
+    /// index nobody reads is not a cache, it is a second copy of the library to
+    /// keep in step and a file to explain.
+    private Domain.LibraryIndex? IndexFor(bool trusted)
     {
-        var path = Path.Combine(Path.GetDirectoryName(Settings.Path)!, "index.db");
-        if (TrustsIndex) return Domain.LibraryIndex.Open(path);
+        if (trusted) return _index.Value;
+        if (_staleIndexLookedFor || _index.IsValueCreated) return null;
+        _staleIndexLookedFor = true;
+        if (_settings.AllLibraries().Any(TrustsIndex)) return null;
 
         // Left behind by a build that did trust it, or by the same config
         // directory having been used on the other platform. It is a pure cache —
         // nothing anyone made lives in it — so a copy nobody will ever read again
         // is just a megabyte of confusion for whoever looks next.
+        var path = IndexPath;
         try
         {
             if (File.Exists(path))
             {
                 File.Delete(path);
-                Console.WriteLine($"[index] not used on this platform; removed stale {path}");
+                Console.WriteLine($"[index] no library here uses it; removed stale {path}");
             }
         }
         catch (Exception ex)
@@ -617,7 +649,7 @@ public partial class MainWindow : Window
             Console.WriteLine($"[index] could not remove stale {path}: {ex.Message}");
         }
         return null;
-    });
+    }
 
     /// What the wall is currently showing, as (root, fingerprint of the scan).
     /// A rescan that comes back identical is dropped rather than shown.
@@ -694,11 +726,16 @@ public partial class MainWindow : Window
             var sw = Stopwatch.StartNew();
             var scanner = new Domain.LibraryScanner();
             IReadOnlyList<Domain.Album> albums;
+            // Asked here, on the worker: the question can wake a sleeping share.
+            // What the library was last time counts as well, so a share that is
+            // down today does not lose its index for looking like a local folder.
+            var network = !OperatingSystem.IsWindows() && OnNetwork(root);
+            var trusted = network || TrustsIndex(library);
             try
             {
                 // Rescan is the one scan that believes an empty folder: it is the
                 // way to say "the music really has gone" when it has.
-                albums = scanner.Scan(root, Progress, ct, _index.Value, trustIndex: !honest,
+                albums = scanner.Scan(root, Progress, ct, IndexFor(trusted), trustIndex: !honest,
                                       expectMusic: !honest && library.Tracks > 0);
             }
             catch (Domain.LibraryUnreachableException ex)
@@ -728,7 +765,8 @@ public partial class MainWindow : Window
             }
             sw.Stop();
             Console.WriteLine($"[scan] done in {sw.ElapsedMilliseconds} ms, {albums.Count} albums, "
-                            + $"{scanner.FilesOpened} files opened");
+                            + $"{scanner.FilesOpened} files opened"
+                            + (trusted ? network ? ", index trusted (network folder)" : ", index trusted" : ""));
 
             var vms = albums.Select(a => new AlbumVm(a)).ToList();
             var tracks = albums.Sum(a => a.Tracks.Count);
@@ -741,9 +779,13 @@ public partial class MainWindow : Window
                 _trackCount = tracks;
                 _stats = stats;
                 LibraryBack();
-                if (library.Tracks != tracks)
+                // Only a scan that finished says where the library is: one that
+                // could not reach it has seen the mount point, not the share.
+                var onNetwork = OperatingSystem.IsWindows() ? library.Network : network;
+                if (library.Tracks != tracks || library.Network != onNetwork)
                 {
                     library.Tracks = tracks;
+                    library.Network = onNetwork;
                     _settings.Save();
                 }
                 if (honest)
@@ -963,7 +1005,7 @@ public partial class MainWindow : Window
         {
             _watcher = new Domain.LibraryWatcher(root,
                 () => Dispatcher.UIThread.Post(() => ScanLibrary(asked: false)),
-                path => _index.Value?.Touch(path));
+                path => { if (_index.IsValueCreated) _index.Value.Touch(path); });
             Console.WriteLine($"[watch] watching {root}");
         }
         catch (Exception ex)
@@ -1599,6 +1641,8 @@ public partial class MainWindow : Window
     internal string LibraryRootPath => LibraryRoot;
     internal string LibraryCounts => _counts;
     internal int LibraryTrackCount => _trackCount;
+    /// Whether scans of the library on the wall skip files the index recognizes.
+    internal bool LibraryTrustsIndex => TrustsIndex(_settings.Current());
 
     /// The dot on the gear: a newer version exists (or the last update failed).
     internal void ShowUpdateDot(bool on)

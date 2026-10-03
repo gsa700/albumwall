@@ -292,6 +292,12 @@ is ahead, the history is for what is behind.
      size and mtime cannot be trusted to change. For somebody else's library
      on a NAS that is a minute or more at every launch. Probably a setting of
      the library, defaulting by platform, rather than a rule of the platform.
+     DONE (2026-10-03), without a setting: "just add it for network Libraries".
+     His NAS library on Techbench (15,565 files over NFS) was 27 s at every
+     launch. A folder library on a network share now trusts the index on Linux
+     as it does on Windows; a local one still opens every file. The app asks
+     the filesystem (and remembers the answer, since a share that is down looks
+     like a local folder). Rescan is the way out, and its tip says so.
   4. WATCHING A NETWORK FOLDER. Over NFS the watcher generally hears nothing
      done from another machine, and over SMB it is unreliable. The scan at
      launch catches it all; a library on a share might also want an
