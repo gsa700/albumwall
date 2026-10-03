@@ -224,6 +224,15 @@ public sealed class Player : IDisposable
 
     private void Option(string name, string value) => Mpv.mpv_set_option_string(_ctx, name, value);
 
+    /// What a queue entry is called in the log: a file's name, or for an
+    /// address only what comes before the "?", since what comes after it can
+    /// be a sign-in.
+    private static string Label(string path)
+    {
+        var q = path.Contains("://") ? path.IndexOf('?') : -1;
+        return System.IO.Path.GetFileName(q >= 0 ? path[..q] : path);
+    }
+
     /// Loads the whole album as an mpv PLAYLIST and starts at `start`.
     ///
     /// The entire album goes to mpv at once, rather than being fed one file at a
@@ -306,7 +315,7 @@ public sealed class Player : IDisposable
         Console.WriteLine($"[mpv] queued {list.Count} (mpv says {count}), "
                         + $"asked for index {start} -> {wanted}"
                         + (rc < 0 ? $"  FAILED: {Mpv.ErrorText(rc)}" : "")
-                        + $"  want: {System.IO.Path.GetFileName(list[wanted])}");
+                        + $"  want: {Label(list[wanted])}");
 
         // DELIBERATELY STILL PAUSED. When mpv is idle and the playlist is empty,
         // appending the first file makes it start playing entry 0 on its own —
@@ -604,7 +613,7 @@ public sealed class Player : IDisposable
         lock (_gate)
             if (pos < _queue.Count)
                 Console.WriteLine($"[mpv] playlist-pos -> {pos}  "
-                                + $"{System.IO.Path.GetFileName(_queue[pos])}");
+                                + $"{Label(_queue[pos])}");
         TrackChanged?.Invoke(this, new TrackChangedEventArgs(pos));
     }
 

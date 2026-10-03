@@ -67,6 +67,7 @@
                 <TextBlock x:Name="RescanResult" Classes="dim" FontSize="13" TextWrapping="Wrap" IsVisible="False"/>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <Button x:Name="AddFolderLibrary" Classes="panel" Content="Add a folder…"/>
+                    <Button x:Name="AddNavidromeLibrary" Classes="panel" Content="Add a Navidrome server…"/>
                 </StackPanel>
 
                 <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
@@ -78,9 +79,8 @@
                 <Border CornerRadius="4" Padding="13,11" Background="{DynamicResource SheetBg}">
                     <TextBlock x:Name="LibraryPath" FontSize="13" Classes="mono" TextWrapping="Wrap"/>
                 </Border>
-                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="Everything under this folder is scanned. Album art is taken from the tags, or from a cover file beside the tracks if there is none."/>
-                <StackPanel Orientation="Horizontal" Spacing="9">
+                <TextBlock x:Name="LibraryAbout" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
+                <StackPanel x:Name="FolderButtons" Orientation="Horizontal" Spacing="9">
                     <Button x:Name="ChooseFolder" Classes="panel" Content="Choose folder…"/>
                     <Button x:Name="UseDefault" Classes="panel" Content="Use my Music folder"/>
                 </StackPanel>

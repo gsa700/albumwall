@@ -255,6 +255,37 @@ is ahead, the history is for what is behind.
   3. A NETWORK REMOTE (a phone, a web page): not now. A listening socket with
      the security questions that come with one, for no concrete use yet.
 
+- **A Navidrome server as a library** (decided 2026-09-19, "local player,
+  multi library over network, and pure network"; BUILT 2026-10-03, read-only).
+  Added from Preferences › Library with a server, a user name and a password;
+  the password signs in once and is not kept (a salt and md5(password + salt)
+  are, as Subsonic defines, in the settings file only its owner can read). The
+  server's albums become the same Album and Track the scanner makes, so the
+  wall, the panel and the player are unchanged. What was learned building it:
+  1. THE WHOLE LIBRARY IS THIRTY-ODD REQUESTS. `getAlbumList2` for the albums,
+     then `search3` with an EMPTY query, which pages through every song. 1,035
+     albums and 15,572 tracks arrive in about a second on his network; asking
+     album by album would have been a thousand requests.
+  2. THE SERVER SPLITS ALBUMS THE SCANNER DOES NOT. Navidrome listed 1,465
+     entries for what the folder scan of the same files calls 1,036 albums.
+     Entries are merged on (album artist, title), the identity used everywhere
+     else, and the two walls then agree.
+  3. COVERS ARE KEPT AS FILES, in the cache directory, named for the server's
+     cover id (which changes when the picture does). Everything that shows a
+     cover already reads a file, and a cover's address on the server would
+     carry the sign-in to the desktop's media controls.
+  4. A TRACK'S PATH IS `navidrome://library/song.ext`, NOT ITS ADDRESS, for the
+     same reason: paths go to the session file and the log. The streaming
+     address (`stream`, `format=raw`: measured byte-identical and gapless on
+     2026-09-22) is made at the moment the player is handed the queue.
+  5. THE WALL OPENS FROM WHAT WAS KEPT, THEN ASKS. The album list is kept as
+     JSON; it is on screen in about 0.15 s, the server is asked behind it, and
+     nothing moves unless something changed. A server that does not answer is
+     an unreachable library like any other: the wall stays, it is asked again.
+  Not done: an ear check of gapless through the app; anything that writes to
+  the server; a second server kind (the code says Navidrome because that is
+  what it was tested against, though it speaks plain Subsonic).
+
 - **Libraries that are not always there** (2026-09-25, Hambench, the day the
   NAS's FLAC library was added: "I am also thinking of other users with
   different network topologies and NAS or no NAS or USB drive or???"). The

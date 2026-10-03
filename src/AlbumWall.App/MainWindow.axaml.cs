@@ -594,7 +594,7 @@ public partial class MainWindow : Window
     /// reserve; a network library is not where `--preserve-modtime` is at work,
     /// and Rescan is the way out if an edit there is ever missed.
     private static bool TrustsIndex(Library library) =>
-        OperatingSystem.IsWindows() || library.Network == true;
+        library.IsFolder && (OperatingSystem.IsWindows() || library.Network == true);
 
     /// Whether `root` is on a network share, asked of the filesystem itself. An
     /// automount point nothing has mounted yet (autofs) counts: what goes there
@@ -685,7 +685,12 @@ public partial class MainWindow : Window
         var root = library.Root;
         if (asked) EmptyState.IsVisible = false;
         ShowLibraryName();
-        WatchLibrary(root);
+        if (library.IsFolder) WatchLibrary(root);
+        else StopWatching();        // a server is asked, not watched
+
+        // Whether this library's wall is already on screen: a server's library
+        // is shown from what was kept only when there is nothing better up.
+        var wallUp = _showing.Root == root && _all.Count > 0;
 
         _scan?.Cancel();
         var ct = (_scan = new CancellationTokenSource()).Token;
@@ -729,10 +734,14 @@ public partial class MainWindow : Window
             // Asked here, on the worker: the question can wake a sleeping share.
             // What the library was last time counts as well, so a share that is
             // down today does not lose its index for looking like a local folder.
-            var network = !OperatingSystem.IsWindows() && OnNetwork(root);
-            var trusted = network || TrustsIndex(library);
+            var network = library.IsFolder && !OperatingSystem.IsWindows() && OnNetwork(root);
+            var trusted = library.IsFolder && (network || TrustsIndex(library));
+            var kept = false;
             try
             {
+                if (library.IsNavidrome)
+                    albums = ReadNavidrome(library, root, fromKept: !honest && !wallUp, Progress, ct, out kept);
+                else
                 // Rescan is the one scan that believes an empty folder: it is the
                 // way to say "the music really has gone" when it has.
                 albums = scanner.Scan(root, Progress, ct, IndexFor(trusted), trustIndex: !honest,
@@ -765,8 +774,10 @@ public partial class MainWindow : Window
             }
             sw.Stop();
             Console.WriteLine($"[scan] done in {sw.ElapsedMilliseconds} ms, {albums.Count} albums, "
-                            + $"{scanner.FilesOpened} files opened"
-                            + (trusted ? network ? ", index trusted (network folder)" : ", index trusted" : ""));
+                            + (library.IsNavidrome
+                                ? kept ? "as kept from last time" : "from the server"
+                                : $"{scanner.FilesOpened} files opened"
+                                + (trusted ? network ? ", index trusted (network folder)" : ", index trusted" : "")));
 
             var vms = albums.Select(a => new AlbumVm(a)).ToList();
             var tracks = albums.Sum(a => a.Tracks.Count);
@@ -781,7 +792,7 @@ public partial class MainWindow : Window
                 LibraryBack();
                 // Only a scan that finished says where the library is: one that
                 // could not reach it has seen the mount point, not the share.
-                var onNetwork = OperatingSystem.IsWindows() ? library.Network : network;
+                var onNetwork = OperatingSystem.IsWindows() || !library.IsFolder ? library.Network : network;
                 if (library.Tracks != tracks || library.Network != onNetwork)
                 {
                     library.Tracks = tracks;
@@ -808,6 +819,10 @@ public partial class MainWindow : Window
                 ApplyGround();
                 ShowEmptyState(albums.Count == 0, root);
                 _prefs?.Fill();
+
+                // Shown from what was kept: now ask the server, quietly, the way
+                // the watcher asks a folder. Nothing moves unless something changed.
+                if (kept) _scanAgain = true;
 
                 // Once, and only after the first scan: there is nothing to
                 // resume INTO until the library exists.
@@ -840,6 +855,76 @@ public partial class MainWindow : Window
                 });
             });
         });
+    }
+
+    // ---- A Navidrome server as the library -----------------------------------
+
+    private static Domain.Navidrome? NavidromeFor(Library library) =>
+        library is { IsNavidrome: true, Server: { } server, User: { } user, Salt: { } salt, Token: { } token }
+            ? new Domain.Navidrome(library.Id, server, user, salt, token)
+            : null;
+
+    /// Where a server library's album list and covers are kept. A cache, so in
+    /// the cache directory and not beside the settings: it can be deleted and
+    /// costs one fetch. A scratch ALBUMWALL_CONFIG_DIR gets a scratch one.
+    private static (string List, string Covers) NavidromeFiles(Library library)
+    {
+        string home;
+        if (Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR") is { Length: > 0 } scratch)
+            home = scratch;
+        else if (OperatingSystem.IsWindows())
+            home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AlbumWall");
+        else
+        {
+            var cache = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+            if (string.IsNullOrEmpty(cache))
+                cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache");
+            home = Path.Combine(cache, "albumwall");
+        }
+        var dir = Path.Combine(home, "navidrome", library.Id);
+        return (Path.Combine(dir, "albums.json"), Path.Combine(dir, "covers"));
+    }
+
+    /// A server library's albums. `fromKept` takes what was kept from last time
+    /// if there is any, which is at once and needs no server; `kept` says that
+    /// is what came back, and the caller then asks the server behind it.
+    ///
+    /// A server that does not answer, or will not sign us in, is a library that
+    /// cannot be reached, and is handled as one: the wall stays, it is asked
+    /// again, and nothing is forgotten.
+    private static IReadOnlyList<Domain.Album> ReadNavidrome(
+        Library library, string root, bool fromKept,
+        Action<Domain.LibraryScanner.Progress> progress, CancellationToken ct, out bool kept)
+    {
+        kept = false;
+        var files = NavidromeFiles(library);
+        try
+        {
+            var server = NavidromeFor(library)
+                         ?? throw new Domain.NavidromeException("its sign-in is missing from the settings", unreachable: false);
+            if (fromKept && server.Load(files.List, files.Covers) is { Count: > 0 } last)
+            {
+                kept = true;
+                return last;
+            }
+            return server.Fetch(files.List, files.Covers, progress, ct);
+        }
+        catch (Domain.NavidromeException ex)
+        {
+            throw new Domain.LibraryUnreachableException(root, Domain.LibraryUnreachableException.Reason.Missing, ex);
+        }
+    }
+
+    /// What the player is given for a track: the file, or for a server's track
+    /// the address to stream it from. Made here and nowhere else, because that
+    /// address carries the sign-in and a track's path is seen in places a
+    /// sign-in must not be (the session file, the log, the desktop's media
+    /// controls).
+    private string Playable(string path)
+    {
+        if (Domain.Navidrome.LibraryOf(path) is not { } id) return path;
+        var library = _settings.AllLibraries().FirstOrDefault(l => l.Id == id);
+        return library is null ? path : NavidromeFor(library)?.StreamUrl(path) ?? path;
     }
 
     private bool _scanning;
@@ -891,6 +976,21 @@ public partial class MainWindow : Window
         EmptyRetry.IsEnabled = true;
         EmptyRetry.IsVisible = true;
         EmptyState.IsVisible = true;
+        EmptyChoose.IsVisible = library.IsFolder;
+
+        if (library.IsNavidrome)
+        {
+            // Two different things, and only one of them mends itself.
+            var said = ex.InnerException as Domain.NavidromeException;
+            EmptyTitle.Text = $"{library.Name} cannot be reached";
+            EmptyWhere.Text = said is { Unreachable: false }
+                ? $"{library.Server} would not sign {library.User} in: {said.Message}. If the password has "
+                  + "changed, forget this library in Preferences › Library and add the server again."
+                : $"{library.Server} is not answering{(said is null ? "" : $" ({said.Message})")}. "
+                  + "If the server is off or asleep, nothing about the library has been forgotten, "
+                  + "and it is asked again every 30 seconds.";
+            return;
+        }
 
         if (library.Tracks > 0)
         {
@@ -995,6 +1095,12 @@ public partial class MainWindow : Window
     /// cannot be watched, and a network mount generally reports nothing at all —
     /// inotify does not see changes made on the far side of NFS or SMB. Rescan
     /// stays in the menu for exactly those.
+    private void StopWatching()
+    {
+        _watcher?.Dispose();
+        _watcher = null;
+    }
+
     private void WatchLibrary(string root)
     {
         if (_watcher?.Root == root) return;
@@ -1683,6 +1789,7 @@ public partial class MainWindow : Window
 
     internal void UseDefaultLibrary()
     {
+        if (!_settings.Current().IsFolder) return;
         Repoint(_settings.Current(), null);
         _settings.Save();
         ScanLibrary();
@@ -1725,6 +1832,29 @@ public partial class MainWindow : Window
         SwitchLibrary(library.Id);
     }
 
+    /// Asks for a Navidrome server and a sign-in, and adds it as a library of
+    /// its own, then shows it. The same person on the same server is the same
+    /// library: going to it is what was meant.
+    internal async Task AddNavidromeLibrary(Window from)
+    {
+        if (await new ServerWindow().ShowDialog<Library?>(from) is not { } library) return;
+        if (Libraries.FirstOrDefault(l => l.IsNavidrome && l.Server == library.Server && l.User == library.User) is { } existing)
+        {
+            // Signed in again, perhaps because the password changed: keep the
+            // library he has, with the sign-in that just worked.
+            existing.Salt = library.Salt;
+            existing.Token = library.Token;
+            _settings.Save();
+            if (existing.Id == _settings.Current().Id) ScanLibrary();
+            else SwitchLibrary(existing.Id);
+            return;
+        }
+        _settings.AllLibraries().Add(library);
+        _settings.Save();
+        Console.WriteLine($"[library] added {library.Name} ({library.Root})");
+        SwitchLibrary(library.Id);
+    }
+
     internal void RenameLibrary(string id, string name)
     {
         var library = Libraries.FirstOrDefault(l => l.Id == id);
@@ -1736,7 +1866,9 @@ public partial class MainWindow : Window
     }
 
     /// Forgets a library. Nothing on disk is touched: a library is only a place
-    /// to look. The last one cannot go, since the wall has to show something.
+    /// to look. (A server's goes with what was kept of it here: its sign-in, its
+    /// album list and its covers. The server is not touched either.) The last
+    /// one cannot go, since the wall has to show something.
     internal void RemoveLibrary(string id)
     {
         var all = _settings.AllLibraries();
@@ -1744,6 +1876,11 @@ public partial class MainWindow : Window
         var wasCurrent = library.Id == _settings.Current().Id;
         all.Remove(library);
         Console.WriteLine($"[library] removed {library.Name}");
+        if (library.IsNavidrome)
+        {
+            var files = NavidromeFiles(library);
+            Domain.Navidrome.Forget(files.List, files.Covers);
+        }
         if (wasCurrent)
         {
             _settings.CurrentLibrary = null;        // Current() falls back to the first
@@ -1807,15 +1944,19 @@ public partial class MainWindow : Window
     {
         EmptyState.IsVisible = empty;
         if (!empty) return;
+        var library = _settings.Current();
         EmptyTitle.Text = "No music here yet";
         EmptyChoose.Content = "Choose your music folder…";
+        EmptyChoose.IsVisible = library.IsFolder;
 
         // The status line is driven by a timer that gives up when there is
         // nothing to count, so without this it sits on "scanning…" forever —
         // which on a fresh machine reads as a hang rather than an empty folder.
         StatusText.Text = "";
 
-        EmptyWhere.Text = $"Nothing playable was found in {root}. If your records live somewhere else — another drive, or a share on the network — point the app at them.";
+        EmptyWhere.Text = library.IsNavidrome
+            ? $"{library.Server} has no albums to show {library.User}."
+            : $"Nothing playable was found in {root}. If your records live somewhere else — another drive, or a share on the network — point the app at them.";
     }
 
     /// Asks for a folder and rescans if it changed.
@@ -1823,6 +1964,7 @@ public partial class MainWindow : Window
     /// one asked — Preferences, or this one from the empty state.
     internal async Task ChooseLibraryFolder(Window from)
     {
+        if (!_settings.Current().IsFolder) return;
         if (await PickFolder(from, "Choose your music folder") is not { } path) return;
         Repoint(_settings.Current(), path);
         _settings.Save();
@@ -2694,7 +2836,7 @@ public partial class MainWindow : Window
             _playingAlbum = album;
             _playingPaths = paths;
             _sessionOver = false;
-            _player.Play(paths, from);
+            _player.Play(paths.Select(Playable).ToList(), from);
             MarkPlayingTrack();
 
             Console.WriteLine($"[wall] requested track {from + 1}: "
@@ -2866,7 +3008,7 @@ public partial class MainWindow : Window
             _playingAlbum = album;
             _playingPaths = queue;
             _sessionOver = false;
-            _player.Play(queue, index, at, paused: _settings.AutoPlay != true);
+            _player.Play(queue.Select(Playable).ToList(), index, at, paused: _settings.AutoPlay != true);
         }
         catch (Exception ex)
         {

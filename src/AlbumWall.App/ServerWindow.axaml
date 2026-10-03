@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AlbumWall.App.ServerWindow"
+        Title="Add a Navidrome server"
+        Icon="/Assets/app.ico"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        RequestedThemeVariant="Dark"
+        Background="{DynamicResource SheetBg}"
+        Foreground="#F3EEE6"
+        ShowInTaskbar="False">
+
+    <!-- Signing in to a Navidrome server, in the format ConfirmWindow and
+         PrefsWindow set down. Three things asked for and one of them, the
+         password, used once and not kept: see Library.Token. -->
+    <StackPanel Margin="22,20" Spacing="14">
+        <TextBlock FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
+                   Text="Where is the server, and who are you on it?"/>
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="9">
+            <TextBlock Text="Server" FontSize="13" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" x:Name="ServerBox" FontSize="13" PlaceholderText="nas:4533"/>
+            <TextBlock Grid.Row="1" Text="User name" FontSize="13" VerticalAlignment="Center"/>
+            <TextBox Grid.Row="1" Grid.Column="1" x:Name="UserBox" FontSize="13"/>
+            <TextBlock Grid.Row="2" Text="Password" FontSize="13" VerticalAlignment="Center"/>
+            <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" FontSize="13" PasswordChar="•"/>
+        </Grid>
+        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                   Text="The password is used once, to sign in, and is not kept. AlbumWall only reads from the server: it plays the files as they are and changes nothing there."/>
+        <TextBlock x:Name="ResultText" FontSize="13" TextWrapping="Wrap" IsVisible="False"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="9">
+            <Button x:Name="CancelButton" Classes="panel" Content="Cancel" MinWidth="96"/>
+            <Button x:Name="SignInButton" Classes="panel" Content="Sign in" MinWidth="96" IsDefault="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

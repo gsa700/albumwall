@@ -177,8 +177,8 @@ public sealed class Library
     /// What the picker says. Made from the folder's name until he changes it.
     public string Name { get; set; } = "";
 
-    /// "folder" today. By name, like Chrome, so a new kind cannot be misread
-    /// as an old one.
+    /// "folder", or "navidrome" for a server. By name, like Chrome, so a new
+    /// kind cannot be misread as an old one.
     public string Kind { get; set; } = "folder";
 
     /// A folder library's root. Null means the platform's Music folder, which
@@ -200,17 +200,38 @@ public sealed class Library
     /// Windows, which trusts the index everywhere.
     public bool? Network { get; set; }
 
+    /// A Navidrome library: where the server is and who signs in. The password
+    /// is NOT here and is not anywhere: Salt and Token are what Subsonic signs
+    /// requests with (the token is md5(password + salt)), made once at sign-in.
+    /// They are still a way in to that server, which is why this file is the
+    /// user's alone to read.
+    public string? Server { get; set; }
+    public string? User { get; set; }
+    public string? Salt { get; set; }
+    public string? Token { get; set; }
+
     [JsonIgnore]
     public bool IsFolder => Kind == "folder";
 
-    /// Where a folder library actually is, with null resolved.
     [JsonIgnore]
-    public string Root => string.IsNullOrWhiteSpace(Path) ? DefaultRoot : Path;
+    public bool IsNavidrome => Kind == "navidrome";
+
+    /// Where the library is, with null resolved: a folder library's folder, or
+    /// who on which server. It is what is shown as the library's whereabouts
+    /// and what tells one library's wall from another's.
+    [JsonIgnore]
+    public string Root => IsNavidrome ? $"{User} on {Server}"
+                        : string.IsNullOrWhiteSpace(Path) ? DefaultRoot : Path;
 
     public static string DefaultRoot =>
         System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music");
 
     public static Library Folder(string? path) => new() { Path = path, Name = NameFor(path) };
+
+    public static Library Navidrome(string server, string user, string salt, string token) => new()
+    {
+        Kind = "navidrome", Name = "Navidrome", Server = server, User = user, Salt = salt, Token = token,
+    };
 
     /// "Music" for the default, else the folder's own name ("MusicFolder").
     public static string NameFor(string? path)

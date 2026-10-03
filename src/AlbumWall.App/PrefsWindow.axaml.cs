@@ -43,6 +43,7 @@ public partial class PrefsWindow : Window
         ChooseFolder.Click += async (_, _) => { await host.ChooseLibraryFolder(this); Fill(); };
         UseDefault.Click += (_, _) => { host.UseDefaultLibrary(); Fill(); };
         AddFolderLibrary.Click += async (_, _) => { await host.AddFolderLibrary(this); Fill(); };
+        AddNavidromeLibrary.Click += async (_, _) => { await host.AddNavidromeLibrary(this); Fill(); };
 
         // A rename lands when he leaves the box or presses Enter, not on every
         // keystroke: the picker would otherwise show each letter as it came.
@@ -384,7 +385,7 @@ public partial class PrefsWindow : Window
     private Button? _rescan;
 
     /// What Rescan does, in the terms he will experience it: when to press it,
-    /// what it costs, and that it can be stopped. Three stories, because the app
+    /// what it costs, and that it can be stopped. Four stories, because the app
     /// really does behave differently by platform and by where the library is -
     /// see MainWindow.TrustsIndex - and promising a Linux user with a local
     /// library that this is how a missed tag edit gets picked up would describe a
@@ -393,6 +394,9 @@ public partial class PrefsWindow : Window
     {
         var n = _host?.LibraryTrackCount ?? 0;
         var every = n > 0 ? $"all {n:N0} tracks" : "every track";
+        if (_host?.CurrentLibrary.IsNavidrome == true)
+            return "Asks the server for its albums again. Rarely needed: it is asked every time this "
+                 + "library is opened. If something is missing, the server may not have scanned it yet.";
         if (OperatingSystem.IsWindows())
             return $"Reads {every} again. Only needed if a tag edit hasn't shown up. It can take several "
                  + "minutes while Windows Security checks each file. Keep listening; stop it any time.";
@@ -482,7 +486,9 @@ public partial class PrefsWindow : Window
             {
                 var forget = new Button { Content = "Forget" };
                 forget.Classes.Add("panel");
-                Avalonia.Controls.ToolTip.SetTip(forget, "Removes it from this list. Nothing on disk is touched.");
+                Avalonia.Controls.ToolTip.SetTip(forget, library.IsNavidrome
+                    ? "Removes it from this list, with its sign-in and the covers kept here. Nothing on the server is touched."
+                    : "Removes it from this list. Nothing on disk is touched.");
                 forget.Click += (_, _) => { _host.RemoveLibrary(id); Fill(); };
                 buttons.Children.Add(forget);
             }
@@ -516,6 +522,11 @@ public partial class PrefsWindow : Window
         _filling = true;
         FillLibraries();
         LibraryPath.Text = _host.LibraryRootPath;
+        var server = _host.CurrentLibrary.IsNavidrome;
+        FolderButtons.IsVisible = !server;
+        LibraryAbout.Text = server
+            ? "The albums are the server's, and so is the art. The files are played as they are, and nothing on the server is changed. Its album list and covers are kept on this computer so the wall opens at once."
+            : "Everything under this folder is scanned. Album art is taken from the tags, or from a cover file beside the tracks if there is none.";
 
         // Resume is on unless turned off; auto-play is off unless turned on.
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;
