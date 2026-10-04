@@ -210,6 +210,13 @@ public sealed class Library
     public string? Salt { get; set; }
     public string? Token { get; set; }
 
+    /// Which of the server's own libraries this is (its lossless one, its lossy
+    /// one), by the server's id for it, and what the server calls it. Null on a
+    /// library added before there was a choice: that one is everything the user
+    /// may see there, until he signs in again and it is given one.
+    public string? MusicFolder { get; set; }
+    public string? MusicFolderName { get; set; }
+
     [JsonIgnore]
     public bool IsFolder => Kind == "folder";
 
@@ -220,7 +227,7 @@ public sealed class Library
     /// who on which server. It is what is shown as the library's whereabouts
     /// and what tells one library's wall from another's.
     [JsonIgnore]
-    public string Root => IsNavidrome ? $"{User} on {Server}"
+    public string Root => IsNavidrome ? $"{User} on {Server}{(MusicFolder is null ? "" : $", {MusicFolderName ?? MusicFolder}")}"
                         : string.IsNullOrWhiteSpace(Path) ? DefaultRoot : Path;
 
     public static string DefaultRoot =>
@@ -228,10 +235,20 @@ public sealed class Library
 
     public static Library Folder(string? path) => new() { Path = path, Name = NameFor(path) };
 
-    public static Library Navidrome(string server, string user, string salt, string token) => new()
+    /// `named` is whether the server has more than one library to tell apart:
+    /// its only one is simply "Navidrome".
+    public static Library Navidrome(string server, string user, string salt, string token,
+                                    Domain.Navidrome.Folder? folder = null, bool named = false) => new()
     {
-        Kind = "navidrome", Name = "Navidrome", Server = server, User = user, Salt = salt, Token = token,
+        Kind = "navidrome", Name = NavidromeName(folder, named),
+        Server = server, User = user, Salt = salt, Token = token,
+        MusicFolder = folder?.Id, MusicFolderName = folder?.Name,
     };
+
+    public const string NavidromeDefaultName = "Navidrome";
+
+    public static string NavidromeName(Domain.Navidrome.Folder? folder, bool named) =>
+        named && folder is { Name.Length: > 0 } ? $"{NavidromeDefaultName} · {folder.Name}" : NavidromeDefaultName;
 
     /// "Music" for the default, else the folder's own name ("MusicFolder").
     public static string NameFor(string? path)

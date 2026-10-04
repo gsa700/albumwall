@@ -257,6 +257,10 @@ is ahead, the history is for what is behind.
 
 - **A Navidrome server as a library** (decided 2026-09-19, "local player,
   multi library over network, and pure network"; BUILT 2026-10-03, read-only).
+  A server with more than one library of its own (his: a lossless one and a
+  lossy one) asks which after the sign-in, and each one ticked is a library
+  here with its own wall (2026-10-03): shown as one, 48 albums he has in both
+  formats folded together with their tracks mixed.
   Added from Preferences › Library with a server, a user name and a password;
   the password signs in once and is not kept (a salt and md5(password + salt)
   are, as Subsonic defines, in the settings file only its owner can read). The

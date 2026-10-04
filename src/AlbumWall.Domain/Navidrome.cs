@@ -64,12 +64,21 @@ public sealed class Navidrome
     private readonly string _library;
     private readonly string _server;
     private readonly string _auth;
+    private readonly string _only;
+
+    /// One of the server's own libraries ("music folders" to Subsonic): the
+    /// lossless one and the lossy one, say.
+    public sealed record Folder(string Id, string Name);
 
     /// `library` is the id the track paths carry, so a path finds its way back
-    /// to the server it came from.
-    public Navidrome(string library, string server, string user, string salt, string token)
+    /// to the server it came from. `folder` is the one library of the server's
+    /// this is; without it, it is everything the user may see there, which is
+    /// what a library added before there was a choice still is.
+    public Navidrome(string library, string server, string user, string salt, string token,
+                     string? folder = null)
     {
         _library = library;
+        _only = string.IsNullOrEmpty(folder) ? "" : $"&musicFolderId={Uri.EscapeDataString(folder)}";
         _server = server.TrimEnd('/');
         _auth = $"u={Uri.EscapeDataString(user)}&t={token}&s={salt}&v={ApiVersion}&c={ClientName}";
     }
@@ -113,6 +122,19 @@ public sealed class Navidrome
 
     /// Asks the server whether it knows us. Throws NavidromeException if not.
     public void Ping(CancellationToken ct = default) => Get("ping", "", ct);
+
+    /// The server's libraries this user may see, in the server's order. Throws
+    /// NavidromeException.
+    public IReadOnlyList<Folder> Folders(CancellationToken ct = default)
+    {
+        using var doc = Get("getMusicFolders", "", ct);
+        return Items(doc, "musicFolders", "musicFolder")
+            .Select(f => new Folder(
+                f.TryGetProperty("id", out var id) ? id.ToString() : "",
+                Text(f, "name")))
+            .Where(f => f.Id.Length > 0)
+            .ToList();
+    }
 
     // ---- what is kept: the album list ---------------------------------------
 
@@ -174,7 +196,7 @@ public sealed class Navidrome
 
         for (var offset = 0; ; offset += Page)
         {
-            using var doc = Get("getAlbumList2", $"type=alphabeticalByName&size={Page}&offset={offset}", ct);
+            using var doc = Get("getAlbumList2", $"type=alphabeticalByName&size={Page}&offset={offset}{_only}", ct);
             var page = Items(doc, "albumList2", "album");
             foreach (var a in page)
                 cache.Albums.Add(new CachedAlbum
@@ -193,7 +215,7 @@ public sealed class Navidrome
         var total = 0;
         for (var offset = 0; ; offset += Page)
         {
-            using var doc = Get("search3", $"query=&artistCount=0&albumCount=0&songCount={Page}&songOffset={offset}", ct);
+            using var doc = Get("search3", $"query=&artistCount=0&albumCount=0&songCount={Page}&songOffset={offset}{_only}", ct);
             var page = Items(doc, "searchResult3", "song");
             foreach (var s in page)
                 cache.Songs.Add(new CachedSong

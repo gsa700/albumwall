@@ -12,7 +12,9 @@
 
     <!-- Signing in to a Navidrome server, in the format ConfirmWindow and
          PrefsWindow set down. Three things asked for and one of them, the
-         password, used once and not kept: see Library.Token. -->
+         password, used once and not kept: see Library.Token. A server with
+         more than one library of its own then asks which, in the same window:
+         each one ticked becomes a library here. -->
     <StackPanel Margin="22,20" Spacing="14">
         <TextBlock FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
                    Text="Where is the server, and who are you on it?"/>
@@ -26,6 +28,13 @@
         </Grid>
         <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                    Text="The password is used once, to sign in, and is not kept. AlbumWall only reads from the server: it plays the files as they are and changes nothing there."/>
+        <StackPanel x:Name="FoldersPanel" Spacing="8" IsVisible="False">
+            <TextBlock FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
+                       Text="Which of its libraries?"/>
+            <StackPanel x:Name="FolderList" Spacing="4"/>
+            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                       Text="Each one ticked is a library of its own in AlbumWall, with its own wall."/>
+        </StackPanel>
         <TextBlock x:Name="ResultText" FontSize="13" TextWrapping="Wrap" IsVisible="False"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="9">
             <Button x:Name="CancelButton" Classes="panel" Content="Cancel" MinWidth="96"/>

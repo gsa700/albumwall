@@ -861,7 +861,7 @@ public partial class MainWindow : Window
 
     private static Domain.Navidrome? NavidromeFor(Library library) =>
         library is { IsNavidrome: true, Server: { } server, User: { } user, Salt: { } salt, Token: { } token }
-            ? new Domain.Navidrome(library.Id, server, user, salt, token)
+            ? new Domain.Navidrome(library.Id, server, user, salt, token, library.MusicFolder)
             : null;
 
     /// Where a server library's album list and covers are kept. A cache, so in
@@ -1832,27 +1832,54 @@ public partial class MainWindow : Window
         SwitchLibrary(library.Id);
     }
 
-    /// Asks for a Navidrome server and a sign-in, and adds it as a library of
-    /// its own, then shows it. The same person on the same server is the same
+    /// Asks for a Navidrome server and a sign-in, and adds each of the server's
+    /// libraries he ticked as a library of its own, then shows the first new
+    /// one. The same person on the same library of the same server is the same
     /// library: going to it is what was meant.
     internal async Task AddNavidromeLibrary(Window from)
     {
-        if (await new ServerWindow().ShowDialog<Library?>(from) is not { } library) return;
-        if (Libraries.FirstOrDefault(l => l.IsNavidrome && l.Server == library.Server && l.User == library.User) is { } existing)
+        if (await new ServerWindow().ShowDialog<IReadOnlyList<Library>?>(from) is not { Count: > 0 } chosen) return;
+        var all = _settings.AllLibraries();
+        var first = chosen[0];
+
+        // Signed in again, perhaps because the password changed: every library
+        // he has from this server takes the sign-in that just worked.
+        var had = all.Where(l => l.IsNavidrome && l.Server == first.Server && l.User == first.User).ToList();
+        foreach (var l in had)
         {
-            // Signed in again, perhaps because the password changed: keep the
-            // library he has, with the sign-in that just worked.
-            existing.Salt = library.Salt;
-            existing.Token = library.Token;
-            _settings.Save();
-            if (existing.Id == _settings.Current().Id) ScanLibrary();
-            else SwitchLibrary(existing.Id);
-            return;
+            l.Salt = first.Salt;
+            l.Token = first.Token;
         }
-        _settings.AllLibraries().Add(library);
+
+        Library? show = null, added = null;
+        foreach (var library in chosen)
+        {
+            var existing = had.FirstOrDefault(l => l.MusicFolder == library.MusicFolder);
+            if (existing is null && library.MusicFolder is not null
+                && had.FirstOrDefault(l => l.MusicFolder is null) is { } whole)
+            {
+                // The library from before there was a choice was all of the
+                // server at once. It becomes the first one ticked, keeping its
+                // place in the picker and any name he gave it.
+                whole.MusicFolder = library.MusicFolder;
+                whole.MusicFolderName = library.MusicFolderName;
+                if (whole.Name == Library.NavidromeDefaultName) whole.Name = library.Name;
+                existing = whole;
+            }
+            if (existing is null)
+            {
+                all.Add(library);
+                had.Add(library);
+                added ??= library;
+                Console.WriteLine($"[library] added {library.Name} ({library.Root})");
+            }
+            show ??= existing ?? library;
+        }
         _settings.Save();
-        Console.WriteLine($"[library] added {library.Name} ({library.Root})");
-        SwitchLibrary(library.Id);
+
+        show = added ?? show!;
+        if (show.Id == _settings.Current().Id) ScanLibrary();
+        else SwitchLibrary(show.Id);
     }
 
     internal void RenameLibrary(string id, string name)
