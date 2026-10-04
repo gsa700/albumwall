@@ -77,8 +77,12 @@ is ahead, the history is for what is behind.
   - One menu on every library. What a library cannot do is greyed out with
     the reason on it, not left off: a server library has no file to show.
   - "Play next" is not in it, for now.
-  - Properties comes next (format, tags, embedded lyrics, read-only), and
-    tag editing lives inside it rather than in an editor of its own. The
+  - Properties (BUILT 2026-10-03, read-only): what the library knows, and for
+    a file on this machine every tag and the embedded lyrics, read when the
+    window is asked for and not kept. An album's shows its sleeve files and
+    what the ripper's log concluded. A server track shows what the server
+    said; its file is not fetched to be described. Tag editing will live
+    inside it rather than in an editor of its own. The
     disabled "Edit tags" button in the album panel is gone for that reason.
   - Editing is offered only where an edit lasts. Techbench holds the master
     of both collections; the NAS copy is overwritten by the nightly push and

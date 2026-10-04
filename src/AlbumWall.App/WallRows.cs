@@ -110,7 +110,7 @@ public sealed class PanelRow : WallItem
     /// the one answer that cannot be wrong: .m4a is AAC or ALAC and .ogg is
     /// Vorbis or Opus, and a guess printed as a fact is worse than the container
     /// stated plainly. Same "mixed" rule as the line beside it.
-    private static string TypeLine(Domain.Album a)
+    internal static string TypeLine(Domain.Album a)
     {
         var types = a.Tracks
             .Select(t => System.IO.Path.GetExtension(t.Path).TrimStart('.').ToUpperInvariant())
@@ -129,7 +129,7 @@ public sealed class PanelRow : WallItem
 
     /// Reports what the files ACTUALLY are, per track, rather than assuming the
     /// library is uniform. A mixed album should say so.
-    private static string FormatLine(Domain.Album a)
+    internal static string FormatLine(Domain.Album a)
     {
         var specs = a.Tracks
             .Where(t => t.SampleRate > 0)
@@ -150,7 +150,7 @@ public sealed class PanelRow : WallItem
         };
     }
 
-    private static string Duration(TimeSpan t) =>
+    internal static string Duration(TimeSpan t) =>
         t.TotalHours >= 1
             ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}"
             : $"{t.Minutes}:{t.Seconds:00}";

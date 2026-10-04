@@ -6,10 +6,10 @@
 // this machine, so there is nothing to show in a file manager and no path to
 // copy.
 //
-// NOTHING HERE WRITES. Play, show, copy. Properties and tag editing come to
-// this menu when they are built (docs/roadmap.md); the disabled "Edit tags"
-// button the album panel used to carry is gone, because this is where that
-// will live.
+// NOTHING HERE WRITES. Play, show, copy, and Properties, which only reads
+// (PropertiesWindow.cs). Tag editing comes to Properties when it is built
+// (docs/roadmap.md); the disabled "Edit tags" button the album panel used to
+// carry is gone, because this is where that will live.
 
 using System.Diagnostics;
 using Avalonia.Controls;
@@ -58,7 +58,8 @@ public partial class MainWindow
             play: CanPlayNow && first is not null ? () => StartPlayback(album, 0, false) : null,
             show: folder is null ? null : () => OpenFolder(folder),
             path: folder,
-            pathItem: "Copy folder path");
+            pathItem: "Copy folder path",
+            properties: () => ShowAlbumProperties(album.Album));
     }
 
     private MenuFlyout TrackMenu(TrackLine line, Domain.Track track)
@@ -68,17 +69,129 @@ public partial class MainWindow
             play: line.PlayCommand is { } play ? () => play.Execute(null) : null,
             show: file is null ? null : () => ShowFile(file),
             path: file,
-            pathItem: "Copy file path");
+            pathItem: "Copy file path",
+            properties: () => ShowTrackProperties(track));
     }
 
-    private MenuFlyout Menu(Action? play, Action? show, string? path, string pathItem)
+    private MenuFlyout Menu(Action? play, Action? show, string? path, string pathItem, Action properties)
     {
         var menu = new MenuFlyout();
         menu.Items.Add(Item("Play", play, "Playback is not available."));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Show in file manager", show, OnAServer));
         menu.Items.Add(Item(pathItem, path is null ? null : () => _ = Clipboard?.SetTextAsync(path), OnAServer));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Properties…", properties, ""));
         return menu;
+    }
+
+    // ---- Properties ----------------------------------------------------------
+
+    /// Where a thing in the current library is, for one who cannot be shown a
+    /// folder: "albumwall on http://nas:4533, FLAC".
+    private string ServerWhere => $"On a server: {_settings.Current().Root}";
+
+    private void ShowAlbumProperties(Domain.Album album)
+    {
+        var library = _settings.Current();
+        var onServer = album.Tracks.Count > 0 && Domain.Navidrome.IsTrack(album.Tracks[0].Path);
+        var rows = new List<PropertiesWindow.Row>();
+        void Add(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) rows.Add(new(label, value!)); }
+
+        Add("Year", album.Year > 0 ? album.Year.ToString() : null);
+        Add("Tracks", album.DiscCount > 1 ? $"{album.Tracks.Count} on {album.DiscCount} discs" : album.Tracks.Count.ToString());
+        Add("Length", PanelRow.Duration(album.TotalTime));
+        Add("Format", string.Join(", ", new[] { PanelRow.TypeLine(album), PanelRow.FormatLine(album) }.Where(s => s.Length > 0)));
+        Add("Size", PropertiesWindow.Bytes(album.Tracks.Sum(t => t.Size)));
+        Add("Library", library.Name);
+        Add(album.Directories.Count > 1 ? "Folders" : "Folder",
+            onServer ? ServerWhere : string.Join("\n", album.Directories.OrderBy(d => d, StringComparer.OrdinalIgnoreCase)));
+
+        var art = new List<PropertiesWindow.Row>();
+        art.Add(new("Front", album.ArtPath is { } front
+            ? Picture(onServer ? "kept from the server" : Path.GetFileName(front), album.ArtWidth, album.ArtHeight, album.ArtSize)
+            : album.ArtEmbeddedIn is not null ? Picture("inside the tracks", album.ArtWidth, album.ArtHeight, 0)
+            : "none"));
+        if (!onServer)
+            art.Add(new("Back", album.BackPath is { } back
+                ? Picture(Path.GetFileName(back), album.BackWidth, album.BackHeight, album.BackSize)
+                : "none"));
+
+        var sections = new List<PropertiesWindow.Section> { new("Album", rows), new("Sleeve", art) };
+        if (!onServer && RipLog(album) is { Count: > 0 } rip) sections.Add(new("Rip", rip));
+        PropertiesWindow.ShowFrom(this, album.Title, album.AlbumArtist, sections);
+    }
+
+    private static string Picture(string where, int width, int height, long size) =>
+        string.Join(", ", new[] { where, width > 0 ? $"{width} × {height}" : "", PropertiesWindow.Bytes(size) }.Where(s => s.Length > 0));
+
+    /// What the ripper's log beside the album concluded, if there is one: a
+    /// rip made by whipper or Deadwax says how it went in the same words.
+    private static List<PropertiesWindow.Row> RipLog(Domain.Album album)
+    {
+        var rows = new List<PropertiesWindow.Row>();
+        try
+        {
+            foreach (var log in album.Directories.SelectMany(d => Directory.EnumerateFiles(d, "*.log")).Take(4))
+                foreach (var line in File.ReadLines(log))
+                {
+                    var text = line.Trim();
+                    foreach (var (key, label) in new[] { ("Log created by:", "Ripped with"), ("AccurateRip summary:", "AccurateRip"), ("Health status:", "Health") })
+                        if (text.StartsWith(key, StringComparison.Ordinal))
+                            rows.Add(new(label, text[key.Length..].Trim()));
+                }
+        }
+        catch (Exception)
+        {
+            // A log that cannot be read is a section that is not shown.
+        }
+        return rows;
+    }
+
+    private async void ShowTrackProperties(Domain.Track track)
+    {
+        var onServer = Domain.Navidrome.IsTrack(track.Path);
+        var rows = new List<PropertiesWindow.Row>();
+        void Add(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) rows.Add(new(label, value!)); }
+
+        Add("Track", track.Number > 0 ? $"{track.Number}{(track.Disc > 1 ? $", disc {track.Disc}" : "")}" : null);
+        Add("Length", track.DurationText);
+        Add("Size", PropertiesWindow.Bytes(track.Size > 0 || onServer ? track.Size : FileSize(track.Path)));
+
+        var sections = new List<PropertiesWindow.Section>();
+        if (onServer)
+        {
+            // What the server said when the library was fetched: the file is
+            // there, not here, and is not asked for just to be described.
+            Add("Kind", Path.GetExtension(track.Path).TrimStart('.').ToUpperInvariant());
+            Add("Sample rate", track.SampleRate > 0
+                ? $"{track.SampleRate / 1000.0:0.###} kHz{(track.BitDepth > 0 ? $", {track.BitDepth} bit" : "")}" : null);
+            Add("Bit rate", track.Bitrate > 0 ? $"{track.Bitrate:N0} kbps" : null);
+            Add("File", ServerWhere);
+            sections.Add(new("Track", rows));
+            sections.Add(new("Tags", [], "The tags and lyrics are in the file, which is on the server."));
+        }
+        else
+        {
+            var facts = await Task.Run(() => PropertiesWindow.Read(track.Path));
+            rows.AddRange(facts.Audio);
+            Add("File", track.Path);
+            sections.Add(new("Track", rows));
+            if (facts.Problem is { } problem)
+                sections.Add(new("Tags", [], $"The file could not be read: {problem}"));
+            else
+            {
+                sections.Add(new("Tags", facts.Tags, facts.Tags.Count == 0 ? "None." : null));
+                sections.Add(new("Lyrics", [], facts.Lyrics ?? "None in the file."));
+            }
+        }
+        PropertiesWindow.ShowFrom(this, track.Title, track.Artist, sections);
+    }
+
+    private static long FileSize(string path)
+    {
+        try { return new FileInfo(path).Length; }
+        catch (Exception) { return 0; }
     }
 
     /// An item that does `run`, or, with nothing to run, a greyed one that
