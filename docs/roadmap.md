@@ -445,6 +445,47 @@ is ahead, the history is for what is behind.
   not apply, but a tagger that preserves modification times would bite as
   it does on Linux.
 
+- **FOR THE NEXT TECHBENCH SESSION: tidy the lossy library** (note left from
+  Hambench, 2026-10-04: "can you leave yourself a note in github so we can go
+  on Techbench and prune the weird files out of the lossy music library?").
+  The iTunes-era MP3/AAC collection that Navidrome serves as "Music Library"
+  (1,035 albums, 15,548 playable tracks) was looked at through AlbumWall's
+  Statistics and the server's album list. Since 0.6.2 the app no longer counts
+  or shows the junk, but it is still in the library, and every other client of
+  the server still sees it. What to do there, with David, on whichever copy of
+  it is the master (not established yet; the FLAC library's is Techbench):
+  1. THE iTunes LP BUNDLES. Six albums carry an `.itlp` folder (an iTunes LP /
+     iTunes Extras booklet). Inside: 24 AIFF menu clicks, 0 s each - Exit,
+     Limit, Selection, SelectionChange, four per bundle - and three M4A
+     backgrounds, "intro", "JohnMayer_BackgroundAudio" and a long
+     Chevelle_HatsOffToTheBull_..._FaceToTheFloor file name. With no tags,
+     Navidrome files all 27 under "[Unknown Artist] - [Unknown Album]". The
+     bundles are useless outside iTunes. Find them with
+     `find <library> -iname '*.itlp'`; delete (to the trash, not rm -rf) or
+     move them out of the tree, or, keeping them, an `.ndignore` naming them
+     should hide them from Navidrome without touching anything.
+  2. THE 200 px COVERS. 1,130 of the server's covers are exactly 200 x 200: the
+     `Folder.jpg` Windows Media Player wrote into every album, which Navidrome
+     prefers to the art embedded in the tracks (often 600 x 600 or better).
+     Statistics says "910 albums have a cover smaller than 300 px". Putting
+     `embedded` first in Navidrome's `CoverArtPriority` should sharpen most of
+     the wall with no file touched; AlbumWall takes the new covers after the
+     server's next scan. Deleting the 200 px `Folder.jpg`s is the other way.
+  3. THE TWO ALBUMS WITH NO COVER at all: `art:missing` on that wall lists them.
+  4. AN IDEA, NOT A PLAN: "a program to slowly pull better more complete album
+     art for the lossy lib and update it so cover flip and such works. we'll
+     see." Not in AlbumWall, which still fetches nothing (see "Decided against"):
+     a separate, patient tool that works through the library a few albums at a
+     time, finds a better front and a back for each, and WRITES THEM INTO THE
+     LIBRARY - embedded, and as `cover.jpg` / `back.jpg` beside the tracks - so
+     that AlbumWall, the back-cover flip and every other player simply find
+     them. It would be the first thing to write into the lossy library, so it
+     wants the same care as lyrics editing: a dry run that lists what it would
+     change, a backup of what it replaces, and whichever copy is the master,
+     never a mirror that is overwritten every night. Techbench already has
+     `music-backart`, which writes the `back.jpg` the scanner looks for, and
+     `music-audit`; the natural place to start is beside them.
+
 
 ## Decided
 
@@ -510,6 +551,9 @@ is ahead, the history is for what is behind.
 - **Fetching album art from the internet** — "at least not yet". The app does
   the best with the art in the files, and `art:missing`, `art:small` and
   `art:nonsquare` in the search box list the albums whose files want attention.
+  (2026-10-04: a SEPARATE tool that improves the art in the library's files is
+  an idea under "Wanted", tidying the lossy library. AlbumWall itself still
+  fetches nothing.)
 
 - **Detecting blank covers.** The two blankest real covers in his library are
   Spinal Tap's black album and the White Album.
