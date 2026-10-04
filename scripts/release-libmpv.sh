@@ -42,6 +42,19 @@ die() { echo "release-libmpv: $*" >&2; exit 1; }
 
 [[ $TAG =~ ^libmpv-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]] || die "tag must look like libmpv-0.41.0-4, not $TAG"
 command -v gh >/dev/null || die "the GitHub CLI (gh) is needed"
+# Python 3, by whichever name is a real one. Linux and macOS call it python3.
+# The python.org installer for Windows provides only python (and py), and there
+# `python3` is the Microsoft Store's stand-in, which prints "Python was not
+# found" and fails - so the name existing is not enough: it has to run. Found
+# cutting 0.6.0 from Hambench, where Python 3.13 is installed as `python`.
+PY=""
+for candidate in python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 \
+       && "$candidate" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
+        PY=$candidate; break
+    fi
+done
+[ -n "$PY" ] || die "Python 3 is needed (python3, or python on Windows)"
 gh release view "$TAG" -R "$REPO" >/dev/null 2>&1 && die "$TAG is already released on $REPO"
 [ -n "$NOTES" ] && [ ! -f "$NOTES" ] && die "no such notes file: $NOTES"
 
@@ -59,7 +72,7 @@ for rid in linux-x64 linux-arm64 win-x64; do
     [ -f "$dir/libmpv-build-info.txt" ] || die "missing $dir/libmpv-build-info.txt"
     grep -aq 'Show time domain statistics about audio frames' "$dir/$lib" \
         || die "$rid: $lib has no astats filter (built from an old recipe?)"
-    python3 - "$WORK/libmpv-$VERSION-$rid.zip" "$dir/$lib" "$dir/libmpv-build-info.txt" <<'PY'
+    "$PY" - "$WORK/libmpv-$VERSION-$rid.zip" "$dir/$lib" "$dir/libmpv-build-info.txt" <<'PY'
 import sys, zipfile, os
 out, *files = sys.argv[1:]
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
