@@ -311,8 +311,14 @@ public sealed class PropertiesWindow : Window
         return part;
     }
 
-    private static readonly IBrush Ink = SolidColorBrush.Parse("#1D1D20");
-    private static readonly IBrush DimInk = SolidColorBrush.Parse("#62626A");
+    // IMMUTABLE, and that is not a nicety. An ordinary brush belongs to the
+    // thread that made it, and a static field is made on whichever thread first
+    // touches the class's statics: here that was the worker reading a file's
+    // tags (Read, below), so the window drew its text with brushes the UI
+    // thread did not own and the program died on the first frame. 0.5.0 shipped
+    // that. An immutable brush belongs to no thread.
+    private static readonly IBrush Ink = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#1D1D20"));
+    private static readonly IBrush DimInk = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#62626A"));
 
     /// A label, or a second line: the grey ink of this window, not the warm
     /// tan the "dim" class gives everywhere else, which is made for dark.
