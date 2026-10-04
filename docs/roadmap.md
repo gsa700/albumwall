@@ -452,8 +452,8 @@ is ahead, the history is for what is behind.
   (1,035 albums, 15,548 playable tracks) was looked at through AlbumWall's
   Statistics and the server's album list. Since 0.6.2 the app no longer counts
   or shows the junk, but it is still in the library, and every other client of
-  the server still sees it. What to do there, with David, on whichever copy of
-  it is the master (not established yet; the FLAC library's is Techbench):
+  the server still sees it. What to do there, with David, on the master copy,
+  which is Techbench's - it is the master of both libraries, lossy and FLAC:
   1. THE iTunes LP BUNDLES. Six albums carry an `.itlp` folder (an iTunes LP /
      iTunes Extras booklet). Inside: 24 AIFF menu clicks, 0 s each - Exit,
      Limit, Selection, SelectionChange, four per bundle - and three M4A
@@ -481,8 +481,8 @@ is ahead, the history is for what is behind.
      that AlbumWall, the back-cover flip and every other player simply find
      them. It would be the first thing to write into the lossy library, so it
      wants the same care as lyrics editing: a dry run that lists what it would
-     change, a backup of what it replaces, and whichever copy is the master,
-     never a mirror that is overwritten every night. Techbench already has
+     change, a backup of what it replaces, and Techbench's master copy, never
+     a mirror that is overwritten every night. Techbench already has
      `music-backart`, which writes the `back.jpg` the scanner looks for, and
      `music-audit`; the natural place to start is beside them.
 
