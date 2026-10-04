@@ -1,7 +1,8 @@
 # AlbumWall
 
 A player for a music library you own, built around seeing the whole collection
-at once.
+at once — from folders on your computer, or as a client for a
+[Navidrome](https://www.navidrome.org) server.
 
 ![The wall, with Nevermind unfolded in place and playing](docs/screenshots/album-open.webp)
 
@@ -48,8 +49,17 @@ could play music.
 
 - **Full screen** (F11): the bars step aside and come back when the pointer (or
   a finger) reaches an edge. Built for a touchscreen as much as a desk.
-- **More than one library**: add folders under Preferences › Library and switch
-  between them from the bottom bar. They are never merged.
+- **A Navidrome client.** Sign in to a Navidrome server — or any server that
+  speaks Subsonic — and its albums are a wall like any other, streamed gapless,
+  with the server's covers. The password signs in once and is not kept. A server
+  with more than one library of its own (a lossless one and a lossy one, say)
+  asks which you want, and each becomes a wall of its own.
+- **More than one library**: folders and servers, added under Preferences ›
+  Library and switched between from the bottom bar. They are never merged.
+- **Right-click** an album or a track to play it, show its file, copy its path,
+  or open **Properties**: the tags, the audio, the sleeve front and back, the
+  ripper's log if there is one beside the album, and the lyrics if they are
+  embedded. Step through an album's tracks from the window's header.
 - **Media keys and the desktop's own controls** — MPRIS on Linux (the GNOME
   panel and lock screen), the media flyout and hardware keys on Windows.
 - **The keyboard works**: Space to play or pause, Ctrl+arrows for the next and
@@ -75,8 +85,7 @@ could play music.
   SHA-256 list, and restarts into it. A dot on the gear says there is one; nothing
   is ever downloaded until you ask.
 
-Not built yet: tag editing, a right-click menu, an A–Z rail, playing from a
-Navidrome (Subsonic) server.
+Not built yet: editing tags other than lyrics, an A–Z rail.
 What is wanted next is in [docs/roadmap.md](docs/roadmap.md).
 
 The screenshots are the author's own library. The covers belong to their
@@ -84,9 +93,13 @@ artists and labels and are shown, small, to illustrate the software.
 
 ## Your music
 
-It scans your **Music** folder — `~/Music`, or `%USERPROFILE%\Music` — and
-everything under it. If your records live somewhere else, press the gear in the
-top bar and choose the folder under Preferences › Library.
+**The first time it runs, it asks where your music is**, and reads nothing
+until you answer: a folder on this computer (an external drive or a network
+share counts), or a Navidrome server to sign in to. *Look in the usual places*
+checks your Music folder, OneDrive's and a `Music` folder at the top of each
+drive (on Linux, `~/Music` and mounted drives) and offers what it finds; it
+counts files from the folder listings and opens none of them. More folders and
+servers can be added later under Preferences › Library.
 
 Reads FLAC, MP3, M4A, Ogg, Opus and WAV.
 
@@ -104,6 +117,14 @@ write is a track's lyrics, from Properties, and only in a library where you
 have ticked *Allow editing* in Preferences › Library. It is off for every
 library until you do. Each edit keeps the old lyrics in a backup file first.
 
+### From a Navidrome server
+
+A server library is read-only: AlbumWall plays the files as the server holds
+them and changes nothing there. The server's album list and covers are kept on
+this computer, so the wall opens at once and is brought up to date behind it.
+Properties shows what the server says about a track — its tags and, where the
+server offers them, its lyrics — without downloading the file.
+
 ### On Windows, it remembers what it has read
 
 Opening a file on Windows costs a virus scan, and fifteen thousand of them are
@@ -113,10 +134,11 @@ recognizes: a library that size opens in a fifth of a second. The index is a
 cache and nothing else — delete it and it is rebuilt.
 
 The one thing it cannot see is a tag edit that keeps both the size and the date
-of the file, made while the app was closed. **Preferences › Library › Read
-everything again** opens every file and rebuilds the index; that is what it is
-for. On Linux, where opening files is cheap, every file is read at every start
-and none of this applies.
+of the file, made while the app was closed. **Rescan**, on the library's row in
+Preferences › Library, opens every file and rebuilds the index; that is what it
+is for. On Linux, where opening files is cheap, a library on a local disk is
+read in full at every start; one on a network share uses the index too, since
+reading every file over the network takes the better part of a minute.
 
 ## Installing
 
