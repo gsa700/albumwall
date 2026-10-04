@@ -314,7 +314,7 @@ public partial class MainWindow
     private static MenuItem Item(string header, Action? run, string whyNot)
     {
         var item = new MenuItem { Header = header, IsEnabled = run is not null };
-        if (run is not null) item.Click += (_, _) => run();
+        if (run is not null) item.Click += (_, _) => { Console.WriteLine($"[menu] chose {header}"); run(); };
         else
         {
             ToolTip.SetTip(item, whyNot);
