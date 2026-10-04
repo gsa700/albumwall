@@ -2613,6 +2613,7 @@ public partial class MainWindow : Window
         if (text.StartsWith("props ", StringComparison.OrdinalIgnoreCase))
         {
             var what = text[6..].Trim();
+            if (what == "close") { PropertiesWindow.Current?.Close(); return; }
             if (PropertiesWindow.Current is { } up
                 && (what is "next" or "prev" or "save" || what.StartsWith("tab ") || what.StartsWith("type ")))
             {

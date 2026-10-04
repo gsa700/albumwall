@@ -80,8 +80,34 @@ public sealed class PropertiesWindow : Window
         _open.Fill(title, subtitle, sections, lyrics, cover, around);
         var mine = _open;
         mine.Closed += (_, _) => { if (ReferenceEquals(_open, mine)) _open = null; };
+        if (owner is MainWindow main) mine.RememberPlace(main.AppSettings);
         mine.Show(owner);
         mine.Activate();
+    }
+
+    /// Opens where it was last closed, if that place is still on a screen - a
+    /// monitor can be unplugged between runs - and otherwise centred on the
+    /// main window, as before. Kept as it closes, like Preferences. Not on
+    /// native Wayland, which neither tells an app where a window is nor lets it
+    /// choose: there the compositor places it and nothing is written down.
+    private void RememberPlace(Settings settings)
+    {
+        if (Program.NativeWayland) return;
+        var remembered = settings is { PropsX: { } x, PropsY: { } y }
+                         && Screens.ScreenFromPoint(new PixelPoint(x + 40, y + 20)) is not null;
+        if (remembered)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new PixelPoint(settings.PropsX!.Value, settings.PropsY!.Value);
+        }
+        Opened += (_, _) => Console.WriteLine($"[props] opened at {Position.X},{Position.Y} ({(remembered ? "where it was" : "over the main window")})");
+        Closing += (_, _) =>
+        {
+            settings.PropsX = Position.X;
+            settings.PropsY = Position.Y;
+            settings.Save();
+            Console.WriteLine($"[props] closed at {Position.X},{Position.Y}");
+        };
     }
 
     /// The pictures this window decoded, let go of when it closes.

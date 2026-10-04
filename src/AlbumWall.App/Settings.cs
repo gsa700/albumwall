@@ -29,6 +29,13 @@ public sealed class Settings
     public int? PrefsX { get; set; }
     public int? PrefsY { get; set; }
 
+    /// Where the Properties window was, in screen pixels: a place of its own,
+    /// not the main window's centre ("can we give the properties dialog its own
+    /// window location?", 2026-10-04). Never written on native Wayland, where an
+    /// app is not told where its windows are.
+    public int? PropsX { get; set; }
+    public int? PropsY { get; set; }
+
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 
