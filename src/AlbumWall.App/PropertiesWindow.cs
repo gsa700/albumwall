@@ -104,7 +104,7 @@ public sealed class PropertiesWindow : Window
         // The Preferences format: a fixed size, so it does not jump from tab
         // to tab, and a tab for each part.
         Width = 660;
-        Height = 620;
+        Height = 740;
         CanResize = false;
         ShowInTaskbar = false;
         RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
@@ -253,7 +253,7 @@ public sealed class PropertiesWindow : Window
         // and Cancel stay in sight under a long song.
         var box = new TextBox
         {
-            FontSize = LyricsText, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 350,
+            FontSize = LyricsText, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 470,
             IsVisible = false,
         };
         var said = Dim(new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false });
