@@ -53,6 +53,14 @@ is ahead, the history is for what is behind.
   but lets not for now at least". The "Next ..." line is gone and not coming
   back ("not needed").
 
+  A NOTE FOR LATER (2026-10-04): "can we add a 31 spectrum display option for
+  albumwalls compact mode?" A third meter variant beside the VU pair and the
+  LED bars: a 31-band, third-octave spectrum display (20 Hz to 20 kHz, the
+  graphic-equalizer look). Not designed yet. The open question is where the
+  band levels come from: `astats` gives a level per channel and nothing per
+  frequency, so this needs its own tap, and it has to pass the same test the
+  meters did - the audio stays bit-exact with it in the chain.
+
 - **Kiosk mode: a bigger, look-ahead cover cache.** His ask, 2026-09-26, after
   the first 4K scroll test on the Pi 5 (Pi5-POE, full FLAC library, 294 albums):
   "pretty good ... a little stutter is expected but really not bad at all. as
