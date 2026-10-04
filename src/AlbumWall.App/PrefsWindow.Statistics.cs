@@ -85,11 +85,22 @@ public partial class PrefsWindow
         // going to be exactly one, and on this library the first one shown was.
         static string N(int n, string one, string many) => $"{n:N0} {(n == 1 ? one : many)}";
 
-        StatsArt.Children.Add(ArtLine(
-            N(s.Art.Embedded, "album carries its", "albums carry their") + " cover inside the files", null));
-        if (s.Art.Sidecar > 0)
+        // A server's covers are files the server handed over, kept here; whether
+        // they were inside the music or beside it is the server's business, so
+        // "beside the tracks" would be a guess dressed as a fact.
+        if (_host?.CurrentLibrary.IsNavidrome == true)
+        {
             StatsArt.Children.Add(ArtLine(
-                N(s.Art.Sidecar, "album uses", "albums use") + " a cover file beside the tracks", null));
+                N(s.Art.Embedded + s.Art.Sidecar, "album has its", "albums have their") + " cover from the server", null));
+        }
+        else
+        {
+            StatsArt.Children.Add(ArtLine(
+                N(s.Art.Embedded, "album carries its", "albums carry their") + " cover inside the files", null));
+            if (s.Art.Sidecar > 0)
+                StatsArt.Children.Add(ArtLine(
+                    N(s.Art.Sidecar, "album uses", "albums use") + " a cover file beside the tracks", null));
+        }
         StatsArt.Children.Add(ArtLine(
             s.Art.Missing == 0 ? "No album is missing a cover"
                                : N(s.Art.Missing, "album has", "albums have") + " no cover at all",
