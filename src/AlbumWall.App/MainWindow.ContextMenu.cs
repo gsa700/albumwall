@@ -39,6 +39,20 @@ public partial class MainWindow
             if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
                 Console.WriteLine($"[menu] right press on {Described(e.Source)}, window {(IsActive ? "active" : "NOT active")}");
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        // A second button going down while another is held is not a press to
+        // Avalonia, only a move. So a right click that arrives while the left
+        // button is still believed to be down (it was let go inside a window
+        // move the desktop took over, and nobody said) shows up here and
+        // nowhere else.
+        var saidStuck = false;
+        AddHandler(PointerMovedEvent, (_, e) =>
+        {
+            var p = e.GetCurrentPoint(this).Properties;
+            var both = p.IsRightButtonPressed && p.IsLeftButtonPressed;
+            if (both && !saidStuck)
+                Console.WriteLine($"[menu] right button down over {Described(e.Source)} with the LEFT still counted as held: no press, no menu");
+            saidStuck = both;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
     }
 
     /// What was pressed, for the log: the control and what it stands for.

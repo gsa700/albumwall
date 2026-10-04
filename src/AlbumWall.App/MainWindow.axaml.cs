@@ -1389,6 +1389,7 @@ public partial class MainWindow : Window
 
         if (e.ClickCount > 2) return;
 
+        Console.WriteLine("[wall] move drag begun from the top bar");
         BeginMoveDrag(e);
     }
 
