@@ -742,6 +742,31 @@ at launch; he asked from Preferences > About. From the log:
 
 So the updater is now proven on both platforms against a real release.
 
+## 2026-10-04 — 0.5.4 on Hambench: Navidrome only
+
+Updated from the About tab to 0.5.4. He then emptied `~\Music` and removed
+both folder libraries, and the music now comes from two libraries on the
+Navidrome server on NASBOX: "Music Library" (1,035 albums, 15,572 tracks) and
+"FLAC" (305 albums).
+
+Emptying `~\Music` while it was still a library was the "absent, not deleted"
+rule doing its job for real: the log said `is empty, and held music last time`
+and nothing was pruned until he removed the library himself.
+
+| Check | Result |
+|---|---|
+| signing in and choosing the server's libraries | both added; the walls came up from the server in 2.6 s and 0.6 s |
+| gapless over Navidrome, Dark Side of the Moon | gapless, by his ear (Techbench measured the streams sample-exact on Linux) |
+| meters on a streamed track | present (`astats in the chain`) |
+| right-click menu on albums and tracks | works, by his eye |
+| Properties, for albums and server tracks | works, by his eye |
+| cover in the Windows media flyout for a server album | shows |
+
+With nothing but server libraries, the Windows-only cost the index exists for
+is gone: nothing is opened on this disk, so Defender has nothing to scan. The
+old rows of the removed folder libraries are still in `index.db` (about 6 MB),
+which is the known "Forget should drop them" item in the roadmap.
+
 ## Test runs use a scratch config
 
 `ALBUMWALL_CONFIG_DIR` now moves `settings.json` elsewhere. Anything launched
