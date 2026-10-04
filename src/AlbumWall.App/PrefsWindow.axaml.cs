@@ -385,11 +385,8 @@ public partial class PrefsWindow : Window
     private Button? _rescan;
 
     /// What Rescan does, in the terms he will experience it: when to press it,
-    /// what it costs, and that it can be stopped. Four stories, because the app
-    /// really does behave differently by platform and by where the library is -
-    /// see MainWindow.TrustsIndex - and promising a Linux user with a local
-    /// library that this is how a missed tag edit gets picked up would describe a
-    /// problem he cannot have.
+    /// what it costs, and that it can be stopped. Three stories: a server, a
+    /// folder on Windows, where it is minutes, and a folder anywhere else.
     private string RescanTip()
     {
         var n = _host?.LibraryTrackCount ?? 0;
@@ -400,11 +397,8 @@ public partial class PrefsWindow : Window
         if (OperatingSystem.IsWindows())
             return $"Reads {every} again. Only needed if a tag edit hasn't shown up. It can take several "
                  + "minutes while Windows Security checks each file. Keep listening; stop it any time.";
-        return _host?.LibraryTrustsIndex == true
-            ? $"Reads {every} again. Only needed if a tag edit hasn't shown up: on a network folder, "
-            + "files that look unchanged are not read again. Keep listening; stop it any time."
-            : $"Reads {every} again. Rarely needed: every scan already reads them all, so tag edits "
-            + "always show up. Keep listening; stop it any time.";
+        return $"Reads {every} again. Only needed if a tag edit hasn't shown up: files that look "
+             + "unchanged are not read again. Keep listening; stop it any time.";
     }
 
     private void RenameCurrent()

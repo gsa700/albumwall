@@ -125,20 +125,19 @@ this computer, so the wall opens at once and is brought up to date behind it.
 Properties shows what the server says about a track — its tags and, where the
 server offers them, its lyrics — without downloading the file.
 
-### On Windows, it remembers what it has read
+### It remembers what it has read
 
 Opening a file on Windows costs a virus scan, and fifteen thousand of them are
-two and a half minutes. So on Windows the app keeps an index (`index.db`, beside
-its settings) and does not open a file whose path, size and modified time it
-recognizes: a library that size opens in a fifth of a second. The index is a
+two and a half minutes; over a network share, or off a large library on Linux,
+it is still many seconds. So the app keeps an index (`index.db`, beside its
+settings) and does not open a file whose path, size and modified time it
+recognizes: a library that size opens in a fraction of a second. The index is a
 cache and nothing else — delete it and it is rebuilt.
 
 The one thing it cannot see is a tag edit that keeps both the size and the date
 of the file, made while the app was closed. **Rescan**, on the library's row in
 Preferences › Library, opens every file and rebuilds the index; that is what it
-is for. On Linux, where opening files is cheap, a library on a local disk is
-read in full at every start; one on a network share uses the index too, since
-reading every file over the network takes the better part of a minute.
+is for.
 
 ## Installing
 

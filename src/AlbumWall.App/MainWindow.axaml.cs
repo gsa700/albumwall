@@ -558,9 +558,10 @@ public partial class MainWindow : Window
     private Domain.LibraryWatcher? _watcher;
     private CancellationTokenSource? _scan;
 
-    /// Whether this platform skips files the index recognizes, or opens every one.
+    /// Whether a library skips files the index recognizes, or opens every one.
+    /// Every folder library skips them now; what follows is how that came about.
     ///
-    /// WINDOWS TRUSTS IT, LINUX DOES NOT, and the reason is one measurement on his
+    /// WINDOWS TRUSTED IT, LINUX DID NOT, and the reason was one measurement on his
     /// two machines, same app, same code:
     ///
     ///                       every file opened      index trusted
@@ -595,8 +596,16 @@ public partial class MainWindow : Window
     /// too, and a local one still opens every file. The change-time key stays in
     /// reserve; a network library is not where `--preserve-modtime` is at work,
     /// and Rescan is the way out if an edit there is ever missed.
-    private static bool TrustsIndex(Library library) =>
-        library.IsFolder && (OperatingSystem.IsWindows() || library.Network == true);
+    ///
+    /// REVISITED AGAIN 2026-10-04, the day after: the lossy library moved from
+    /// the share onto Techbench's own disk, stopped counting as a network
+    /// folder, and went from 1.6 s back to 12 to 19 s at every start ("I
+    /// thought we were using the index.db on the local system now as well?").
+    /// The reason for opening every file had gone in the meantime: nothing here
+    /// preserves a modified time any more (his rule since 2026-09-17), and the
+    /// app's own lyrics editor moves it on purpose. So every folder library
+    /// trusts the index, on every platform, and Rescan is the way out.
+    private static bool TrustsIndex(Library library) => library.IsFolder;
 
     /// Whether `root` is on a network share, asked of the filesystem itself. An
     /// automount point nothing has mounted yet (autofs) counts: what goes there
@@ -1758,7 +1767,6 @@ public partial class MainWindow : Window
     internal string LibraryCounts => _counts;
     internal int LibraryTrackCount => _trackCount;
     /// Whether scans of the library on the wall skip files the index recognizes.
-    internal bool LibraryTrustsIndex => TrustsIndex(_settings.Current());
 
     /// The dot on the gear: a newer version exists (or the last update failed).
     internal void ShowUpdateDot(bool on)

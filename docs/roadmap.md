@@ -373,6 +373,10 @@ is ahead, the history is for what is behind.
      as it does on Windows; a local one still opens every file. The app asks
      the filesystem (and remembers the answer, since a share that is down looks
      like a local folder). Rescan is the way out, and its tip says so.
+     AND FOR LOCAL ONES TOO (2026-10-04): the lossy library moved onto
+     Techbench's own disk and went back to 12 to 19 s a start. Nothing there
+     preserves modified times any more, so every folder library trusts the
+     index on every platform.
   4. WATCHING A NETWORK FOLDER. Over NFS the watcher generally hears nothing
      done from another machine, and over SMB it is unreliable. The scan at
      launch catches it all; a library on a share might also want an
