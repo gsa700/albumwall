@@ -70,6 +70,9 @@
                     <Button x:Name="AddNavidromeLibrary" Classes="panel" Content="Add a Navidrome server…"/>
                 </StackPanel>
 
+                <!-- Hidden on a fresh install until the first library is chosen:
+                     there is no "this library" to describe. -->
+                <StackPanel x:Name="ThisLibraryPanel" Spacing="12">
                 <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
                 <TextBlock x:Name="ThisLibrary" FontSize="14" FontWeight="SemiBold"/>
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -83,6 +86,7 @@
                 <StackPanel x:Name="FolderButtons" Orientation="Horizontal" Spacing="9">
                     <Button x:Name="ChooseFolder" Classes="panel" Content="Choose folder…"/>
                     <Button x:Name="UseDefault" Classes="panel" Content="Use my Music folder"/>
+                </StackPanel>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

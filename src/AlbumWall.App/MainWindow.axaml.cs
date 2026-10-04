@@ -508,6 +508,7 @@ public partial class MainWindow : Window
         AlbumVm.Scaling = RenderScaling;
 
         SetUpMenu();
+        SetUpWelcome();
         CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Statistics);
         LibraryLink.Click += (_, _) => OpenLibraryPicker();
 
@@ -679,6 +680,14 @@ public partial class MainWindow : Window
         if (!asked && _scanning)
         {
             _scanAgain = true;
+            return;
+        }
+
+        // A fresh install has no library until the welcome is answered, and
+        // nothing is read until then (MainWindow.Welcome.cs).
+        if (!_settings.HasLibrary())
+        {
+            ShowWelcome();
             return;
         }
 
@@ -1821,6 +1830,11 @@ public partial class MainWindow : Window
     internal async Task AddFolderLibrary(Window from)
     {
         if (await PickFolder(from, "Add a music folder") is not { } path) return;
+        if (!_settings.HasLibrary())
+        {
+            FirstLibraries([FolderLibrary(path, null)]);
+            return;
+        }
         if (Libraries.FirstOrDefault(l => l.IsFolder && l.Root == path) is { } existing)
         {
             SwitchLibrary(existing.Id);     // already there: going to it is what was meant
@@ -1840,6 +1854,11 @@ public partial class MainWindow : Window
     internal async Task AddNavidromeLibrary(Window from)
     {
         if (await new ServerWindow().ShowDialog<IReadOnlyList<Library>?>(from) is not { Count: > 0 } chosen) return;
+        if (!_settings.HasLibrary())
+        {
+            FirstLibraries(chosen);
+            return;
+        }
         var all = _settings.AllLibraries();
         var first = chosen[0];
 
@@ -1948,6 +1967,7 @@ public partial class MainWindow : Window
         var current = _settings.Current();
         LibraryText.Text = current.Name;
         ToolTip.SetTip(LibraryLink, $"{current.Root}\nChoose a library");
+        LibraryLink.IsVisible = !current.IsNone;      // nothing to pick from on the welcome
     }
 
     /// The picker: every library, the current one ticked, and a way to the tab
@@ -2551,6 +2571,14 @@ public partial class MainWindow : Window
         }
         if (text.Equals("sheetoff", StringComparison.OrdinalIgnoreCase)) { _prefs?.Close(); return; }
         if (text.Equals("libraries", StringComparison.OrdinalIgnoreCase)) { OpenLibraryPicker(); return; }
+        // The welcome's two buttons that need no dialog: "welcome look" presses
+        // Look in the usual places, "welcome use" takes what it found.
+        if (text.Equals("welcome look", StringComparison.OrdinalIgnoreCase)) { _ = LookInTheUsualPlaces(); return; }
+        if (text.Equals("welcome use", StringComparison.OrdinalIgnoreCase))
+        {
+            WelcomeUseFound.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            return;
+        }
 
         // What a click would land on, for the named control's centre: "hit
         // LibraryLink". Opening the picker from here says nothing about whether

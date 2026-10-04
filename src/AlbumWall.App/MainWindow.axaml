@@ -903,6 +903,65 @@
         </StackPanel>
     </Border>
 
+    <!-- THE WELCOME: a machine with no library at all (Settings.NeedsLibrary).
+         Instead of making a library of the Music folder and calling an empty
+         one an error, it asks where the music is - a folder on this computer,
+         or a server - and reads nothing from the disk until told to: "lets not
+         scan at all, instead offer to scan for common locations" (2026-10-04).
+         Worded so that both kinds of user find their own setup named: "a
+         folder, an external drive" for one, "a share" and "Subsonic" for the
+         other. "The best apps are dead simple for the inexperienced and
+         flexible to accommodate the more experienced."
+
+         No background, like EmptyState: the bars around it stay live. Only
+         for NO library; an unreachable one is still EmptyState's, or a sleeping
+         NAS would look like the app had forgotten everything. -->
+    <Border x:Name="WelcomeState" IsVisible="False" Margin="0,44,0,44">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="22"
+                    MaxWidth="860" Margin="26,30">
+            <StackPanel Spacing="8" HorizontalAlignment="Center">
+                <TextBlock x:Name="WelcomeWordmark" FontSize="40" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock Text="A wall of every album you own. Where is your music?" FontSize="17"
+                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
+                <Border Grid.Column="0" CornerRadius="10" Padding="22,20" BorderThickness="1"
+                        Background="{DynamicResource SheetBg}" BorderBrush="{DynamicResource SheetEdge}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="On this computer" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Text="A folder, an external drive, or a share on your network."/>
+                        <StackPanel Spacing="9" HorizontalAlignment="Left">
+                            <Button x:Name="WelcomeChoose" Classes="panel" Content="Choose a folder…"/>
+                            <Button x:Name="WelcomeLook" Classes="panel" Content="Look in the usual places"/>
+                        </StackPanel>
+                        <TextBlock x:Name="WelcomeLookStatus" Classes="dim" FontSize="13" LineHeight="20"
+                                   TextWrapping="Wrap" IsVisible="False"/>
+                        <StackPanel x:Name="WelcomeFound" Spacing="5" IsVisible="False"/>
+                        <Button x:Name="WelcomeUseFound" Classes="panel" Content="Use these" IsVisible="False"
+                                HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" CornerRadius="10" Padding="22,20" BorderThickness="1"
+                        Background="{DynamicResource SheetBg}" BorderBrush="{DynamicResource SheetEdge}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="On a music server" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Text="Navidrome, or any server that speaks Subsonic."/>
+                        <app:ServerSignIn x:Name="WelcomeServer"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" TextAlignment="Center"
+                       HorizontalAlignment="Center" MaxWidth="620"
+                       Text="You can add more, and switch between them, in Preferences › Library. AlbumWall never fetches anything from the internet, and changes your files only if you tell it to."/>
+        </StackPanel>
+        </ScrollViewer>
+    </Border>
+
     <!-- COMPACT. Over everything, and everything under it is switched off rather
          than squeezed: the wall is not laid out at the compact size at all, so it
          comes back exactly as it was left. The view is drawn at its design size and

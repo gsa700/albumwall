@@ -71,20 +71,36 @@ public sealed class Settings
     public List<Library>? Libraries { get; set; }
     public string? CurrentLibrary { get; set; }
 
-    /// The list, made from LibraryPath the first time it is asked for.
+    /// True from a fresh install until the first library is chosen. Such a
+    /// machine is NOT given a library of its Music folder: the window welcomes
+    /// instead and asks where the music is, and nothing on the disk is read
+    /// until it is told (2026-10-04, "lets not scan at all, instead offer to
+    /// scan for common locations"). Written to the file, so closing the app on
+    /// the welcome brings the welcome back. Absent in every file from before,
+    /// whose library is made from LibraryPath as it always was.
+    public bool? NeedsLibrary { get; set; }
+
+    /// Whether there is any library at all. Only a fresh install has none.
+    public bool HasLibrary() => AllLibraries().Count > 0;
+
+    /// The list, made from LibraryPath the first time it is asked for - except
+    /// on a fresh install, where it stays empty until a library is chosen.
     public List<Library> AllLibraries()
     {
         if (Libraries is { Count: > 0 }) return Libraries;
+        if (NeedsLibrary == true) return Libraries ??= [];
         Libraries = [Library.Folder(LibraryPath)];
         CurrentLibrary = Libraries[0].Id;
         return Libraries;
     }
 
-    /// The library the wall shows. The first, if the one named has gone.
+    /// The library the wall shows. The first, if the one named has gone; and
+    /// Library.None while there is none at all, so that nothing which asks has
+    /// to be taught about a missing one.
     public Library Current()
     {
         var all = AllLibraries();
-        return all.FirstOrDefault(l => l.Id == CurrentLibrary) ?? all[0];
+        return all.FirstOrDefault(l => l.Id == CurrentLibrary) ?? all.FirstOrDefault() ?? Library.None;
     }
 
     /// The app's own playback volume, 0-100.
@@ -140,6 +156,9 @@ public sealed class Settings
         {
             if (File.Exists(Path))
                 return JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path)) ?? new Settings();
+
+            // No file: a machine this app has never run on. See NeedsLibrary.
+            return new Settings { NeedsLibrary = true };
         }
         catch (Exception e)
         {
@@ -237,11 +256,20 @@ public sealed class Library
     [JsonIgnore]
     public bool IsNavidrome => Kind == "navidrome";
 
+    /// What Settings.Current() answers while there is no library at all: a
+    /// fresh install, before the welcome has been answered. Never in the list
+    /// and never saved.
+    public static readonly Library None = new() { Id = "", Name = "No library yet", Kind = "none" };
+
+    [JsonIgnore]
+    public bool IsNone => Kind == "none";
+
     /// Where the library is, with null resolved: a folder library's folder, or
     /// who on which server. It is what is shown as the library's whereabouts
     /// and what tells one library's wall from another's.
     [JsonIgnore]
     public string Root => IsNavidrome ? $"{User} on {Server}{(MusicFolder is null ? "" : $", {MusicFolderName ?? MusicFolder}")}"
+                        : IsNone ? ""
                         : string.IsNullOrWhiteSpace(Path) ? DefaultRoot : Path;
 
     public static string DefaultRoot =>

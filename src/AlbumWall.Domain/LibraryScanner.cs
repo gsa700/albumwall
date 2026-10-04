@@ -21,7 +21,7 @@ public sealed partial class LibraryScanner
     [GeneratedRegex(@"^(\d{4}) - ")]
     private static partial Regex FolderYear();
 
-    private static readonly string[] AudioExtensions = [".flac", ".mp3", ".m4a", ".ogg", ".opus", ".wav"];
+    internal static readonly string[] AudioExtensions = [".flac", ".mp3", ".m4a", ".ogg", ".opus", ".wav"];
     private static readonly string[] ArtNames = ["cover.jpg", "cover.jpeg", "cover.png",
                                                  "folder.jpg", "folder.jpeg", "front.jpg"];
 

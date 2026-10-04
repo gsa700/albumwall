@@ -435,6 +435,17 @@ public partial class PrefsWindow : Window
 
         LibraryList.Children.Clear();
         _rescan = null;
+        ThisLibraryPanel.IsVisible = all.Count > 0;
+        if (all.Count == 0)
+        {
+            var none = new TextBlock
+            {
+                Text = "No library yet. Add a folder or a Navidrome server, or answer the welcome in the main window.",
+                FontSize = 13, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            };
+            none.Classes.Add("dim");
+            LibraryList.Children.Add(none);
+        }
         foreach (var library in all)
         {
             var id = library.Id;

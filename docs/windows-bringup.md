@@ -143,7 +143,8 @@ Set `ALBUMWALL_SNAP` to a path before launching. Then:
   `open <text>` (substring match on artist or album), `close`, `play <n>`,
   `search <text>` (bare `search` clears), `scroll <px>`, `volume <n>`, `rescan`, `rescan stop`,
   `reveal`, `prefs`, `prefs stats`, `prefs help`, `prefs startup`, `about`, `notices`, `key <name>` (a key press: `key space`, `key ctrl+right`, `key f1`, `key /`), `sheetoff`, `light <n>`, `tint <n>`, `chrome`,
-  `hover` / `hover transport`, `trace`, `hit <control name>` (what a click on that
+  `hover` / `hover transport`, `trace`, `welcome look` / `welcome use` (the first run's Look in the usual places, and taking what it found;
+  `ALBUMWALL_USUAL_PLACES` replaces the list of places for a test), `hit <control name>` (what a click on that
   control's centre would land on: REACHABLE or BLOCKED, and by what).
 
 `prefs`, `prefs startup`, `prefs colors` and `about` open the Preferences window at that tab and
