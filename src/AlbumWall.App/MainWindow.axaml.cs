@@ -1883,6 +1883,15 @@ public partial class MainWindow : Window
         else SwitchLibrary(show.Id);
     }
 
+    /// Whether this library's files may be changed from here (Library.Editable).
+    internal void SetLibraryEditable(string id, bool editable)
+    {
+        if (Libraries.FirstOrDefault(l => l.Id == id) is not { IsFolder: true } library || library.Editable == editable) return;
+        library.Editable = editable;
+        _settings.Save();
+        Console.WriteLine($"[library] {library.Name}: editing {(editable ? "allowed" : "not allowed")}");
+    }
+
     internal void RenameLibrary(string id, string name)
     {
         var library = Libraries.FirstOrDefault(l => l.Id == id);

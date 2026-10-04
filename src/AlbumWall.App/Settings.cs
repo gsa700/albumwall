@@ -122,6 +122,10 @@ public sealed class Settings
     /// second instance pointed at the real file fights the first over window
     /// geometry and the library path, and whichever closes last wins — so
     /// anything launched to try a change gets a scratch directory instead.
+    /// Where the old value is kept each time a file's lyrics are changed.
+    [JsonIgnore]
+    public static string TagBackups => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "tag-backups");
+
     [JsonIgnore]
     public static string Path { get; } = System.IO.Path.Combine(
         Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR") is { Length: > 0 } dir
@@ -216,6 +220,16 @@ public sealed class Library
     /// may see there, until he signs in again and it is given one.
     public string? MusicFolder { get; set; }
     public string? MusicFolderName { get; set; }
+
+    /// Whether the files in this library may be changed from here: lyrics
+    /// today, tags later (Domain/TagWriter.cs). OFF until he says otherwise,
+    /// and only worth turning on where an edit lasts: on the machine that
+    /// holds the master, not on a copy that is overwritten from it every
+    /// night. A server is never editable, whatever this says.
+    public bool Editable { get; set; }
+
+    [JsonIgnore]
+    public bool CanEdit => IsFolder && Editable;
 
     [JsonIgnore]
     public bool IsFolder => Kind == "folder";

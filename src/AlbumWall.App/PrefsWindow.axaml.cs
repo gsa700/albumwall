@@ -456,6 +456,19 @@ public partial class PrefsWindow : Window
             where.Classes.Add("dim");
             where.Classes.Add("mono");
             words.Children.Add(where);
+            if (library.IsFolder)
+            {
+                var editable = new CheckBox
+                {
+                    Content = "Allow editing (lyrics) in this library", FontSize = 12, IsChecked = library.Editable,
+                    Margin = new Avalonia.Thickness(0, 2, 0, 0),
+                };
+                Avalonia.Controls.ToolTip.SetTip(editable,
+                    "Lets Properties change the files here. Leave it off for a copy that is replaced from "
+                    + "somewhere else, such as a nightly mirror: an edit made there would be lost.");
+                editable.IsCheckedChanged += (_, _) => _host.SetLibraryEditable(id, editable.IsChecked == true);
+                words.Children.Add(editable);
+            }
 
             var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 7,
                                            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };

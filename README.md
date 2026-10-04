@@ -99,7 +99,10 @@ Albums are grouped by **album artist and album title**, and the year is taken
 from a `YEAR - Album` folder name where there is one, so a box set does not
 scatter itself across a decade and a reissue date does not misfile a record.
 
-**The files are not changed.** Nothing is written to your music folder.
+**The files are not changed** unless you ask. The one thing AlbumWall can
+write is a track's lyrics, from Properties, and only in a library where you
+have ticked *Allow editing* in Preferences › Library. It is off for every
+library until you do. Each edit keeps the old lyrics in a backup file first.
 
 ### On Windows, it remembers what it has read
 
@@ -135,7 +138,7 @@ install itself — per user, no administrator rights: into
 Start Menu shortcut), or `~/.local/share/albumwall` on Linux (in your
 applications menu, plus an `albumwall` command). `--install` and `--uninstall`
 do the same from a terminal; add `--quiet` for scripts. Uninstalling keeps your
-settings unless you say otherwise, and never touches your music. It can also be
+settings unless you say otherwise, and does not touch your music. It can also be
 removed from Preferences › About.
 
 To run it from a folder or a USB stick and leave no trace on the machine, put

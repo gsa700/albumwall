@@ -82,7 +82,19 @@ is ahead, the history is for what is behind.
     window is asked for and not kept. An album's shows its sleeve files and
     what the ripper's log concluded. A server track shows what the server
     said; its file is not fetched to be described. Tag editing will live
-    inside it rather than in an editor of its own. The
+    inside it rather than in an editor of its own.
+  - Its look, settled by eye the same night: a tab for each part in the
+    Preferences format, the sleeve in the header and on its own tab, and its
+    own colors: a light, neutral window ("more data like colors vs the
+    colors from the album library", then "try paper white"), with the lyrics
+    larger and on white.
+  - LYRICS CAN BE EDITED THERE (2026-10-04): the first write to his music.
+    Off per library until "Allow editing" is ticked in Preferences › Library
+    (Library.Editable), never for a server. Domain/TagWriter.cs: old lyrics
+    to a backup file under the settings folder, the edit made to a copy,
+    the copy read back and compared (audio, every other tag, a FLAC's own
+    audio checksum), then renamed over the original. The modified time
+    moves on purpose, so the nightly push and the index both see it. The
     disabled "Edit tags" button in the album panel is gone for that reason.
   - Editing is offered only where an edit lasts. Techbench holds the master
     of both collections; the NAS copy is overwritten by the nightly push and
@@ -222,8 +234,8 @@ is ahead, the history is for what is behind.
   is built natively on the Pi 5 at Pi5-POE, which is also the only arm64
   machine that can run the gapless check.
 
-- **Tag editing.** Reached from the right-click menu's Properties, when both
-  exist (see above). It is the first time the app would WRITE to his music, and the README
+- **Tag editing.** Lyrics are done (see the right-click menu, above); the
+  other fields are not. It was the first time the app would WRITE to his music, and the README
   says today that it never does — so it wants a design, not a button handler:
   how a write is made safe, what happens to the file's date (he tags with
   `metaflac --preserve-modtime`), and how the index and the watcher are kept

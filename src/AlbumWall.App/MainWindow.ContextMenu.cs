@@ -6,10 +6,12 @@
 // this machine, so there is nothing to show in a file manager and no path to
 // copy.
 //
-// NOTHING HERE WRITES. Play, show, copy, and Properties, which only reads
-// (PropertiesWindow.cs). Tag editing comes to Properties when it is built
-// (docs/roadmap.md); the disabled "Edit tags" button the album panel used to
-// carry is gone, because this is where that will live.
+// THE MENU ITSELF WRITES NOTHING. Play, show, copy, and Properties. Properties
+// can change one thing, a track's lyrics, and only in a library he has allowed
+// editing in (PropertiesWindow.cs, Domain/TagWriter.cs). The rest of tag
+// editing comes to Properties when it is built (docs/roadmap.md); the disabled
+// "Edit tags" button the album panel used to carry is gone, because this is
+// where that lives.
 
 using System.Diagnostics;
 using Avalonia.Controls;
@@ -33,13 +35,11 @@ public partial class MainWindow
 
         MenuFlyout? menu = source.DataContext switch
         {
-            TrackLine { IsHeader: false, Source: { } track } line => TrackMenu(line, track),
+            TrackLine { IsHeader: false, Source: { } track } line => TrackMenu(line, track, PanelOf(source)?.Album.Album),
             AlbumVm album => AlbumMenu(album),
             PanelRow panel => AlbumMenu(panel.Album),
             // A disc heading belongs to the panel it is in.
-            TrackLine => source.GetVisualAncestors().OfType<Control>()
-                               .Select(c => c.DataContext).OfType<PanelRow>().FirstOrDefault() is { } panel
-                ? AlbumMenu(panel.Album) : null,
+            TrackLine => PanelOf(source) is { } panel ? AlbumMenu(panel.Album) : null,
             _ => null,
         };
         if (menu is null) return;
@@ -47,6 +47,10 @@ public partial class MainWindow
         menu.ShowAt(source, showAtPointer: e.TryGetPosition(source, out _));
         e.Handled = true;
     }
+
+    /// The open album a track line or a disc heading is part of.
+    private static PanelRow? PanelOf(Control source) =>
+        source.GetVisualAncestors().OfType<Control>().Select(c => c.DataContext).OfType<PanelRow>().FirstOrDefault();
 
     private bool CanPlayNow => Playback.Player.IsAvailable && !_playerFailed;
 
@@ -62,7 +66,7 @@ public partial class MainWindow
             properties: () => ShowAlbumProperties(album.Album));
     }
 
-    private MenuFlyout TrackMenu(TrackLine line, Domain.Track track)
+    private MenuFlyout TrackMenu(TrackLine line, Domain.Track track, Domain.Album? album)
     {
         var file = Domain.Navidrome.IsTrack(track.Path) ? null : track.Path;
         return Menu(
@@ -70,7 +74,7 @@ public partial class MainWindow
             show: file is null ? null : () => ShowFile(file),
             path: file,
             pathItem: "Copy file path",
-            properties: () => ShowTrackProperties(track));
+            properties: () => ShowTrackProperties(track, album));
     }
 
     private MenuFlyout Menu(Action? play, Action? show, string? path, string pathItem, Action properties)
@@ -91,7 +95,25 @@ public partial class MainWindow
     /// folder: "albumwall on http://nas:4533, FLAC".
     private string ServerWhere => $"On a server: {_settings.Current().Root}";
 
-    private void ShowAlbumProperties(Domain.Album album)
+    /// The album's front, for showing: its cover file, or the picture inside
+    /// its tracks, read out now. Null if it has neither.
+    private static PropertiesWindow.Picture? FrontOf(Domain.Album? album)
+    {
+        if (album is null) return null;
+        if (album.ArtPath is { } file) return new("Front", file);
+        if (album.ArtEmbeddedIn is not { } track) return null;
+        try
+        {
+            using var tf = TagLib.File.Create(track);
+            return Domain.ImageSize.Cover(tf.Tag.Pictures) is { } data ? new("Front", null, data) : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private async void ShowAlbumProperties(Domain.Album album)
     {
         var library = _settings.Current();
         var onServer = album.Tracks.Count > 0 && Domain.Navidrome.IsTrack(album.Tracks[0].Path);
@@ -117,9 +139,14 @@ public partial class MainWindow
                 ? Picture(Path.GetFileName(back), album.BackWidth, album.BackHeight, album.BackSize)
                 : "none"));
 
-        var sections = new List<PropertiesWindow.Section> { new("Album", rows), new("Sleeve", art) };
+        var sleeve = await Task.Run(() => FrontOf(album));
+        var pictures = new List<PropertiesWindow.Picture>();
+        if (sleeve is not null) pictures.Add(sleeve);
+        if (album.BackPath is { } backFile) pictures.Add(new("Back", backFile));
+
+        var sections = new List<PropertiesWindow.Section> { new("Album", rows), new("Sleeve", art, Pictures: pictures) };
         if (!onServer && RipLog(album) is { Count: > 0 } rip) sections.Add(new("Rip", rip));
-        PropertiesWindow.ShowFrom(this, album.Title, album.AlbumArtist, sections);
+        PropertiesWindow.ShowFrom(this, album.Title, album.AlbumArtist, sections, cover: sleeve);
     }
 
     private static string Picture(string where, int width, int height, long size) =>
@@ -148,9 +175,11 @@ public partial class MainWindow
         return rows;
     }
 
-    private async void ShowTrackProperties(Domain.Track track)
+    private async void ShowTrackProperties(Domain.Track track, Domain.Album? album)
     {
         var onServer = Domain.Navidrome.IsTrack(track.Path);
+        var library = _settings.Current();
+        PropertiesWindow.Lyrics? lyrics = null;
         var rows = new List<PropertiesWindow.Row>();
         void Add(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) rows.Add(new(label, value!)); }
 
@@ -182,10 +211,25 @@ public partial class MainWindow
             else
             {
                 sections.Add(new("Tags", facts.Tags, facts.Tags.Count == 0 ? "None." : null));
-                sections.Add(new("Lyrics", [], facts.Lyrics ?? "None in the file."));
+                var path = track.Path;
+                lyrics = new(
+                    facts.Lyrics ?? "",
+                    library.CanEdit ? null
+                        : $"Editing is not allowed in the library “{library.Name}”. It is turned on per library in "
+                          + "Preferences › Library, and belongs on the machine that holds the master copy.",
+                    async text =>
+                    {
+                        var result = await Task.Run(() => Domain.TagWriter.SetLyrics(path, text, Settings.TagBackups));
+                        Console.WriteLine(result.Ok
+                            ? $"[edit] lyrics of {path}: {(result.Backup is null ? "unchanged" : $"written, old kept in {result.Backup}")}"
+                            : $"[edit] lyrics of {path}: FAILED, {result.Problem}");
+                        return result.Problem;
+                    });
             }
         }
-        PropertiesWindow.ShowFrom(this, track.Title, track.Artist, sections);
+        var cover = await Task.Run(() => FrontOf(album));
+        PropertiesWindow.ShowFrom(this, track.Title,
+                                  album is null ? track.Artist : $"{track.Artist}  ·  {album.Title}", sections, lyrics, cover);
     }
 
     private static long FileSize(string path)
