@@ -117,6 +117,7 @@ public partial class MainWindow : Window
         // behaviors the system one provided: drag to move, double-click to
         // maximize, and the buttons the desktop asked for.
         TopBar.PointerPressed += OnTitleBarPressed;
+        WireContextMenu();
         BuildWindowButtons();
         BuildTransport();
         ApplyTransportPosition();

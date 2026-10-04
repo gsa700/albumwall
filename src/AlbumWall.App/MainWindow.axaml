@@ -150,8 +150,6 @@
                                         Command="{Binding ShuffleCommand}"
                                         IsEnabled="{Binding CanPlay}"
                                         ToolTip.Tip="Shuffle this album"/>
-                                <Button Classes="panel" Content="Edit tags" IsEnabled="False"
-                                        ToolTip.Tip="Tag editing is not built yet"/>
                             </StackPanel>
 
                             <!-- NO internal scroll region. An album panel sizes to

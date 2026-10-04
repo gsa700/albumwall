@@ -72,9 +72,19 @@ is ahead, the history is for what is behind.
   (see Decided: audio), not a preference.
 
 - **Right-click context menu in the main window**, for albums and tracks
-  ("files etc"). Nothing is decided about what goes in it. The obvious
-  candidates, none of them asked for yet: play, play next, show in the file
-  manager, copy path, and — once tag editing exists — edit tags.
+  ("files etc"). STARTED 2026-10-03 with what writes nothing: play, show in
+  the file manager, copy path. Decided the same day:
+  - One menu on every library. What a library cannot do is greyed out with
+    the reason on it, not left off: a server library has no file to show.
+  - "Play next" is not in it, for now.
+  - Properties comes next (format, tags, embedded lyrics, read-only), and
+    tag editing lives inside it rather than in an editor of its own. The
+    disabled "Edit tags" button in the album panel is gone for that reason.
+  - Editing is offered only where an edit lasts. Techbench holds the master
+    of both collections; the NAS copy is overwritten by the nightly push and
+    a Navidrome server cannot be written to at all. So a library needs an
+    "editable" setting, off for servers and for copies, and the write items
+    are greyed out everywhere else.
 
 - **A fully tabbed Preferences dialog**, "with options built out as we go".
   Started 2026-09-19: Library, Startup, About. It is a proper decorated window
@@ -208,8 +218,8 @@ is ahead, the history is for what is behind.
   is built natively on the Pi 5 at Pi5-POE, which is also the only arm64
   machine that can run the gapless check.
 
-- **Tag editing.** The button in the album panel is there and disabled on
-  purpose. It is the first time the app would WRITE to his music, and the README
+- **Tag editing.** Reached from the right-click menu's Properties, when both
+  exist (see above). It is the first time the app would WRITE to his music, and the README
   says today that it never does — so it wants a design, not a button handler:
   how a write is made safe, what happens to the file's date (he tags with
   `metaflac --preserve-modtime`), and how the index and the watcher are kept

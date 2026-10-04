@@ -122,7 +122,9 @@ likely they are to be wrong on a new platform:
   design and silently apart from one log line — that is correct behavior, and
   `[smtc] registered…` is the line to look for instead.
 - **No rounded window corners**, as above.
-- Tag editing is not built; the button is disabled on purpose.
+- Tag editing is not built. Right-clicking an album or a track gives Play,
+  Show in file manager and Copy path; the last two are greyed out on a
+  Navidrome library.
 
 ## The trigger files — read this, it will save you hours
 
