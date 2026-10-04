@@ -96,6 +96,16 @@ is ahead, the history is for what is behind.
     audio checksum), then renamed over the original. The modified time
     moves on purpose, so the nightly push and the index both see it. The
     disabled "Edit tags" button in the album panel is gone for that reason.
+  - The lyrics box is always ready, and the window steps through the album
+    (2026-10-04, after he had put a whole album's lyrics in): no "Edit"
+    button first; the Lyrics tab is one large box with the caret in it, to
+    paste into, and Save under it (Ctrl+S too). In a library that does not
+    allow editing the same box only shows them. Previous and next in the
+    header ("3 of 11", Alt+Left and Alt+Right) refill the window with the
+    neighboring track ON THE SAME TAB, "because if you are singing along to
+    your favorite album, you don't want to have to close the dialog, select
+    the next song, click on lyrics". Stepping away from lyrics typed and
+    not saved says so once and goes at the second press.
   - Editing is offered only where an edit lasts. Techbench holds the master
     of both collections; the NAS copy is overwritten by the nightly push and
     a Navidrome server cannot be written to at all. So a library needs an

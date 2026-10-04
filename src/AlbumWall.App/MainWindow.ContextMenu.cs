@@ -113,8 +113,13 @@ public partial class MainWindow
         }
     }
 
+    /// Counts the askings for Properties, so a file that was slow to read
+    /// cannot put itself in the window after a later one has.
+    private int _propertiesAsk;
+
     private async void ShowAlbumProperties(Domain.Album album)
     {
+        var ask = ++_propertiesAsk;
         var library = _settings.Current();
         var onServer = album.Tracks.Count > 0 && Domain.Navidrome.IsTrack(album.Tracks[0].Path);
         var rows = new List<PropertiesWindow.Row>();
@@ -140,6 +145,7 @@ public partial class MainWindow
                 : "none"));
 
         var sleeve = await Task.Run(() => FrontOf(album));
+        if (ask != _propertiesAsk) return;
         var pictures = new List<PropertiesWindow.Picture>();
         if (sleeve is not null) pictures.Add(sleeve);
         if (album.BackPath is { } backFile) pictures.Add(new("Back", backFile));
@@ -177,6 +183,7 @@ public partial class MainWindow
 
     private async void ShowTrackProperties(Domain.Track track, Domain.Album? album)
     {
+        var ask = ++_propertiesAsk;
         var onServer = Domain.Navidrome.IsTrack(track.Path);
         var library = _settings.Current();
         PropertiesWindow.Lyrics? lyrics = null;
@@ -228,8 +235,17 @@ public partial class MainWindow
             }
         }
         var cover = await Task.Run(() => FrontOf(album));
+        if (ask != _propertiesAsk) return;
+
+        // The tracks either side of it, in the album's own order.
+        PropertiesWindow.Around? around = null;
+        if (album is { Tracks.Count: > 1 } && album.Tracks.IndexOf(track) is >= 0 and var at)
+            around = new(
+                at > 0 ? () => ShowTrackProperties(album.Tracks[at - 1], album) : null,
+                at < album.Tracks.Count - 1 ? () => ShowTrackProperties(album.Tracks[at + 1], album) : null,
+                $"{at + 1} of {album.Tracks.Count}");
         PropertiesWindow.ShowFrom(this, track.Title,
-                                  album is null ? track.Artist : $"{track.Artist}  ·  {album.Title}", sections, lyrics, cover);
+                                  album is null ? track.Artist : $"{track.Artist}  ·  {album.Title}", sections, lyrics, cover, around);
     }
 
     private static long FileSize(string path)

@@ -2579,6 +2579,25 @@ public partial class MainWindow : Window
             return;
         }
 
+        // props <text>: the Properties of the first track whose title has
+        // <text> in it. props next / prev / tab <name> / type <text>: see
+        // PropertiesWindow.Drive.
+        if (text.StartsWith("props ", StringComparison.OrdinalIgnoreCase))
+        {
+            var what = text[6..].Trim();
+            if (PropertiesWindow.Current is { } up
+                && (what is "next" or "prev" or "save" || what.StartsWith("tab ") || what.StartsWith("type ")))
+            {
+                up.Drive(what);
+                return;
+            }
+            var found = _visible.SelectMany(v => v.Album.Tracks.Select(t => (v.Album, Track: t)))
+                .FirstOrDefault(x => x.Track.Title.Contains(what, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine($"[wall] command: props '{what}' -> {found.Track?.Title ?? "NO MATCH"}");
+            if (found.Track is not null) ShowTrackProperties(found.Track, found.Album);
+            return;
+        }
+
         if (text.Equals("close", StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine("[wall] command: close");
@@ -2692,6 +2711,18 @@ public partial class MainWindow : Window
                     new PixelSize(nw, nh), new Vector(ndpi, ndpi));
                 shot.Render(notices);
                 shot.Save(Path.ChangeExtension(trigger, null) + ".notices.png");
+            }
+
+            // And Properties.
+            if (PropertiesWindow.Current is { } props)
+            {
+                var qw = (int)Math.Ceiling(props.ClientSize.Width * props.RenderScaling);
+                var qh = (int)Math.Ceiling(props.ClientSize.Height * props.RenderScaling);
+                var qdpi = 96 * props.RenderScaling;
+                using var shot = new Avalonia.Media.Imaging.RenderTargetBitmap(
+                    new PixelSize(qw, qh), new Vector(qdpi, qdpi));
+                shot.Render(props);
+                shot.Save(Path.ChangeExtension(trigger, null) + ".props.png");
             }
         }
         catch (Exception ex)

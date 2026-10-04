@@ -10,6 +10,10 @@
 // this window only offers a box to type or paste into. Everything else is
 // read-only, and tag editing proper is still to come (docs/roadmap.md).
 //
+// A track's window can step to the tracks either side of it in the album,
+// keeping the tab it is on: lyrics are read a song after a song, and pasted in
+// an album at a time.
+//
 // Its colors are its own: a light, neutral window in a dark program. See the
 // constructor.
 //
@@ -49,18 +53,29 @@ public sealed class PropertiesWindow : Window
     /// text and answers with what went wrong, or null.
     public sealed record Lyrics(string Current, string? WhyNot, Func<string, Task<string?>>? Save);
 
+    /// The tracks either side of this one in its album, and where it stands
+    /// among them ("3 of 11"). A way is null at the album's end.
+    public sealed record Around(Action? Previous, Action? Next, string Where);
+
     private static PropertiesWindow? _open;
 
     /// The one that is up, if one is: the snapshot rig photographs it.
     public static PropertiesWindow? Current => _open;
 
     /// Shows the properties of one thing. There is one such window: asking for
-    /// another's replaces it.
+    /// another's refills it where it stands, on the tab it was on.
     public static void ShowFrom(Window owner, string title, string subtitle, IEnumerable<Section> sections,
-                                Lyrics? lyrics = null, Picture? cover = null)
+                                Lyrics? lyrics = null, Picture? cover = null, Around? around = null)
     {
+        if (_open is { } up && ReferenceEquals(up.Owner, owner))
+        {
+            up.Fill(title, subtitle, sections, lyrics, cover, around);
+            up.Activate();
+            return;
+        }
         _open?.Close();
-        _open = new PropertiesWindow(title, subtitle, sections, lyrics, cover);
+        _open = new PropertiesWindow();
+        _open.Fill(title, subtitle, sections, lyrics, cover, around);
         var mine = _open;
         mine.Closed += (_, _) => { if (ReferenceEquals(_open, mine)) _open = null; };
         mine.Show(owner);
@@ -95,7 +110,7 @@ public sealed class PropertiesWindow : Window
         }
     }
 
-    private PropertiesWindow(string title, string subtitle, IEnumerable<Section> sections, Lyrics? lyrics, Picture? cover)
+    private PropertiesWindow()
     {
         Closed += (_, _) => { foreach (var p in _pictures) p.Dispose(); _pictures.Clear(); };
 
@@ -139,7 +154,58 @@ public sealed class PropertiesWindow : Window
             (Button.ForegroundProperty, Ink),
             (Button.BorderBrushProperty, SolidColorBrush.Parse("#38000000"))));
         this[!BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
-        KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape && e.Source is not TextBox) Close(); };
+        // Escape closes it, but not out from under lyrics that are not saved.
+        KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape && _unsaved?.Invoke() != true) Close(); };
+        // Alt+Left and Alt+Right step through the album. Taken on the way
+        // down, because the lyrics box would spend the arrow on its caret.
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.KeyModifiers != Avalonia.Input.KeyModifiers.Alt || _around is null) return;
+            if (e.Key == Avalonia.Input.Key.Left) { Go(_around.Previous); e.Handled = true; }
+            else if (e.Key == Avalonia.Input.Key.Right) { Go(_around.Next); e.Handled = true; }
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+    }
+
+    // What the filling in the window just now has to say for itself: the ways
+    // out of it, its tabs, and the lyrics box's state.
+    private Around? _around;
+    private TabControl? _tabs;
+    private TabItem? _lyricsTab;
+    private TextBox? _lyricsBox;
+    private Func<bool>? _unsaved;
+    private Func<Task>? _save;
+    private Action<string?>? _say;
+    private bool _warned;
+
+    /// Steps to another track, unless there are lyrics typed and not saved:
+    /// then it says so once, and goes at the second asking.
+    private void Go(Action? way)
+    {
+        if (way is null) return;
+        if (_unsaved?.Invoke() == true && !_warned)
+        {
+            _warned = true;
+            if (_tabs is not null && _lyricsTab is not null) _tabs.SelectedItem = _lyricsTab;
+            _say?.Invoke("These lyrics are not saved. Save them, or press again to move on without them.");
+            return;
+        }
+        way();
+    }
+
+    /// Puts one thing's properties in the window, in place of whatever was
+    /// there, and stays on the tab of the same name if the new thing has one.
+    private void Fill(string title, string subtitle, IEnumerable<Section> sections, Lyrics? lyrics, Picture? cover, Around? around)
+    {
+        var was = _tabs?.SelectedItem is TabItem { Header: string name } ? name : null;
+        var old = _pictures.ToList();
+        _pictures.Clear();
+        _around = around;
+        _lyricsTab = null;
+        _lyricsBox = null;
+        _unsaved = null;
+        _save = null;
+        _say = null;
+        _warned = false;
 
         // What it is the properties of, above the tabs and the same on all of
         // them: its sleeve, its name, whose it is.
@@ -156,6 +222,28 @@ public sealed class PropertiesWindow : Window
             thumb.Margin = new Thickness(0, 0, 16, 0);
             DockPanel.SetDock(thumb, Dock.Left);
             header.Children.Add(thumb);
+        }
+        if (around is not null)
+        {
+            // The ways to the tracks either side, and where this one stands.
+            Button Way(string glyph, string tip, Action? way)
+            {
+                var b = new Button { Content = glyph, FontSize = 18, Padding = new Thickness(11, 1, 11, 4), IsEnabled = way is not null };
+                b.Classes.Add("panel");
+                ToolTip.SetTip(b, tip);
+                b.Click += (_, _) => Go(way);
+                return b;
+            }
+            var ways = new StackPanel
+            {
+                Orientation = Orientation.Horizontal, Spacing = 9, Margin = new Thickness(16, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            ways.Children.Add(Way("‹", "Previous track (Alt+Left)", around.Previous));
+            ways.Children.Add(Dim(new TextBlock { Text = around.Where, FontSize = 13, VerticalAlignment = VerticalAlignment.Center }));
+            ways.Children.Add(Way("›", "Next track (Alt+Right)", around.Next));
+            DockPanel.SetDock(ways, Dock.Right);
+            header.Children.Add(ways);
         }
         header.Children.Add(words);
         DockPanel.SetDock(header, Dock.Top);
@@ -205,12 +293,27 @@ public sealed class PropertiesWindow : Window
                 });
             tabs.Items.Add(Tab(section.Heading, column));
         }
-        if (lyrics is not null) tabs.Items.Add(Tab("Lyrics", LyricsPart(lyrics)));
+        // The lyrics tab does not scroll: the box fills it and scrolls inside
+        // itself, so Save stays in sight under a long song.
+        if (lyrics is not null)
+            tabs.Items.Add(_lyricsTab = new TabItem { Header = "Lyrics", Content = LyricsPart(lyrics) });
+        if (tabs.Items.OfType<TabItem>().FirstOrDefault(t => t.Header is string h && h == was) is { } same)
+            tabs.SelectedItem = same;
+        // Coming to the lyrics puts the caret in the box, ready for a paste.
+        void Ready()
+        {
+            if (ReferenceEquals(tabs.SelectedItem, _lyricsTab) && _lyricsBox is { IsReadOnly: false } box)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => box.Focus(), Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+        tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, tabs)) Ready(); };
+        _tabs = tabs;
 
         var all = new DockPanel();
         all.Children.Add(header);
         all.Children.Add(tabs);
         Content = all;
+        Ready();
+        foreach (var p in old) p.Dispose();
     }
 
     /// The size of the words in the tabs: a step up from Preferences, because
@@ -234,82 +337,108 @@ public sealed class PropertiesWindow : Window
         },
     };
 
-    /// The lyrics, and under them the way to change them: a button that turns
-    /// the text into a box to type or paste into, with Save and Cancel.
-    private static Control LyricsPart(Lyrics lyrics)
+    /// The lyrics, in a box that is always ready to be typed or pasted into
+    /// where the library allows it, with Save under it. Where it does not, the
+    /// same box only shows them, and the greyed Save says why.
+    private Control LyricsPart(Lyrics lyrics)
     {
         var current = lyrics.Current;
-        var part = new StackPanel { Spacing = 10 };
+        var can = lyrics.Save is not null && lyrics.WhyNot is null;
 
-        var shown = new SelectableTextBlock { FontSize = LyricsText, LineHeight = 28, TextWrapping = TextWrapping.Wrap };
         // The whitest thing in the window: the page the words are printed on.
-        var page = new Border
-        {
-            Background = Brushes.White, BorderBrush = SolidColorBrush.Parse("#D6D6DA"), BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(5),
-            Padding = new Thickness(18, 14), Child = shown,
-        };
-        // The box keeps to the tab's height and scrolls inside itself, so Save
-        // and Cancel stay in sight under a long song.
         var box = new TextBox
         {
-            FontSize = LyricsText, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 470,
-            IsVisible = false,
+            Text = current, FontSize = LyricsText, LineHeight = 28, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+            IsReadOnly = !can, PlaceholderText = can ? "Paste or type the lyrics here." : "None in the file.",
+            Background = Brushes.White, BorderBrush = SolidColorBrush.Parse("#D6D6DA"), BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(5), Padding = new Thickness(18, 14),
         };
-        var said = Dim(new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false });
-        var edit = new Button { Content = "Edit lyrics…" };
-        var save = new Button { Content = "Save", MinWidth = 84, IsVisible = false };
-        var cancel = new Button { Content = "Cancel", MinWidth = 84, IsVisible = false };
-        foreach (var b in new[] { edit, save, cancel }) b.Classes.Add("panel");
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
-        buttons.Children.Add(edit);
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(save);
+        // And it stays white under the pointer and with the caret in it.
+        box.Resources["TextControlBackgroundPointerOver"] = Brushes.White;
+        box.Resources["TextControlBackgroundFocused"] = Brushes.White;
+        // Nor does it light up in the system's blue for holding the caret,
+        // which it nearly always does: a darker edge says as much.
+        box.Resources["TextControlBorderBrushFocused"] = SolidColorBrush.Parse("#9A9AA2");
+        box.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(1);
+        ScrollViewer.SetVerticalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
 
-        void Show() => shown.Text = current.Length > 0 ? current : "None in the file.";
-        void Editing(bool on)
-        {
-            page.IsVisible = edit.IsVisible = !on;
-            box.IsVisible = save.IsVisible = cancel.IsVisible = on;
-            if (on) { box.Text = current; box.Focus(); }
-        }
-        void Say(string? text)
-        {
-            said.Text = text ?? "";
-            said.IsVisible = !string.IsNullOrEmpty(text);
-        }
+        var said = Dim(new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center });
+        var save = new Button { Content = "Save", MinWidth = 84, IsEnabled = false };
+        save.Classes.Add("panel");
+        var under = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 12, Margin = new Thickness(0, 10, 0, 0) };
+        Grid.SetColumn(said, 1);
+        under.Children.Add(save);
+        under.Children.Add(said);
 
-        Show();
-        if (lyrics.Save is null || lyrics.WhyNot is not null)
+        void Say(string? text) => said.Text = text ?? "";
+        bool Unsaved() => can && (box.Text ?? "") != current;
+
+        if (!can)
         {
-            edit.IsEnabled = false;
-            ToolTip.SetTip(edit, lyrics.WhyNot ?? "These cannot be changed.");
-            ToolTip.SetShowOnDisabled(edit, true);
+            ToolTip.SetTip(save, lyrics.WhyNot ?? "These cannot be changed.");
+            ToolTip.SetShowOnDisabled(save, true);
         }
         else
         {
-            edit.Click += (_, _) => { Say(null); Editing(true); };
-            cancel.Click += (_, _) => Editing(false);
-            save.Click += async (_, _) =>
+            var saving = false;
+            async Task Save()
             {
-                save.IsEnabled = cancel.IsEnabled = false;
+                if (saving || !Unsaved()) return;
+                saving = true;
+                save.IsEnabled = false;
+                box.IsReadOnly = true;
                 var text = Domain.TagWriter.Tidy(box.Text);
-                var problem = await lyrics.Save(text);
-                save.IsEnabled = cancel.IsEnabled = true;
-                if (problem is not null) { Say(problem); return; }
+                var problem = await lyrics.Save!(text);
+                box.IsReadOnly = false;
+                saving = false;
+                if (problem is not null) { save.IsEnabled = true; Say(problem); return; }
                 current = text;
-                Show();
-                Editing(false);
+                if (box.Text != text) box.Text = text;
+                _warned = false;
                 Say("Saved to the file.");
+            }
+            box.TextChanged += (_, _) =>
+            {
+                if (saving) return;
+                save.IsEnabled = Unsaved();
+                if (save.IsEnabled) { Say(null); _warned = false; }
             };
+            save.Click += async (_, _) => await Save();
+            box.KeyDown += async (_, e) =>
+            {
+                if (e.Key != Avalonia.Input.Key.S || e.KeyModifiers != Avalonia.Input.KeyModifiers.Control) return;
+                e.Handled = true;
+                await Save();
+            };
+            _unsaved = Unsaved;
+            _save = Save;
         }
+        _say = Say;
+        _lyricsBox = box;
 
-        part.Children.Add(page);
+        var part = new DockPanel();
+        DockPanel.SetDock(under, Dock.Bottom);
+        part.Children.Add(under);
         part.Children.Add(box);
-        part.Children.Add(buttons);
-        part.Children.Add(said);
         return part;
     }
+
+#if DEBUG
+    /// The snapshot rig's hands in this window: "next", "prev", "tab <name>",
+    /// "type <text>" into the lyrics box, "save".
+    public async void Drive(string what)
+    {
+        if (what == "save" && _save is { } save) await save();
+        else if (what == "next") Go(_around?.Next);
+        else if (what == "prev") Go(_around?.Previous);
+        else if (what.StartsWith("tab ") && _tabs is { } tabs)
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>()
+                .FirstOrDefault(t => t.Header is string h && h.Equals(what[4..].Trim(), StringComparison.OrdinalIgnoreCase)) ?? tabs.SelectedItem;
+        else if (what.StartsWith("type ") && _lyricsBox is { IsReadOnly: false } box) box.Text = what[5..].Replace("\\n", "\n");
+        Console.WriteLine($"[props] {what}: {Title}, tab {(_tabs?.SelectedItem as TabItem)?.Header}, "
+                          + $"unsaved {_unsaved?.Invoke()}, said '{(_lyricsBox?.Parent as DockPanel)?.Children.OfType<Grid>().FirstOrDefault()?.Children.OfType<TextBlock>().FirstOrDefault()?.Text}'");
+    }
+#endif
 
     // IMMUTABLE, and that is not a nicety. An ordinary brush belongs to the
     // thread that made it, and a static field is made on whichever thread first
