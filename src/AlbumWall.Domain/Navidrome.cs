@@ -439,10 +439,26 @@ public sealed class Navidrome
                 TakeCover(album, cover);
         }
 
+        // THE SAME FILE TYPES AS A FOLDER LIBRARY: FLAC, MP3, M4A, Ogg, Opus
+        // and WAV, the scanner's list, which is also what the audio engine is
+        // built to read. A server indexes whatever it finds, and Hambench's
+        // iTunes-era library turned out to hold 24 AIFF files, every one a 0 s
+        // menu click (Exit, Limit, Selection, SelectionChange) from the iTunes
+        // LP booklets bundled with six albums, under "[Unknown Album]" in the
+        // Statistics as AIF (2026-10-04). Our libmpv has no AIFF demuxer, so
+        // none of them could have played; leaving them out makes the counts
+        // what can be played, and makes a server's wall agree with a folder
+        // scan of the same files.
+        var skipped = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var s in cache.Songs)
         {
             if (!byId.TryGetValue(s.AlbumId, out var album)) continue;
             var suffix = s.Suffix.Length > 0 ? "." + s.Suffix : "";
+            if (!LibraryScanner.AudioExtensions.Contains(suffix, StringComparer.OrdinalIgnoreCase))
+            {
+                skipped[suffix.Length > 0 ? suffix : "(none)"] = skipped.GetValueOrDefault(suffix.Length > 0 ? suffix : "(none)") + 1;
+                continue;
+            }
             album.Tracks.Add(new Track(
                 Disc: s.Disc > 0 ? s.Disc : 1,
                 Number: s.Track,
@@ -451,7 +467,7 @@ public sealed class Navidrome
                 Duration: TimeSpan.FromSeconds(s.Duration),
                 Path: $"{Scheme}{_library}/{s.Id}{suffix}",
                 SampleRate: s.SampleRate,
-                BitDepth: s.BitDepth,
+                BitDepth: LosslessDepth(suffix, s.BitDepth, s.BitRate),
                 Bitrate: s.BitRate,
                 Size: s.Size));
         }
@@ -464,10 +480,32 @@ public sealed class Navidrome
             a.SearchText = $"{a.AlbumArtist}\n{a.Title}".ToLowerInvariant();
         }
 
+        if (skipped.Count > 0)
+            Console.WriteLine("[navidrome] left out, not a type this app plays: "
+                            + string.Join(", ", skipped.Select(kv => $"{kv.Value} {kv.Key}")));
+
         // An album the server lists with no songs has nothing to play.
         return albums.Values.Where(a => a.Tracks.Count > 0)
                      .OrderBy(a => a.SortKey, StringComparer.OrdinalIgnoreCase).ToList();
     }
+
+    /// The bit depth as the rest of the app means it: zero for a lossy file,
+    /// which is how the Statistics, the format line and the compact view tell
+    /// lossy from lossless (and AAC from ALAC). The scanner gets that from the
+    /// file; a server does not say it the same way - Navidrome reports 16 bits
+    /// for AAC - so Hambench's all-lossy iTunes library came up in Statistics
+    /// as 6,889 "lossless" tracks, and Shinedown's Amaryllis, AAC at 48 kHz, as
+    /// the "12 odd files" at 48 kHz / 16-bit (2026-10-04). MP3, Ogg and Opus
+    /// are lossy whatever is reported. An .m4a is AAC or ALAC: ALAC at 16 bits
+    /// and 44.1 kHz runs to many hundreds of kbit/s and AAC tops out around
+    /// 320, so under 500 is AAC.
+    internal static int LosslessDepth(string suffix, int reported, int bitrate) =>
+        suffix.ToLowerInvariant() switch
+        {
+            ".mp3" or ".ogg" or ".opus" => 0,
+            ".m4a" when bitrate > 0 && bitrate < 500 => 0,
+            _ => reported,
+        };
 
     private static void TakeCover(Album album, string file)
     {
