@@ -25,13 +25,35 @@ public partial class MainWindow
 {
     private const string OnAServer = "This is on a server: there is no file on this computer.";
 
-    private void WireContextMenu() => AddHandler(ContextRequestedEvent, OnContextRequested);
+    private void WireContextMenu()
+    {
+        AddHandler(ContextRequestedEvent, OnContextRequested);
+        // Every right press is written down, whoever handles it, so that a
+        // menu that did not come can be told apart afterwards: the press never
+        // arrived, it arrived and asked for no menu, or the menu was asked for
+        // and the desktop closed it at once. He reported all three shapes at
+        // once on 2026-10-04 ("sometimes I have to click the file even when
+        // albumwall IS in focus before the context menu will appear").
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+                Console.WriteLine($"[menu] right press on {Described(e.Source)}, window {(IsActive ? "active" : "NOT active")}");
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    /// What was pressed, for the log: the control and what it stands for.
+    private static string Described(object? source) =>
+        source is Control c ? $"{c.GetType().Name} ({c.DataContext?.GetType().Name ?? "nothing"})" : source?.GetType().Name ?? "nothing";
 
     /// A right click, or the keyboard's menu key, on a tile, on the open
     /// panel, or on one of its tracks.
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (e.Source is not Control source) return;
+        if (e.Source is not Control source)
+        {
+            Console.WriteLine($"[menu] asked for on {Described(e.Source)}: not a control, no menu");
+            return;
+        }
 
         MenuFlyout? menu = source.DataContext switch
         {
@@ -42,8 +64,16 @@ public partial class MainWindow
             TrackLine => PanelOf(source) is { } panel ? AlbumMenu(panel.Album) : null,
             _ => null,
         };
-        if (menu is null) return;
+        if (menu is null)
+        {
+            Console.WriteLine($"[menu] asked for on {Described(source)}: nothing there has a menu");
+            return;
+        }
 
+        var asked = Stopwatch.StartNew();
+        menu.Opened += (_, _) => Console.WriteLine($"[menu] opened on {Described(source)} after {asked.ElapsedMilliseconds} ms");
+        menu.Closed += (_, _) => Console.WriteLine($"[menu] closed {asked.ElapsedMilliseconds} ms after it was asked for");
+        Console.WriteLine($"[menu] asked for on {Described(source)}, window {(IsActive ? "active" : "NOT active")}");
         menu.ShowAt(source, showAtPointer: e.TryGetPosition(source, out _));
         e.Handled = true;
     }
