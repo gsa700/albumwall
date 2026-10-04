@@ -81,7 +81,11 @@ is ahead, the history is for what is behind.
     a file on this machine every tag and the embedded lyrics, read when the
     window is asked for and not kept. An album's shows its sleeve files and
     what the ripper's log concluded. A server track shows what the server
-    said; its file is not fetched to be described. Tag editing will live
+    said; its file is not fetched to be described. Since 2026-10-04 that is
+    the same window as a file's ("a facsimile of the native property view"):
+    the Tags tab from the server's `getSong`, the Lyrics tab from
+    `getLyricsBySongId` (OpenSubsonic `songLyrics`), asked when the window is
+    opened and not kept, the box read-only. Tag editing will live
     inside it rather than in an editor of its own.
   - Its look, settled by eye the same night: a tab for each part in the
     Preferences format, the sleeve in the header and on its own tab, and its

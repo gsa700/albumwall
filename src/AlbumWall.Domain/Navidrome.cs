@@ -112,12 +112,15 @@ public sealed class Navidrome
     }
 
     /// Where the player gets the song: the file as it is, never transcoded.
-    public string StreamUrl(string path)
+    public string StreamUrl(string path) =>
+        $"{_server}/rest/stream?id={Uri.EscapeDataString(IdOf(path))}&format=raw&{_auth}";
+
+    /// The server's own id for the song a track path names.
+    private static string IdOf(string path)
     {
         var name = path[(path.LastIndexOf('/') + 1)..];
         var dot = name.LastIndexOf('.');
-        var id = dot > 0 ? name[..dot] : name;
-        return $"{_server}/rest/stream?id={Uri.EscapeDataString(id)}&format=raw&{_auth}";
+        return dot > 0 ? name[..dot] : name;
     }
 
     /// Asks the server whether it knows us. Throws NavidromeException if not.
@@ -134,6 +137,89 @@ public sealed class Navidrome
                 Text(f, "name")))
             .Where(f => f.Id.Length > 0)
             .ToList();
+    }
+
+    // ---- one song, for Properties -------------------------------------------
+
+    /// What the server says of one song: its tags as the server read them out
+    /// of the file, and its lyrics. `Problem` is set, and the rest empty, if
+    /// the server could not be asked.
+    public sealed record SongFacts(IReadOnlyList<(string Label, string Value)> Tags, int Channels,
+                                   string? Lyrics, string? Problem);
+
+    /// Asks the server about one song. Two requests, made when Properties is
+    /// opened on it and not kept: the file is not fetched to be described.
+    /// Never throws; not for the UI thread.
+    public SongFacts Describe(string path, CancellationToken ct = default)
+    {
+        var id = Uri.EscapeDataString(IdOf(path));
+        try
+        {
+            var tags = new List<(string, string)>();
+            int channels;
+            using (var doc = Get("getSong", $"id={id}", ct))
+            {
+                if (!doc.RootElement.GetProperty("subsonic-response").TryGetProperty("song", out var s))
+                    return new SongFacts([], 0, null, "the server does not know this song");
+
+                void Add(string label, string value) { if (!string.IsNullOrWhiteSpace(value)) tags.Add((label, value)); }
+                // A list of names, whether the server gives them bare or as
+                // things with a name.
+                string Names(string list) =>
+                    s.TryGetProperty(list, out var items) && items.ValueKind == JsonValueKind.Array
+                        ? string.Join("; ", items.EnumerateArray()
+                            .Select(i => i.ValueKind == JsonValueKind.String ? i.GetString() ?? "" : Text(i, "name"))
+                            .Where(n => n.Length > 0))
+                        : "";
+                string Or(string first, string second) => first.Length > 0 ? first : second;
+
+                // The same lines, in the same order, as a file's own tags are
+                // shown in when they have codes for names.
+                Add("Title", Text(s, "title"));
+                Add("Artist", Or(Text(s, "displayArtist"), Text(s, "artist")));
+                Add("Album artist", Or(Text(s, "displayAlbumArtist"), Names("albumArtists")));
+                Add("Album", Text(s, "album"));
+                Add("Year", Number(s, "year") is > 0 and var year ? year.ToString() : "");
+                Add("Track", Number(s, "track") is > 0 and var track ? track.ToString() : "");
+                Add("Disc", Number(s, "discNumber") is > 0 and var disc ? disc.ToString() : "");
+                Add("Genre", Or(Names("genres"), Text(s, "genre")));
+                Add("Composer", Text(s, "displayComposer"));
+                Add("Comment", Text(s, "comment"));
+                Add("ISRC", Names("isrc"));
+                Add("MusicBrainz recording", Text(s, "musicBrainzId"));
+                channels = Number(s, "channelCount");
+            }
+
+            string? lyrics = null;
+            try
+            {
+                using var doc = Get("getLyricsBySongId", $"id={id}", ct);
+                // Plain ones before timed ones: it is the words that are shown.
+                foreach (var one in Items(doc, "lyricsList", "structuredLyrics")
+                             .OrderBy(l => l.TryGetProperty("synced", out var timed) && timed.ValueKind == JsonValueKind.True))
+                {
+                    if (!one.TryGetProperty("line", out var lines) || lines.ValueKind != JsonValueKind.Array) continue;
+                    var text = string.Join("\n", lines.EnumerateArray().Select(l => Text(l, "value"))).Trim();
+                    if (text.Length == 0) continue;
+                    lyrics = text;
+                    break;
+                }
+            }
+            catch (NavidromeException ex) when (!ex.Unreachable)
+            {
+                // A server that has no such call has no lyrics to give; the
+                // tags are still worth showing.
+            }
+            return new SongFacts(tags, channels, lyrics, null);
+        }
+        catch (NavidromeException ex)
+        {
+            return new SongFacts([], 0, null, ex.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return new SongFacts([], 0, null, "it did not answer in time");
+        }
     }
 
     // ---- what is kept: the album list ---------------------------------------

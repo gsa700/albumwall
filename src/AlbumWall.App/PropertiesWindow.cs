@@ -3,7 +3,9 @@
 // It shows what the library already knows and, for a track that is a file on
 // this machine, what the file itself says: every tag, and the lyrics if they
 // are embedded. Nothing is kept from that reading; it is done when the window
-// is asked for and forgotten when it closes.
+// is asked for and forgotten when it closes. A track on a server gets the same
+// window from what the server says of it, lyrics included (Domain/Navidrome.cs,
+// Describe).
 //
 // ONE THING HERE WRITES: the lyrics of a track, in a library he has allowed
 // editing in (Library.Editable). The writing itself is Domain/TagWriter.cs;

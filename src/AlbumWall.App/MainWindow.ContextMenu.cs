@@ -197,15 +197,40 @@ public partial class MainWindow
         var sections = new List<PropertiesWindow.Section>();
         if (onServer)
         {
-            // What the server said when the library was fetched: the file is
-            // there, not here, and is not asked for just to be described.
+            // The same window as a file's, from what the server says of the
+            // song: its tags as the server read them, and its lyrics. Asked
+            // now and not kept. The file is there, not here, and is not
+            // fetched just to be described.
+            var home = Domain.Navidrome.LibraryOf(track.Path) is { } id
+                ? _settings.AllLibraries().FirstOrDefault(l => l.Id == id) : null;
+            var server = home is null ? null : NavidromeFor(home);
+            var song = track.Path;
+            var facts = server is null
+                ? new Domain.Navidrome.SongFacts([], 0, null, "its sign-in is missing from the settings")
+                : await Task.Run(() =>
+                {
+                    using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    return server.Describe(song, wait.Token);
+                });
+
             Add("Kind", Path.GetExtension(track.Path).TrimStart('.').ToUpperInvariant());
             Add("Sample rate", track.SampleRate > 0
-                ? $"{track.SampleRate / 1000.0:0.###} kHz{(track.BitDepth > 0 ? $", {track.BitDepth} bit" : "")}" : null);
+                ? $"{track.SampleRate / 1000.0:0.###} kHz{(track.BitDepth > 0 ? $", {track.BitDepth} bit" : "")}"
+                  + (facts.Channels > 0 ? $", {facts.Channels} channels" : "") : null);
             Add("Bit rate", track.Bitrate > 0 ? $"{track.Bitrate:N0} kbps" : null);
             Add("File", ServerWhere);
             sections.Add(new("Track", rows));
-            sections.Add(new("Tags", [], "The tags and lyrics are in the file, which is on the server."));
+            if (facts.Problem is { } problem)
+                sections.Add(new("Tags", [], $"The server could not be asked: {problem}."));
+            else
+            {
+                sections.Add(new("Tags", facts.Tags.Select(t => new PropertiesWindow.Row(t.Label, t.Value)).ToList(),
+                                 facts.Tags.Count == 0 ? "None." : null));
+                // Shown, never changed: a server cannot be written to.
+                lyrics = new(facts.Lyrics ?? "",
+                             "This is on a server. Lyrics are changed in the file, on the machine that holds the master copy.",
+                             null);
+            }
         }
         else
         {
