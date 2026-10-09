@@ -33,7 +33,7 @@
          InstallService exists, because that is where a file name gets baked
          into shortcuts and registry entries. -->
     <AssemblyName>AlbumWall</AssemblyName>
-    <Version>0.6.4</Version>
+    <Version>0.6.5</Version>
     <!-- A release is a TRUE single file, the family's standard (see Shack Power):
          the in-app updater replaces only the exe, so everything native — Skia,
          HarfBuzz, and our own libmpv — MUST be inside it, not shipped loose
