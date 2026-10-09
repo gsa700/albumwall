@@ -30,7 +30,8 @@ public sealed class AlbumRow : WallItem
 }
 
 /// The open album, occupying a full-width row of its own directly beneath the
-/// row that holds the clicked cover.
+/// row that holds the clicked cover -- or directly ABOVE it, when the album was
+/// picked from the row under an open panel and the panel stayed where it was.
 public sealed class PanelRow : WallItem
 {
     public required AlbumVm Album { get; init; }
@@ -76,6 +77,23 @@ public sealed class PanelRow : WallItem
     /// Set once the unfold has run, so scrolling the panel out of view and back
     /// does not replay it.
     public bool Unfolded { get; set; }
+
+    /// The panel sits above its album and points DOWN at it. Everything about it
+    /// is mirrored: arrow at the foot, rounded corners at the foot, dissolving
+    /// into the wall at its head. His idea, 2026-10-08: switching to an album in
+    /// the row below an open panel swaps the panel's contents where it stands,
+    /// instead of rolling it up, scrolling, and unfolding another.
+    public bool PointsDown { get; init; }
+
+    /// Set when this panel replaces another in place: the height it starts from,
+    /// so it grows or shrinks from the old panel's size instead of from nothing.
+    public double? MorphFrom { get; init; }
+
+    public bool PointsUp => !PointsDown;
+    public Avalonia.Thickness BodyMargin => PointsDown ? new(0, 0, 0, 10) : new(0, 10, 0, 0);
+    public Avalonia.CornerRadius BodyCorners => PointsDown ? new(0, 0, 6, 6) : new(6, 6, 0, 0);
+    public Avalonia.Thickness BodyPadding => PointsDown ? new(22, 54, 22, 22) : new(22, 22, 22, 54);
+    public Avalonia.Media.IBrush BodyBackground => PointsDown ? Palette.PanelRise : Palette.PanelFade;
 
     /// Left offset of the arrow's center, measured from the panel's left edge.
     public double ArrowOffset => ArrowColumn * (CoverPx + Spacing) + CoverPx / 2;

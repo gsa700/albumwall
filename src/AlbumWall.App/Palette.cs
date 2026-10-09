@@ -25,6 +25,7 @@ public sealed record AlbumPalette(
     double Saturation,
     IBrush Panel,      // the panel's own ground, solid
     IBrush PanelFade,  // the same ground, dissolving into the wall at its foot
+    IBrush PanelRise,  // the same, dissolving at its HEAD: a panel sitting above its album
     IBrush Surface,    // the track list sitting on the panel
     IBrush Accent,     // disc headers, the selection ring, active state
     IBrush Text,       // body text on Panel/Surface
@@ -105,6 +106,7 @@ public static class Palette
             Saturation: s,
             Panel:   new ImmutableSolidColorBrush(ground),
             PanelFade: Fade(ground),
+            PanelRise: Fade(ground, rising: true),
             Surface: Solid(hue, s * 0.85,   Lit(0.20)),
             // The accent carries the album's color at full strength. It is used
             // on small elements only, where saturation is legible rather than
@@ -151,7 +153,7 @@ public static class Palette
     /// The top stays solid. The arrow that points at the clicked cover is a solid
     /// shape meeting the panel's top edge, and fading that edge would leave the
     /// arrow floating detached above it.
-    private static IBrush Fade(Color ground)
+    private static IBrush Fade(Color ground, bool rising = false)
     {
         var clear = Color.FromArgb(0, ground.R, ground.G, ground.B);
         return new ImmutableLinearGradientBrush(
@@ -160,8 +162,8 @@ public static class Palette
                 new ImmutableGradientStop(0.72, ground),
                 new ImmutableGradientStop(1.00, clear)
             ],
-            startPoint: new RelativePoint(0, 0, RelativeUnit.Relative),
-            endPoint: new RelativePoint(0, 1, RelativeUnit.Relative));
+            startPoint: new RelativePoint(0, rising ? 1 : 0, RelativeUnit.Relative),
+            endPoint: new RelativePoint(0, rising ? 0 : 1, RelativeUnit.Relative));
     }
 
     /// Saturation- and population-weighted color of one cover.

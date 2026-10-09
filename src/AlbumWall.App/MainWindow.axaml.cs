@@ -46,6 +46,11 @@ public partial class MainWindow : Window
     /// so removing it is one operation.
     private int _panelAt = -1;
 
+    /// The panel sits ABOVE the open album's row (pointing down) rather than
+    /// below it. Only a swap in place sets it; any other open, a close, or a
+    /// re-chunk puts the panel back under its album.
+    private bool _panelAbove;
+
     /// Identifies the current chunking. While it is unchanged the album rows are
     /// reused as they are, which is what lets a panel open without resetting the
     /// wall's scroll position.
@@ -2869,6 +2874,7 @@ public partial class MainWindow : Window
             _rows.Clear();
             foreach (var r in _albumRows) _rows.Add(r);
             _panelAt = -1;
+            _panelAbove = false;    // the rows it sat between no longer exist
         }
 
         SyncPanel(unfold);
@@ -2894,20 +2900,24 @@ public partial class MainWindow : Window
         var index = _visible.IndexOf(_open);
         if (index < 0) return;
 
-        _panelAt = index / _columns + 1;
-        _rows.Insert(_panelAt, new PanelRow
-        {
-            Album = _open,
-            ArrowColumn = index % _columns,
-            CoverPx = CoverPx,
-            Spacing = RowSpacing,
-            Palette = Palette.For(_open.Album),
-            Unfold = unfold,
-            PlayFrom = Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null
-        });
+        _panelAt = index / _columns + (_panelAbove ? 0 : 1);
+        _rows.Insert(_panelAt, NewPanel(index, unfold, morphFrom: null));
 
         MarkPlayingTrack();
     }
+
+    private PanelRow NewPanel(int index, bool unfold, double? morphFrom) => new()
+    {
+        Album = _open!,
+        ArrowColumn = index % _columns,
+        CoverPx = CoverPx,
+        Spacing = RowSpacing,
+        Palette = Palette.For(_open!.Album),
+        Unfold = unfold,
+        PointsDown = _panelAbove,
+        MorphFrom = morphFrom,
+        PlayFrom = Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null
+    };
 
     /// Queues the whole album and starts at the chosen track.
     ///
@@ -3825,9 +3835,19 @@ public partial class MainWindow : Window
                         + $"{(closing ? "CLOSING" : "opening")} animate={animate} "
                         + $"inVisible={(album is null ? "-" : _visible.Contains(album).ToString())}");
 
+        // An album in either row touching the open panel takes the panel over
+        // where it stands: no roll-up, no scroll, no unfold.
+        if (animate && !closing && _open is not null && SwapSide(album!) is { } above)
+        {
+            await SwapInPlaceAsync(album!, above);
+            SaveSession();
+            return;
+        }
+
         // Fold the old panel away before the rows move, so closing is the reverse
         // of opening rather than a row vanishing from under the cursor.
         if (_open is not null) await FoldAwayAsync();
+        _panelAbove = false;
 
         if (_open is not null) { _open.IsSelected = false; _open.Flip(toBack: false, animate); }
         // Clicking the open album again closes it, which is the only way back to
@@ -3860,6 +3880,66 @@ public partial class MainWindow : Window
         SaveSession();      // what is unfolded is part of where he was
     }
 
+    /// Whether `album` can take over the open panel in place, and if so which
+    /// side of its row the panel is then on: false = above the panel (the panel
+    /// is below its row and points up, as always), true = the row just below
+    /// the panel (it stays put and points down). Null = anywhere else, or the
+    /// panel is scrolled out of view: the ordinary fold and unfold.
+    ///
+    /// _rows holds album rows 0.._panelAt-1 above the panel, so album row
+    /// _panelAt-1 is directly above it and album row _panelAt directly below.
+    private bool? SwapSide(AlbumVm album)
+    {
+        if (_panelAt <= 0 || _panelAt >= _rows.Count || Wall.TryGetElement(_panelAt) is null) return null;
+        var index = _visible.IndexOf(album);
+        if (index < 0) return null;
+        var row = index / Math.Max(1, _columns);
+        if (row == _panelAt - 1) return false;
+        if (row == _panelAt) return true;
+        return null;
+    }
+
+    /// The old contents fade, the new panel takes their place at the old
+    /// height and grows or shrinks to its own while it fades in. The sleeves
+    /// turn in the wall at the same moment. Nothing above the panel moves, so
+    /// the wall only scrolls if the new panel would run off the bottom.
+    private async Task SwapInPlaceAsync(AlbumVm album, bool above)
+    {
+        var el = Wall.TryGetElement(_panelAt)!;
+        var from = el.Bounds.Height;
+        FreezeWall(true);
+
+        _open!.IsSelected = false;
+        _open.Flip(toBack: false);
+        album.IsSelected = true;
+        album.Flip(toBack: true);
+
+        el.Transitions =
+        [
+            new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(SwapFadeMs), Easing = new CubicEaseOut() }
+        ];
+        el.Opacity = 0;
+        await Task.Delay(SwapFadeMs);
+
+        // Something rebuilt the wall during the fade (a filter, a resize): the
+        // panel is not where it was, so open the ordinary way instead.
+        if (_panelAt <= 0 || _panelAt >= _rows.Count || _rows[_panelAt] is not PanelRow)
+        {
+            _open = album;
+            _panelAbove = false;
+            Rebuild(unfold: true);
+            AnchorOn(album);
+            return;
+        }
+
+        _open = album;
+        _panelAbove = above;
+        _rows[_panelAt] = NewPanel(_visible.IndexOf(album), unfold: false, morphFrom: from);
+        MarkPlayingTrack();
+
+        DispatcherTimer.RunOnce(() => FreezeWall(false), TimeSpan.FromMilliseconds(SwapMaxMs + 60));
+    }
+
     /// Collapses the realized panel element to nothing, then returns so the
     /// caller can rebuild. If the panel is scrolled out of view there is no
     /// element to animate and nothing to wait for.
@@ -3885,6 +3965,25 @@ public partial class MainWindow : Window
 
     /// How long a panel takes to unfold or roll away.
     private const int UnfoldMs = 330;
+
+    /// A swap in place: the old contents fade for SwapFadeMs, then the new
+    /// panel resizes and fades in over SwapMs. Shorter than an unfold because
+    /// nothing travels; it should read as the record changing, not the wall.
+    private const int SwapFadeMs = 110;
+    private const int SwapMs = 220;
+
+    /// A big change in height gets more time, so a single swapped for a box-set
+    /// disc grows instead of lurching. His ask, 2026-10-08: "on similar length
+    /// albums it's perfect. but when there is a big difference in tracks it
+    /// still is a little jarring." Per pixel of change, up to the cap.
+    private const double SwapMsPerPx = 0.6;
+    private const int SwapMaxMs = 480;
+
+    /// How much shorter a swapped-in panel must be before the wall recenters.
+    private const double ShrinkRecenterPx = 24;
+
+    private static int SwapDuration(double from, double to) =>
+        (int)Math.Min(SwapMaxMs, SwapMs + Math.Abs(to - from) * SwapMsPerPx);
 
     /// How long the anchoring scroll is allowed to keep converging.
     ///
@@ -4004,13 +4103,22 @@ public partial class MainWindow : Window
         var panelTop = Wall.OffsetOf(_panelAt);
         var panelHeight = Wall.HeightOf(_panelAt);
 
+        // A panel above its album is shown together with the album's row under
+        // it, and when that cannot fit, the row wins: it is what the arrow
+        // points at.
+        if (_panelAbove)
+        {
+            var unit = panelHeight + RowSpacing + CoverPx + LabelHeight;
+            return Math.Clamp(unit > view ? panelTop + unit - view : panelTop - (view - unit) / 2, 0, max);
+        }
+
         if (panelHeight > view - Peek)
             return Math.Clamp(panelTop - Peek, 0, max);
 
         return Math.Clamp(panelTop - (view - panelHeight) / 2, 0, max);
     }
 
-    private void AnchorOn(AlbumVm album)
+    private void AnchorOn(AlbumVm album, int ms = AnchorMs)
     {
         var index = _visible.IndexOf(album);
         if (index < 0) return;
@@ -4018,7 +4126,7 @@ public partial class MainWindow : Window
 
         _anchor?.Stop();
         FreezeWall(true);
-        var until = DateTime.UtcNow.AddMilliseconds(AnchorMs);
+        var until = DateTime.UtcNow.AddMilliseconds(ms);
 
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
@@ -4136,6 +4244,61 @@ public partial class MainWindow : Window
         }, DispatcherPriority.Loaded);
     }
 
+    /// The swap's second half: a new panel starting at the old one's height,
+    /// invisible, growing or shrinking to its own while it fades in. Same
+    /// measuring and the same release of the explicit height as Unfold.
+    private void Morph(Control el, PanelRow row, double from)
+    {
+        row.Unfolded = true;
+        var gen = ++_unfoldGen;
+
+        el.Transitions = null;
+        el.Height = from;
+        el.Opacity = 0;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            var width = Math.Max(0, WallScroller.Bounds.Width
+                                  - WallScroller.Padding.Left - WallScroller.Padding.Right);
+            el.Height = double.NaN;
+            el.Measure(new Size(width, double.PositiveInfinity));
+            var target = el.DesiredSize.Height;
+            if (target <= 0) { el.Height = double.NaN; el.Opacity = 1; return; }
+
+            el.Height = from;
+            var ms = SwapDuration(from, target);
+            el.Transitions =
+            [
+                // Eased at both ends: a long resize that starts at full speed is
+                // the lurch. The fade keeps its quick start so the new contents
+                // are there at once.
+                new DoubleTransition { Property = HeightProperty, Duration = TimeSpan.FromMilliseconds(ms), Easing = new SineEaseInOut() },
+                new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(Math.Min(ms, SwapMs)), Easing = new CubicEaseOut() }
+            ];
+            el.Height = target;
+            el.Opacity = 1;
+
+            // Recenter when the new panel (with, above its album, the album's
+            // row) would run past what can be seen, or when it is noticeably
+            // SHORTER: with its top held still, each long-to-short swap left
+            // the view a little higher, and his "creeping" was that adding up
+            // (2026-10-08). Growing that still fits keeps the wall still. The
+            // scroll runs as long as the resize, so the two read as one motion.
+            var need = target + (row.PointsDown ? RowSpacing + CoverPx + LabelHeight : 0);
+            var view = WallScroller.Viewport.Height - CoveredByTransport;
+            var overflows = Wall.OffsetOf(_panelAt) + need > WallScroller.Offset.Y + view;
+            if (_open is not null && (overflows || target < from - ShrinkRecenterPx))
+                AnchorOn(_open, ms);
+
+            DispatcherTimer.RunOnce(() =>
+            {
+                if (gen != _unfoldGen) return;
+                el.Transitions = null;
+                el.Height = double.NaN;
+            }, TimeSpan.FromMilliseconds(ms + 40));
+        }, DispatcherPriority.Loaded);
+    }
+
     /// Fired as the layout realizes a container. This — not item creation — is
     /// the moment we know a cover is about to be visible.
     private void OnElementPrepared(object? sender, WallElementEventArgs e)
@@ -4150,7 +4313,8 @@ public partial class MainWindow : Window
                 // The panel shows a 260 px cover, which needs the larger bucket
                 // even when the wall's tiles are tiny.
                 panel.Album.EnsureCover(260);
-                if (panel.Unfold && !panel.Unfolded) Unfold(e.Element, panel);
+                if (panel.MorphFrom is { } from && !panel.Unfolded) Morph(e.Element, panel, from);
+                else if (panel.Unfold && !panel.Unfolded) Unfold(e.Element, panel);
                 break;
         }
     }

@@ -119,17 +119,23 @@
                 <!-- The arrow points at the cover that was clicked. It is part of
                      the panel, not the row above, so it can never be clipped by
                      the row's bounds. -->
-                <Path Data="M 0 11 L 11 0 L 22 11 Z"
+                <Path Data="M 0 11 L 11 0 L 22 11 Z" IsVisible="{Binding PointsUp}"
                       Fill="{Binding Palette.Panel}"
                       HorizontalAlignment="Left" VerticalAlignment="Top"
                       Margin="{Binding ArrowMargin}"/>
+                <!-- Mirrored: the panel above its album points down at it. -->
+                <Path Data="M 0 0 L 11 11 L 22 0 Z" IsVisible="{Binding PointsDown}"
+                      Fill="{Binding Palette.Panel}"
+                      HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                      Margin="{Binding ArrowMargin}"/>
 
-                <!-- Fades out at its foot rather than ending on an edge. The
-                     extra bottom padding keeps the track list clear of the part
-                     that has gone translucent. -->
-                <Border Background="{Binding Palette.PanelFade}"
-                        CornerRadius="6,6,0,0"
-                        Margin="0,10,0,0" Padding="22,22,22,54">
+                <!-- Fades out at its foot rather than ending on an edge (at its
+                     head when it sits above its album and points down). The
+                     extra padding at that end keeps the contents clear of the
+                     part that has gone translucent. -->
+                <Border Background="{Binding BodyBackground}"
+                        CornerRadius="{Binding BodyCorners}"
+                        Margin="{Binding BodyMargin}" Padding="{Binding BodyPadding}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
 
                         <DockPanel Grid.Column="0">
