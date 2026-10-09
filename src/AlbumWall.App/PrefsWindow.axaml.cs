@@ -418,6 +418,8 @@ public partial class PrefsWindow : Window
     /// tab already uses ("Switch between them with the name in the bottom
     /// bar"), and it promises nothing heavy, because on Windows the index
     /// brings a known library up in about a second.
+    private static readonly Avalonia.Media.IBrush Damaged = Avalonia.Media.Brush.Parse("#E5534B");
+
     private void FillLibraries()
     {
         if (_host is null) return;
@@ -473,6 +475,57 @@ public partial class PrefsWindow : Window
                     + "somewhere else, such as a nightly mirror: an edit made there would be lost.");
                 editable.IsCheckedChanged += (_, _) => _host.SetLibraryEditable(id, editable.IsChecked == true);
                 words.Children.Add(editable);
+
+                // The integrity check (MainWindow.Integrity.cs). Greyed with the
+                // reason where there is no libFLAC, not left off.
+                var available = Domain.FlacIntegrity.Available;
+                var integrity = new CheckBox
+                {
+                    Content = "Check the audio for damage now and then", FontSize = 12,
+                    IsChecked = library.CheckIntegrity, IsEnabled = available,
+                };
+                Avalonia.Controls.ToolTip.SetTip(integrity, available
+                    ? "Decodes each FLAC file in the background and compares it with the checksum stored "
+                      + "inside it, as `flac -t` does: new and changed files soon, every file again once a "
+                      + "month, one at a time at low priority, and only while AlbumWall is open. It only "
+                      + "reads; it never changes a file. MP3 and AAC carry no checksum, so they are not checked."
+                    : "Needs libFLAC, which this system does not have.");
+                integrity.IsCheckedChanged += (_, _) => { _host.SetLibraryIntegrity(id, integrity.IsChecked == true); Fill(); };
+                words.Children.Add(integrity);
+                if (library.CheckIntegrity && available)
+                {
+                    var line = new TextBlock
+                    {
+                        Text = _host.IntegrityLine(library), FontSize = 12,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new Avalonia.Thickness(28, 0, 0, 0),
+                    };
+                    line.Classes.Add("dim");
+                    words.Children.Add(line);
+
+                    var problems = _host.IntegrityProblems(library);
+                    foreach (var (path, problem) in problems.Take(8))
+                    {
+                        var bad = new TextBlock
+                        {
+                            Text = $"{path}: {problem}", FontSize = 12, Foreground = Damaged,
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new Avalonia.Thickness(28, 0, 0, 0),
+                        };
+                        bad.Classes.Add("mono");
+                        words.Children.Add(bad);
+                    }
+                    if (problems.Count > 0)
+                    {
+                        var more = new TextBlock
+                        {
+                            Text = (problems.Count > 8 ? $"and {problems.Count - 8} more. " : "")
+                                 + $"Every one is in {MainWindow.IntegrityLogPath}",
+                            FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            Margin = new Avalonia.Thickness(28, 0, 0, 0),
+                        };
+                        more.Classes.Add("dim");
+                        words.Children.Add(more);
+                    }
+                }
             }
 
             var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 7,

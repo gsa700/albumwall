@@ -117,6 +117,16 @@ write is a track's lyrics, from Properties, and only in a library where you
 have ticked *Allow editing* in Preferences › Library. It is off for every
 library until you do. Each edit keeps the old lyrics in a backup file first.
 
+**An integrity check, if you want one.** Tick *Check the audio for damage now
+and then* on a folder library in Preferences › Library, and AlbumWall decodes
+each FLAC file in the background and compares it with the checksum stored
+inside it, as `flac -t` does: new and changed files soon, every file again once
+a month, one at a time at low priority, and only while AlbumWall is open. It
+only reads. What it finds is under the library in Preferences, every damaged
+file is listed in `integrity.log` beside the settings, and the dot on the gear
+says so. Off until you turn it on. MP3 and AAC carry no checksum of their
+audio, so only FLAC is checked; it needs the system's libFLAC.
+
 ### From a Navidrome server
 
 A server library is read-only: AlbumWall plays the files as the server holds

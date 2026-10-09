@@ -164,6 +164,7 @@ public partial class MainWindow : Window
             EnterCompact();
         };
         Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
+        Opened += (_, _) => StartIntegrityChecks();
 
         // The position is only worth as much as its last write, and a crash, a
         // logout or a pulled plug does not run the Closing handler. Five seconds
@@ -1777,8 +1778,8 @@ public partial class MainWindow : Window
     /// The dot on the gear: a newer version exists (or the last update failed).
     internal void ShowUpdateDot(bool on)
     {
-        UpdateDot.IsVisible = on;
-        ToolTip.SetTip(SettingsButton, on ? "Preferences \u2014 a newer version is available" : "Preferences");
+        _updateDotWanted = on;
+        ShowIntegrityAttention();   // the dot is shared with the integrity check
         _prefs?.Fill();
     }
 

@@ -254,6 +254,11 @@ public sealed class Library
     /// night. A server is never editable, whatever this says.
     public bool Editable { get; set; }
 
+    /// Whether the audio here is checked for damage in the background
+    /// (Domain/FlacIntegrity.cs). OFF until he turns it on: "we don't want
+    /// some major background process going on without the users knowledge."
+    public bool CheckIntegrity { get; set; }
+
     [JsonIgnore]
     public bool CanEdit => IsFolder && Editable;
 
