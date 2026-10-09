@@ -4,10 +4,44 @@
         Title="AlbumWall — Preferences"
         Icon="/Assets/app.ico"
         Width="580" Height="700" CanResize="False"
-        RequestedThemeVariant="Dark"
+        RequestedThemeVariant="Light"
         Background="{DynamicResource SheetBg}"
-        Foreground="#F3EEE6"
+        Foreground="#1D1D20"
         ShowInTaskbar="False">
+
+    <!-- LIGHT, his call 2026-10-08, after Deadwax's Preferences went light
+         ("the black on black is just too much black"): the family's rule is
+         now the music dark, the paperwork light. The palette is Properties'
+         (PropertiesWindow.cs): grey desk, off-white panel, near-black ink.
+         Until then this sheet took the ground he chose for the wall (it is
+         "furniture"); the wall behind still shows that live as the slider
+         moves. Naming the sheet's three keys here overrides the ones
+         ApplyGround sets on the application, for this window only, and the
+         styles below restyle the shared light-on-dark tab and button chrome. -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="SheetBg" Color="#E4E4E2"/>
+        <SolidColorBrush x:Key="SheetField" Color="#F6F6F4"/>
+        <SolidColorBrush x:Key="SheetEdge" Color="#C2C2C6"/>
+    </Window.Resources>
+    <Window.Styles>
+        <Style Selector="TextBlock.dim">
+            <Setter Property="Foreground" Value="#62626A"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="Foreground" Value="#62626A"/>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="#1D1D20"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="#1D1D20"/>
+        </Style>
+        <Style Selector="Button.panel">
+            <Setter Property="Background" Value="#12000000"/>
+            <Setter Property="Foreground" Value="#1D1D20"/>
+            <Setter Property="BorderBrush" Value="#38000000"/>
+        </Style>
+    </Window.Styles>
 
     <!-- A PROPER WINDOW, in the format of the family's Setup windows (FlexPad,
          LP-100A, W2, Shack Power): the system's own title bar, a fixed size so it

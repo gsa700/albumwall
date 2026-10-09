@@ -74,6 +74,11 @@ could play music.
   cover art.
 - The play controls slide in when something is loaded and leave when the record
   ends. They sit above the bottom bar, or under the title bar if you prefer.
+- **The paperwork is light, the music dark.** The wall takes its color from your
+  covers; Preferences and Properties are plain light pages, easy to read, with
+  the wall behind showing any change to its color as you make it.
+- **An integrity check**, if you tick it: FLAC files are checked against the
+  checksum inside them, a little at a time, and any damage is listed (see below).
 
 <p align="center">
   <img src="docs/screenshots/statistics.webp" width="40%" alt="Preferences: Statistics">

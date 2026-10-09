@@ -113,8 +113,9 @@ public partial class PrefsWindow
 
     // type | bar | tracks | share | size | time | typical
     private const string TypeColumns = "58,*,62,52,74,92,84";
-    // label | bar | tracks | share
-    private const string BandColumns = "96,*,62,52";
+    // label | bar | tracks | share. 120 so "44.1 kHz / 16-bit" fits: at 96 it
+    // read "16-bi" (seen in the README screenshot, 2026-10-08).
+    private const string BandColumns = "120,*,62,52";
 
     /// One row: the first cell, then a bar in the star column, then the figures.
     /// A null fraction is a header row, which has no bar.

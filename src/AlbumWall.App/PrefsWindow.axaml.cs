@@ -418,7 +418,7 @@ public partial class PrefsWindow : Window
     /// tab already uses ("Switch between them with the name in the bottom
     /// bar"), and it promises nothing heavy, because on Windows the index
     /// brings a known library up in about a second.
-    private static readonly Avalonia.Media.IBrush Damaged = Avalonia.Media.Brush.Parse("#E5534B");
+    private static readonly Avalonia.Media.IBrush Damaged = Avalonia.Media.Brush.Parse("#B3261E");   // a red that reads on the light sheet
 
     private void FillLibraries()
     {
