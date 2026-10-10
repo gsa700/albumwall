@@ -177,7 +177,7 @@ if [ -z "$NOTES" ]; then
         echo "AlbumWall $VERSION. Audio engine: $LIBMPV.$([ $EDGE -eq 1 ] && echo " An Edge build: offered to copies set to Edge until it is promoted to Stable.")"
         echo
         echo "Download the zip for your system, unpack it and run the program: it offers to install itself."
-        echo "An installed copy updates itself from the About tab in Preferences."
+        echo "An installed copy updates itself from the Updates tab in Preferences."
         echo
         echo "Changes${prev:+ since $prev}:"
         git log --no-merges --format='- %s' ${prev:+"$prev..$TAG"} | grep -v -E '^- (Roadmap|gapless-check)' | head -60

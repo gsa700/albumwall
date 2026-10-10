@@ -1808,6 +1808,24 @@ public partial class MainWindow : Window
         SearchBox.Text = text;
         Activate();
     }
+    /// ReplayGain, for Preferences > Playback: the same setting as the RG
+    /// button on the play controls. Chosen either way, it stays chosen: the
+    /// app stops picking by context (StartPlayback).
+    internal Playback.GainMode GainMode
+    {
+        get => _player?.Gain
+            ?? (Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved) ? saved : Playback.GainMode.Album);
+        set
+        {
+            _gainChosen = true;
+            _settings.Gain = value.ToString();
+            _settings.Save();
+            if (_player is null || _player.Gain == value) return;
+            _player.Gain = value;
+            if (_playingAlbum is not null) UpdateNowPlaying();
+        }
+    }
+
     internal bool RescanRunning => _honestRunning;
     internal void Rescan() => ScanLibrary(honest: true);
 
@@ -2543,7 +2561,8 @@ public partial class MainWindow : Window
 
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(honest: true); return; }
         if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
-        if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
+        if (text.Equals("prefs playback", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Playback); return; }
+        if (text.Equals("prefs updates", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Updates); return; }
         if (text.Equals("prefs stats", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("prefs help", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Help); return; }
 
@@ -3489,6 +3508,7 @@ public partial class MainWindow : Window
                 _ => Playback.GainMode.Album
             };
             UpdateNowPlaying();
+            _prefs?.Fill();     // Playback shows the same choice
         };
 
         // A drag must not fight the position updates coming from the player, so

@@ -161,6 +161,19 @@ is ahead, the history is for what is behind.
   (`Domain/LibraryStatsStore.cs`, in the cache directory): his idea, "the
   statistics tab could replace what's below the separator and change by
   selection", and it is also what says whether FLAC files are present.
+  **The tabs, after an overview of the whole window** (2026-10-10, 0.6.16;
+  "settings spread all over the place and it's not totally logical"):
+  Library, Playback, Appearance, Updates, Help, About - options first, pages
+  after, About last. **Playback** is new: picking up the session and
+  auto-play (from Startup) and ReplayGain as three choices with the words
+  the RG button has no room for (the button and the tab are one setting;
+  `MainWindow.GainMode`). **Updates** is new: the check at open and the
+  channel (from Startup) together with the status, Check for updates and
+  What's new (from About), which had been two tabs apart. **Startup is
+  gone.** About keeps the version, the links, and "this copy": install
+  status, Install/Uninstall, the Start Menu shortcut, set once and not
+  touched again. Compact mode stays a runtime toggle and the search-box
+  commands stay hidden test tools, on purpose.
 
 - **A file-properties window**, in the SAME FORMAT as Preferences — "we'll use
   the same format with the file properties window when we get to it". The

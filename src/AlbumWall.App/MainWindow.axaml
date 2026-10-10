@@ -652,7 +652,7 @@
                             Padding="8,4" ToolTip.Tip="Preferences">
                         <!-- The dot says a newer version exists. It is the only thing the
                              launch-time check ever does on its own: nothing is downloaded
-                             or installed until it is asked for on the About tab. -->
+                             or installed until it is asked for on the Updates tab. -->
                         <Panel>
                         <Path Stretch="Uniform" Width="17" Height="17" Fill="#F3EEE6"
                               Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58

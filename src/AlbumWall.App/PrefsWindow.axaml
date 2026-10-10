@@ -124,7 +124,12 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Startup">
+        <!-- PLAYBACK (2026-10-10, from the Preferences overview): what happens
+             when the app opens, and how loud things play. The first two were
+             the Startup tab, which also held the update check, two unrelated
+             things under one heading; the third had no home but a cycling
+             button on the play controls. -->
+        <TabItem Header="Playback">
             <StackPanel Spacing="14">
                 <TextBlock x:Name="WhenItOpens" Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
                 <StackPanel Spacing="4">
@@ -139,17 +144,29 @@
                                Margin="28,0,0,0"
                                Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
                 </StackPanel>
+
+                <!-- REPLAYGAIN, as three choices with the words the RG button on
+                     the play controls has no room for. The button and these are
+                     the same setting. Until one is chosen here or there, the
+                     app picks by context: by album, and by track for a shuffle
+                     (StartPlayback). -->
+                <TextBlock Text="Loudness" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                           Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The RG button on the play controls is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
                 <StackPanel Spacing="4">
-                    <CheckBox x:Name="CheckUpdates" Content="Look for a newer version"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="One small question to GitHub as it opens. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it on the About tab."/>
+                    <RadioButton x:Name="GainAlbum" GroupName="gain" Content="By album"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                               Text="A whole record at one level, so its quiet songs stay quiet. For playing an album through."/>
                 </StackPanel>
                 <StackPanel Spacing="4">
-                    <CheckBox x:Name="EdgeUpdates" Content="Edge builds: every release as it comes out"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="Off is Stable: only builds that have already run on Edge without trouble. Switching back to Stable keeps the build you have until Stable passes it."/>
+                    <RadioButton x:Name="GainTrack" GroupName="gain" Content="By track"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                               Text="Every song to the same level. For shuffling across the collection."/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <RadioButton x:Name="GainOff" GroupName="gain" Content="Off"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                               Text="Everything plays at exactly the level it was encoded at."/>
                 </StackPanel>
             </StackPanel>
         </TabItem>
@@ -248,6 +265,48 @@
              this app that cannot be found by looking at it. F1 opens it. Built in code
              (PrefsWindow.Help.cs) beside the list it has to agree with. Before About,
              which stays last by convention. -->
+        <!-- UPDATES (2026-10-10): the policy and the action together. "Look for
+             a newer version" and the channel were on Startup, the status line,
+             the button and What's new were on About, and the two halves of one
+             thing were two tabs apart. The update section is only for a
+             published single-file build, which is the only kind that can be
+             swapped for another: the update IS one file. Nothing here happens
+             by itself - the check at launch only ever lights the dot on the gear. -->
+        <TabItem Header="Updates">
+            <StackPanel Spacing="14">
+                <TextBlock Text="Newer versions" FontSize="14" FontWeight="SemiBold"/>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="CheckUpdates" Content="Look for a newer version when AlbumWall opens"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="One small question to GitHub. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it here."/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="EdgeUpdates" Content="Edge builds: every release as it comes out"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="Off is Stable: only builds that have already run on Edge without trouble. Switching back to Stable keeps the build you have until Stable passes it."/>
+                </StackPanel>
+
+                <StackPanel x:Name="UpdateSection" Spacing="7" Margin="0,4,0,0" IsVisible="False">
+                    <Border Height="1" Margin="0,0,0,8" Background="{DynamicResource SheetEdge}"/>
+                    <TextBlock x:Name="UpdateStatus" Classes="dim" FontSize="13" LineHeight="20"
+                               TextWrapping="Wrap"/>
+                    <Border x:Name="UpdateBar" Height="4" CornerRadius="2" IsVisible="False"
+                            Background="{DynamicResource SheetBg}">
+                        <Border x:Name="UpdateFill" Height="4" CornerRadius="2" Width="0"
+                                HorizontalAlignment="Left" Background="{DynamicResource WordmarkInk}"/>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="UpdateButton" Classes="panel" Content="Check for updates"/>
+                        <Button x:Name="UpdateNotes" Classes="link" VerticalAlignment="Center" IsVisible="False">
+                            <TextBlock Text="What's new" FontSize="13" TextDecorations="Underline"/>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </TabItem>
+
         <TabItem Header="Help">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="HelpBody" Spacing="3" Margin="0,0,14,0"/>
@@ -288,27 +347,6 @@
                                TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Button x:Name="InstallButton" Classes="panel"/>
-                    </StackPanel>
-                </StackPanel>
-
-                <!-- UPDATES. Only for a published single-file build, which is the only
-                     kind that can be swapped for another: the update IS one file. One
-                     line that always says where things stand, one button that does the
-                     next thing, and a bar while it downloads. Nothing here happens by
-                     itself - the check at launch only ever lights the dot on the gear. -->
-                <StackPanel x:Name="UpdateSection" Spacing="7" Margin="0,8,0,0" IsVisible="False">
-                    <TextBlock x:Name="UpdateStatus" Classes="dim" FontSize="13" LineHeight="20"
-                               TextWrapping="Wrap"/>
-                    <Border x:Name="UpdateBar" Height="4" CornerRadius="2" IsVisible="False"
-                            Background="{DynamicResource SheetBg}">
-                        <Border x:Name="UpdateFill" Height="4" CornerRadius="2" Width="0"
-                                HorizontalAlignment="Left" Background="{DynamicResource WordmarkInk}"/>
-                    </Border>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button x:Name="UpdateButton" Classes="panel" Content="Check for updates"/>
-                        <Button x:Name="UpdateNotes" Classes="link" VerticalAlignment="Center" IsVisible="False">
-                            <TextBlock Text="What's new" FontSize="13" TextDecorations="Underline"/>
-                        </Button>
                     </StackPanel>
                 </StackPanel>
 
