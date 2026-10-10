@@ -67,13 +67,20 @@
                  one row per library. -->
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="12" Margin="0,0,14,0">
-                <!-- THE LIST. One row per library, built in code (FillLibraries);
-                     the one on the wall is marked, the others can be switched to or
-                     forgotten. Forgetting touches nothing on disk. -->
+                <!-- THE LIST AND THE DETAIL (2026-10-10). One LINE per library,
+                     built in code (FillLibraries): its name, where it is, a mark on
+                     the one on the wall, and the buttons. Clicking a line selects
+                     it, and the section below shows that library's settings. The
+                     rows used to carry everything themselves - two checkboxes, the
+                     integrity status and up to eight damaged files each - and with
+                     four libraries the tab had outgrown the window ("growing
+                     exponentially with more libraries as expected"). Now the list
+                     grows one line per library and the detail is one library's
+                     worth, whichever is picked. Forgetting touches nothing on disk. -->
                 <TextBlock Text="Libraries" FontSize="14" FontWeight="SemiBold"/>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="The wall shows one library at a time and never mixes them. Switch between them with the name in the bottom bar, beside the counts."/>
-                <StackPanel x:Name="LibraryList" Spacing="6"/>
+                           Text="The wall shows one library at a time and never mixes them. Switch to puts a library on the wall, as the name in the bottom bar does. Click a library to see its settings below."/>
+                <StackPanel x:Name="LibraryList" Spacing="4"/>
 
                 <!-- RESCAN IS A BUTTON ON THE ROW OF THE LIBRARY ON THE WALL, beside
                      Switch to and Forget on the others ("lets remove and relocate it to a
@@ -104,8 +111,14 @@
                     <Button x:Name="AddNavidromeLibrary" Classes="panel" Content="Add a Navidrome server…"/>
                 </StackPanel>
 
-                <!-- Hidden on a fresh install until the first library is chosen:
-                     there is no "this library" to describe. -->
+                <!-- THE DETAIL: the selected library, which is the one on the wall
+                     until another line is clicked. Hidden on a fresh install until
+                     the first library is chosen: there is nothing to describe. The
+                     folder buttons act on the library ON THE WALL, because changing
+                     a root starts a scan and only the wall's library is scanned, so
+                     for a folder library that is not on the wall they give way to a
+                     line saying so. The per-library options (editing, the integrity
+                     check and what it found) are built in code, in FillDetail. -->
                 <StackPanel x:Name="ThisLibraryPanel" Spacing="12">
                 <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
                 <TextBlock x:Name="ThisLibrary" FontSize="14" FontWeight="SemiBold"/>
@@ -121,6 +134,9 @@
                     <Button x:Name="ChooseFolder" Classes="panel" Content="Choose folder…"/>
                     <Button x:Name="UseDefault" Classes="panel" Content="Use my Music folder"/>
                 </StackPanel>
+                <TextBlock x:Name="FolderElsewhere" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" IsVisible="False"
+                           Text="Its folder can be changed once it is on the wall: Switch to, above."/>
+                <StackPanel x:Name="LibraryOptions" Spacing="6"/>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

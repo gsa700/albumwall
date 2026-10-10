@@ -135,6 +135,16 @@ is ahead, the history is for what is behind.
   no options at all, it is a page to read — file types, bitrates, lossless
   formats, cover art — reached by pressing the library counts in the main
   window's bottom bar.
+  **The Library tab is a list and a detail** (2026-10-10, 0.6.12): "the
+  Library page is growing exponentially with more libraries as expected".
+  Each row had carried its own checkboxes, integrity status and damaged files,
+  and four libraries had outgrown the window. Now one LINE per library (name,
+  whereabouts, "on the wall", a "damaged" count if any, the buttons), and the
+  section below shows the SELECTED library's settings: the one on the wall
+  until another line is clicked. A tab per library was his first thought and
+  was argued down: nested tab strips, four long names fill the strip, and
+  Add/Forget/scan progress belong to no one library. Folder buttons act on the
+  wall's library only, since changing a root starts a scan.
 
 - **A file-properties window**, in the SAME FORMAT as Preferences — "we'll use
   the same format with the file properties window when we get to it". The
