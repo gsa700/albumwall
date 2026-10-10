@@ -110,5 +110,25 @@ Check(sup.Contains("kill -0 4242"), "supervised: still waits for the pid");
 Check(!sup.Contains("cp -f") && !sup.Contains(" &)"), "supervised: no swap and no relaunch");
 Check(sup.Contains("rm -rf '/home/u/.net/AlbumWall/Old'") && sup.Contains("rm -rf '/tmp/AlbumWall-update'"), "supervised: still tidies up");
 
+// 3. ReleaseFeed: what the Edge channel offers from GitHub's /releases list (2026-10-10).
+string? Edge(string json)
+{
+    using var doc = System.Text.Json.JsonDocument.Parse(json);
+    return ReleaseFeed.Newest(doc.RootElement)?.GetProperty("tag_name").GetString();
+}
+Check(Edge("""
+    [{"tag_name":"v0.6.6","prerelease":false},{"tag_name":"v0.6.7","prerelease":true},{"tag_name":"v0.6.5"}]
+    """) == "v0.6.7", "edge: the newest version, pre-release or not");
+Check(Edge("""
+    [{"tag_name":"libmpv-0.41.0-4","prerelease":true},{"tag_name":"v0.6.6","prerelease":false}]
+    """) == "v0.6.6", "edge: a libmpv engine release is never offered, however its numbers compare");
+Check(Edge("""
+    [{"tag_name":"v0.6.8","prerelease":true,"draft":true},{"tag_name":"v0.6.6"}]
+    """) == "v0.6.6", "edge: never a draft");
+Check(Edge("""[{"tag_name":"v0.6.9"},{"tag_name":"v0.6.10"}]""") == "v0.6.10", "edge: numbers compare as numbers");
+Check(Edge("[]") is null && Edge("""{"message":"Not Found"}""") is null, "edge: nothing listed is null");
+Check(!ReleaseFeed.IsAppTag("v0.6.7-beta1") && !ReleaseFeed.IsAppTag("0.6.7") && ReleaseFeed.IsAppTag("v0.6.7"),
+      "edge: only vX.Y.Z is an app release");
+
 Console.WriteLine(failures == 0 ? "PASS" : $"{failures} FAILED");
 return failures == 0 ? 0 : 1;

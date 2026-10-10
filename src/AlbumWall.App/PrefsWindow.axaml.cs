@@ -72,6 +72,16 @@ public partial class PrefsWindow : Window
             host.AppSettings.CheckForUpdates = CheckUpdates.IsChecked == true;
             host.AppSettings.Save();
         };
+        EdgeUpdates.IsCheckedChanged += (_, _) =>
+        {
+            if (_filling) return;
+            host.AppSettings.EdgeChannel = EdgeUpdates.IsChecked == true;
+            host.AppSettings.Save();
+            App.LatestUpdate = null;   // what was found belongs to the other channel
+            host.ShowUpdateDot(App.LastUpdateFailed);
+            _updateNote = null;
+            FillUpdate();
+        };
 
         UpdateButton.Click += async (_, _) => await OnUpdateButton();
         UpdateNotes.Click += async (_, _) =>
@@ -244,7 +254,7 @@ public partial class PrefsWindow : Window
               : info.NothingPublished ? $"No release has been published yet. This is version {have}."
               : !info.UpdateAvailable ? $"This is the latest version, {have}."
               : info.AssetUrl is null ? $"{info.LatestTag} is out, but it has no build for this kind of computer."
-              : $"Version {info.LatestTag.TrimStart('v', 'V')} is available. This is {have}.");
+              : $"Version {info.LatestTag.TrimStart('v', 'V')}{(info.IsPrerelease ? " (Edge)" : "")} is available. This is {have}.");
     }
 
     private async Task OnUpdateButton()
@@ -257,7 +267,7 @@ public partial class PrefsWindow : Window
         {
             UpdateButton.IsEnabled = false;
             UpdateStatus.Text = "Looking…";
-            App.LatestUpdate = await Install.UpdateService.CheckAsync();
+            App.LatestUpdate = await Install.UpdateService.CheckAsync(_host.AppSettings.EdgeChannel == true);
             _host.ShowUpdateDot(App.LatestUpdate.UpdateAvailable);
             FillUpdate();
             return;
@@ -604,6 +614,7 @@ public partial class PrefsWindow : Window
         AutoPlay.IsChecked = _host.AppSettings.AutoPlay == true;
         AutoPlay.IsEnabled = Resume.IsChecked == true;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
+        EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;
         TransportTop.IsChecked = _host.TransportAtTop;
         Light.Value = _host.ColorLightness;
         Tint.Value = _host.ColorTint;

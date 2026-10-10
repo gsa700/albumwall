@@ -88,7 +88,9 @@ could play music.
 - **It updates itself.** Preferences › About checks GitHub for a newer release,
   downloads the build for your platform, checks it against the release's
   SHA-256 list, and restarts into it. A dot on the gear says there is one; nothing
-  is ever downloaded until you ask.
+  is ever downloaded until you ask. Two channels: **Edge** gets every build as it
+  is released, **Stable** (the default) only builds that have run on Edge without
+  trouble and been promoted.
 
 Not built yet: editing tags other than lyrics, an A–Z rail.
 What is wanted next is in [docs/roadmap.md](docs/roadmap.md).

@@ -27,6 +27,9 @@ public sealed class UpdateInfo
     /// </summary>
     public bool NothingPublished { get; set; }
 
+    /// <summary>The release offered is an Edge build (a GitHub pre-release).</summary>
+    public bool IsPrerelease { get; set; }
+
     public string? Error { get; set; }
 }
 
@@ -73,16 +76,19 @@ public static class UpdateService
         return $"linux-{arch}";
     }
 
-    private static string FeedUrl
+    /// <summary>
+    /// Stable: the latest full release. Edge: the release list, newest app release taken
+    /// (<see cref="ReleaseFeed"/>). ALBUMWALL_UPDATE_FEED replaces either and must serve the
+    /// matching shape (one release for Stable, a list for Edge).
+    /// </summary>
+    private static string FeedUrl(bool edge)
     {
-        get
-        {
-            var other = Environment.GetEnvironmentVariable("ALBUMWALL_UPDATE_FEED");
-            if (string.IsNullOrWhiteSpace(other))
-                return $"https://api.github.com/repos/{InstallService.Repo}/releases/latest";
-            Console.WriteLine($"[update] FEED OVERRIDDEN by ALBUMWALL_UPDATE_FEED: {other}");
-            return other;
-        }
+        var other = Environment.GetEnvironmentVariable("ALBUMWALL_UPDATE_FEED");
+        if (string.IsNullOrWhiteSpace(other))
+            return edge ? $"https://api.github.com/repos/{InstallService.Repo}/releases?per_page=30"
+                        : $"https://api.github.com/repos/{InstallService.Repo}/releases/latest";
+        Console.WriteLine($"[update] FEED OVERRIDDEN by ALBUMWALL_UPDATE_FEED: {other}");
+        return other;
     }
 
     /// <summary>
@@ -113,7 +119,7 @@ public static class UpdateService
              + "updates. On Fedora, installing openssl3-libs fixes it.";
     });
 
-    public static async Task<UpdateInfo> CheckAsync()
+    public static async Task<UpdateInfo> CheckAsync(bool edge = false)
     {
         var info = new UpdateInfo
         {
@@ -127,7 +133,7 @@ public static class UpdateService
         }
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, FeedUrl);
+            using var req = new HttpRequestMessage(HttpMethod.Get, FeedUrl(edge));
             req.Headers.UserAgent.Add(new ProductInfoHeaderValue("AlbumWall-UpdateCheck", "1.0"));
             req.Headers.Accept.ParseAdd("application/vnd.github+json");
             using var resp = await Http.SendAsync(req);
@@ -141,7 +147,16 @@ public static class UpdateService
             resp.EnsureSuccessStatusCode();
 
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            var root = doc.RootElement;
+            JsonElement root;
+            if (!edge) root = doc.RootElement;
+            else if (ReleaseFeed.Newest(doc.RootElement) is { } newest) root = newest;
+            else
+            {
+                info.NothingPublished = true;
+                Console.WriteLine("[update] edge: no app releases listed");
+                return info;
+            }
+            if (edge) info.IsPrerelease = root.TryGetProperty("prerelease", out var pre) && pre.ValueKind == JsonValueKind.True;
             info.LatestTag = root.GetProperty("tag_name").GetString() ?? "";
             if (root.TryGetProperty("html_url", out var hu) && hu.GetString() is { Length: > 0 } url)
                 info.ReleaseUrl = url;
@@ -160,7 +175,7 @@ public static class UpdateService
 
             // Unparseable on either side is "not newer", never "newer": see VersionOrder.
             info.UpdateAvailable = VersionOrder.IsNewer(info.LatestTag, CurrentVersion);
-            Console.WriteLine($"[update] latest {info.LatestTag}, have {CurrentVersion}, "
+            Console.WriteLine($"[update] {(edge ? "edge" : "stable")}: latest {info.LatestTag}{(info.IsPrerelease ? " (edge build)" : "")}, have {CurrentVersion}, "
                             + $"newer={info.UpdateAvailable}, asset={(info.AssetUrl is null ? "none for " + Rid() : wanted)}");
         }
         catch (Exception ex)

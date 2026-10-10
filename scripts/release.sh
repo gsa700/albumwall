@@ -4,18 +4,26 @@
 #   scripts/release.sh 0.2.0                     a DRAFT release, to look at first
 #   scripts/release.sh 0.2.0 --notes-file N.md   with the notes written by hand
 #   scripts/release.sh 0.2.0 --publish           published at once (users are offered it)
+#   scripts/release.sh 0.2.0 --edge --publish    an EDGE build: a GitHub pre-release, offered only to
+#                                                copies set to Edge (Preferences). The usual way every
+#                                                build goes out since 0.6.7.
+#   PROMOTE to Stable, once it has run on Edge without trouble (his call, every time):
+#                                                gh release edit vX.Y.Z -R gsa700/albumwall --prerelease=false --latest
 #   scripts/release.sh 0.2.0 --dry-run           build and zip only: no tag, no release,
 #                                                version/tree checks only warn, and the
 #                                                engine comes from native/ if its release
 #                                                is not out yet. Leaves the zips in ./dist.
 #
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
-# this and nothing else: a normal, non-pre-release GitHub release tagged vX.Y.Z,
-# carrying AlbumWall-<rid>.zip for linux-x64, linux-arm64 and win-x64 - each zip
-# holding the single-file program - and SHA256SUMS listing every zip. The updater
-# reads /releases/latest, refuses a download SHA256SUMS does not vouch for, and
-# ignores drafts and pre-releases entirely. So a DRAFT is safe to make, look at
-# and delete; publishing it is the moment every installed copy is offered it.
+# this and nothing else: a GitHub release tagged vX.Y.Z, carrying
+# AlbumWall-<rid>.zip for linux-x64, linux-arm64 and win-x64 - each zip holding
+# the single-file program - and SHA256SUMS listing every zip. Two channels
+# (AlbumWall.Domain/ReleaseFeed.cs): Stable reads /releases/latest, which never
+# returns a pre-release; Edge reads the release list and takes the newest vX.Y.Z
+# (never a libmpv-* engine release). Both refuse a download SHA256SUMS does not
+# vouch for and never see drafts. So a DRAFT is safe to make, look at and delete;
+# publishing an --edge build offers it to Edge copies only; promoting it
+# (clearing the pre-release flag) offers the same binary to everyone.
 #
 # THE AUDIO ENGINE IS FETCHED, NOT TAKEN FROM WHATEVER IS IN native/. The release
 # named in scripts/LIBMPV_RELEASE is downloaded, checked against its SHA256SUMS
@@ -36,12 +44,13 @@ REPO=gsa700/albumwall
 CSPROJ="$ROOT/src/AlbumWall.App/AlbumWall.App.csproj"
 RIDS=(linux-x64 linux-arm64 win-x64)
 
-VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--publish]}
+VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish]}
 shift
-PUBLISH=0; NOTES=""; DRY=0
+PUBLISH=0; NOTES=""; DRY=0; EDGE=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --publish) PUBLISH=1 ;;
+        --edge) EDGE=1 ;;
         --dry-run) DRY=1 ;;
         --notes-file) NOTES=${2:?--notes-file needs a file}; shift ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -165,7 +174,7 @@ if [ -z "$NOTES" ]; then
     NOTES="$WORK/notes.md"
     prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$TAG^" 2>/dev/null || true)
     {
-        echo "AlbumWall $VERSION. Audio engine: $LIBMPV."
+        echo "AlbumWall $VERSION. Audio engine: $LIBMPV.$([ $EDGE -eq 1 ] && echo " An Edge build: offered to copies set to Edge until it is promoted to Stable.")"
         echo
         echo "Download the zip for your system, unpack it and run the program: it offers to install itself."
         echo "An installed copy updates itself from the About tab in Preferences."
@@ -177,10 +186,16 @@ fi
 
 ARGS=(--repo "$REPO" --title "AlbumWall $VERSION" --notes-file "$NOTES" --verify-tag)
 [ $PUBLISH -eq 1 ] || ARGS+=(--draft)
+[ $EDGE -eq 1 ] && ARGS+=(--prerelease --latest=false)
 gh release create "$TAG" "${ARGS[@]}" "$WORK"/AlbumWall-*.zip "$WORK/SHA256SUMS"
 echo
 if [ $PUBLISH -eq 1 ]; then
-    echo "PUBLISHED: every installed copy will be offered $VERSION."
+    if [ $EDGE -eq 1 ]; then
+        echo "PUBLISHED on EDGE: copies set to Edge will be offered $VERSION. Promote to Stable later with:"
+        echo "   gh release edit $TAG -R $REPO --prerelease=false --latest"
+    else
+        echo "PUBLISHED: every installed copy will be offered $VERSION."
+    fi
 else
     echo "DRAFT created. Nobody is offered it until it is published:"
     echo "   gh release edit $TAG -R $REPO --draft=false"

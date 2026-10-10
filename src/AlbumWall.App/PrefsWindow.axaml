@@ -199,6 +199,12 @@
                                Margin="28,0,0,0"
                                Text="One small question to GitHub as it opens. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it on the About tab."/>
                 </StackPanel>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="EdgeUpdates" Content="Edge builds: every release as it comes out"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="Off is Stable: only builds that have already run on Edge without trouble. Switching back to Stable keeps the build you have until Stable passes it."/>
+                </StackPanel>
             </StackPanel>
         </TabItem>
 

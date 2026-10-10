@@ -52,6 +52,10 @@ public sealed class Settings
     /// downloaded or installed without being asked for in Preferences.
     public bool? CheckForUpdates { get; set; }
 
+    /// Edge: every build as it is released (GitHub pre-releases included). Off, or
+    /// unset, is Stable: only builds promoted after running on Edge (2026-10-10).
+    public bool? EdgeChannel { get; set; }
+
     /// Whether the play controls sit above the wall instead of below it. Off is
     /// the layout everything else was designed around, and stays the default:
     /// "default to bottom as now but make it an option in settings."

@@ -138,7 +138,7 @@ public partial class App : Application
                 if (Install.UpdateService.CanUpdate && window.AppSettings.CheckForUpdates != false)
                     _ = Task.Delay(TimeSpan.FromSeconds(6)).ContinueWith(async _ =>
                     {
-                        var info = await Install.UpdateService.CheckAsync();
+                        var info = await Install.UpdateService.CheckAsync(window.AppSettings.EdgeChannel == true);
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
                             LatestUpdate = info;
