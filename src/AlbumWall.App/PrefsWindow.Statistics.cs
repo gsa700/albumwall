@@ -1,9 +1,12 @@
-// AlbumWall — the Statistics tab of Preferences.
+// AlbumWall — the numbers on the Library tab of Preferences.
 //
-// Its own file because it is the one tab that is BUILT rather than filled in:
+// Its own file because it is the one part that is BUILT rather than filled in:
 // how many rows there are depends on whose music it is. The numbers come from
-// Domain.LibraryStats, which works them out from the last scan; nothing here
-// counts anything, it only lays the counts out.
+// Domain.LibraryStats, worked out from a library's last scan: live for the
+// library on the wall, and from what that scan stored for any other
+// (Domain/LibraryStatsStore.cs). Nothing here counts anything, it only lays
+// the counts out. A tab of its own until 2026-10-10; now the lower half of
+// Library, following whichever line is selected.
 
 using Avalonia;
 using Avalonia.Controls;
@@ -15,10 +18,31 @@ namespace AlbumWall.App;
 
 public partial class PrefsWindow
 {
-    /// Called from Fill(), so it follows every scan as the rest of the window does.
+    /// Called from Fill(), so it follows every scan as the rest of the window
+    /// does, and from Select(), so it follows the line he clicks.
     private void FillStatistics()
     {
-        var s = _host?.LibraryStatistics;
+        if (_host is null || _host.Libraries.Count == 0) return;
+        var library = Selected;
+        var onWall = library.Id == _host.CurrentLibrary.Id;
+        LibraryStats? s;
+        string asOf;
+        if (onWall && _host.LibraryStatistics is { } live)
+        {
+            s = live;
+            asOf = "as it is now";
+        }
+        else if (_host.StoredStatistics(library) is { } stored)
+        {
+            s = stored.Stats;
+            asOf = $"as of {stored.AsOf.ToLocalTime():d MMM, HH:mm}";
+        }
+        else
+        {
+            s = null;
+            asOf = "not read yet";
+        }
+        StatsHeader.Text = $"{library.Name}  \u2014  {asOf}";
         var any = s is { Tracks: > 0 };
 
         StatsEmpty.IsVisible = !any;
@@ -88,7 +112,7 @@ public partial class PrefsWindow
         // A server's covers are files the server handed over, kept here; whether
         // they were inside the music or beside it is the server's business, so
         // "beside the tracks" would be a guess dressed as a fact.
-        if (_host?.CurrentLibrary.IsNavidrome == true)
+        if (library.IsNavidrome)
         {
             StatsArt.Children.Add(ArtLine(
                 N(s.Art.Embedded + s.Art.Sidecar, "album has its", "albums have their") + " cover from the server", null));

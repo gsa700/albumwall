@@ -1,9 +1,12 @@
 // AlbumWall — running the integrity check (Domain/FlacIntegrity.cs) for the
 // libraries it is turned on in, and saying what it found.
 //
-// Off everywhere until he ticks it, per library, in Preferences > Library. When
-// on, it starts a few minutes after launch, so it never competes with the
-// wall coming up, and looks again every six hours while the app is open. It
+// Off everywhere until he ticks it, per library, in the library's settings
+// (Preferences > Library > Settings), where he also picks how often every file
+// is read again (Library.IntegrityDays; a month unless he says). It is only
+// offered for a library whose last scan found FLAC files. When on, it starts a
+// few minutes after launch, so it never competes with the wall coming up, and
+// looks again every six hours while the app is open, for what is due. It
 // does not run with the app closed: no service, no timer, nothing he did not
 // start. One library at a time, one file at a time (IntegrityChecker).
 //
@@ -67,6 +70,7 @@ public partial class MainWindow
                 try
                 {
                     await Domain.IntegrityChecker.RunAsync(library.Root, IntegrityRecordPath(library), IntegrityLogPath,
+                        library.IntegrityEvery,
                         status => Dispatcher.UIThread.Post(() =>
                         {
                             _integrity[id] = status;
@@ -109,7 +113,18 @@ public partial class MainWindow
         ShowIntegrityAttention();
     }
 
-    /// One line for Preferences, under the library's tick box.
+    /// How often every file is read again. Takes effect at the next look; a
+    /// library already being checked finishes what it found due.
+    internal void SetLibraryIntegrityDays(string id, int? days)
+    {
+        if (Libraries.FirstOrDefault(l => l.Id == id) is not { IsFolder: true } library || library.IntegrityDays == days) return;
+        library.IntegrityDays = days;
+        _settings.Save();
+        Console.WriteLine($"[library] {library.Name}: every file checked again "
+                        + (days is null ? "monthly" : days == 0 ? "never (new and changed files only)" : $"every {days} days"));
+    }
+
+    /// One line for the library's settings, under its tick box.
     internal string IntegrityLine(Library library)
     {
         if (!_integrity.TryGetValue(library.Id, out var s))

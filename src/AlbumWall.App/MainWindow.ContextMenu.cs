@@ -292,7 +292,7 @@ public partial class MainWindow
                     facts.Lyrics ?? "",
                     library.CanEdit ? null
                         : $"Editing is not allowed in the library “{library.Name}”. It is turned on per library in "
-                          + "Preferences › Library, and belongs on the machine that holds the master copy.",
+                          + "the library's settings (Preferences › Library), and belongs on the machine that holds the master copy.",
                     async text =>
                     {
                         var result = await Task.Run(() => Domain.TagWriter.SetLyrics(path, text, Settings.TagBackups));

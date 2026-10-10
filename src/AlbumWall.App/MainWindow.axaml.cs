@@ -515,7 +515,7 @@ public partial class MainWindow : Window
 
         SetUpMenu();
         SetUpWelcome();
-        CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Statistics);
+        CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);     // its lower half is the statistics
         LibraryLink.Click += (_, _) => OpenLibraryPicker();
 
         // Tunnelled, so the keys work wherever the focus happens to be - after a
@@ -814,6 +814,7 @@ public partial class MainWindow : Window
             {
                 _trackCount = tracks;
                 _stats = stats;
+                Domain.LibraryStatsStore.Save(StatsPath(library), stats);
                 LibraryBack();
                 // Only a scan that finished says where the library is: one that
                 // could not reach it has seen the mount point, not the share.
@@ -894,21 +895,34 @@ public partial class MainWindow : Window
     /// costs one fetch. A scratch ALBUMWALL_CONFIG_DIR gets a scratch one.
     private static (string List, string Covers) NavidromeFiles(Library library)
     {
-        string home;
-        if (Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR") is { Length: > 0 } scratch)
-            home = scratch;
-        else if (OperatingSystem.IsWindows())
-            home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AlbumWall");
-        else
+        var dir = Path.Combine(CacheHome, "navidrome", library.Id);
+        return (Path.Combine(dir, "albums.json"), Path.Combine(dir, "covers"));
+    }
+
+    /// The cache directory: what can be deleted and costs one fetch or one
+    /// scan. A scratch ALBUMWALL_CONFIG_DIR gets a scratch one.
+    private static string CacheHome
+    {
+        get
         {
+            if (Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR") is { Length: > 0 } scratch)
+                return scratch;
+            if (OperatingSystem.IsWindows())
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AlbumWall");
             var cache = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
             if (string.IsNullOrEmpty(cache))
                 cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache");
-            home = Path.Combine(cache, "albumwall");
+            return Path.Combine(cache, "albumwall");
         }
-        var dir = Path.Combine(home, "navidrome", library.Id);
-        return (Path.Combine(dir, "albums.json"), Path.Combine(dir, "covers"));
     }
+
+    /// A library's statistics as of its last finished scan, kept so the
+    /// Library tab can show any library's numbers, not only the wall's
+    /// (Domain/LibraryStatsStore.cs).
+    private static string StatsPath(Library library) => Path.Combine(CacheHome, "stats", library.Id + ".json");
+
+    internal Domain.LibraryStatsStore.Stored? StoredStatistics(Library library) =>
+        Domain.LibraryStatsStore.Load(StatsPath(library));
 
     /// A server library's albums. `fromKept` takes what was kept from last time
     /// if there is any, which is at once and needs no server; `kept` says that
@@ -1010,7 +1024,7 @@ public partial class MainWindow : Window
             EmptyTitle.Text = $"{library.Name} cannot be reached";
             EmptyWhere.Text = said is { Unreachable: false }
                 ? $"{library.Server} would not sign {library.User} in: {said.Message}. If the password has "
-                  + "changed, forget this library in Preferences › Library and add the server again."
+                  + "changed, forget this library (Preferences › Library, its Settings) and add the server again."
                 : $"{library.Server} is not answering{(said is null ? "" : $" ({said.Message})")}. "
                   + "If the server is off or asleep, nothing about the library has been forgotten, "
                   + "and it is asked again every 30 seconds.";
@@ -1026,7 +1040,7 @@ public partial class MainWindow : Window
                 Domain.LibraryUnreachableException.Reason.Empty =>
                     $"{root} is there but empty, and last time it held {library.Tracks:N0} tracks. "
                     + "That usually means the drive or share behind it is not connected or not mounted."
-                    + after + " If the music really has gone, Rescan, in Preferences › Library, will believe it.",
+                    + after + " If the music really has gone, Rescan, in the library's settings (Preferences › Library), will believe it.",
                 Domain.LibraryUnreachableException.Reason.Failed =>
                     $"{root} stopped answering while it was being read." + after,
                 _ => $"{root} is not there right now. If it lives on a NAS or a drive, that may be "
@@ -1952,6 +1966,7 @@ public partial class MainWindow : Window
             var files = NavidromeFiles(library);
             Domain.Navidrome.Forget(files.List, files.Covers);
         }
+        Domain.LibraryStatsStore.Forget(StatsPath(library));
         if (wasCurrent)
         {
             _settings.CurrentLibrary = null;        // Current() falls back to the first
@@ -2529,7 +2544,7 @@ public partial class MainWindow : Window
         if (text.Equals("rescan", StringComparison.OrdinalIgnoreCase)) { ScanLibrary(honest: true); return; }
         if (text.Equals("rescan stop", StringComparison.OrdinalIgnoreCase)) { StopRescan(); return; }
         if (text.Equals("prefs startup", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Startup); return; }
-        if (text.Equals("prefs stats", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Statistics); return; }
+        if (text.Equals("prefs stats", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("prefs help", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Help); return; }
 
         // A key press, for testing the shortcuts without typing into whatever

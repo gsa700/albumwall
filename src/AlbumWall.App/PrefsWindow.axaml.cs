@@ -9,7 +9,7 @@ namespace AlbumWall.App;
 public partial class PrefsWindow : Window
 {
     /// In the order they appear. About stays last.
-    public enum Tab { Library, Statistics, Startup, Appearance, Help, About }
+    public enum Tab { Library, Startup, Appearance, Help, About }
 
     private readonly MainWindow? _host;
 
@@ -40,15 +40,8 @@ public partial class PrefsWindow : Window
                 Avalonia.Automation.AutomationProperties.SetName(item, header);
         WhenItOpens.Text = $"When {App.DisplayName} opens";
 
-        ChooseFolder.Click += async (_, _) => { await host.ChooseLibraryFolder(this); Fill(); };
-        UseDefault.Click += (_, _) => { host.UseDefaultLibrary(); Fill(); };
         AddFolderLibrary.Click += async (_, _) => { await host.AddFolderLibrary(this); Fill(); };
         AddNavidromeLibrary.Click += async (_, _) => { await host.AddNavidromeLibrary(this); Fill(); };
-
-        // A rename lands when he leaves the box or presses Enter, not on every
-        // keystroke: the picker would otherwise show each letter as it came.
-        LibraryName.LostFocus += (_, _) => RenameSelected();
-        LibraryName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) RenameSelected(); };
 
         // Written straight through: there is no OK button to forget, and a
         // setting that only takes effect at the next launch has nothing to
@@ -154,6 +147,7 @@ public partial class PrefsWindow : Window
             host.AppSettings.PrefsX = Position.X;
             host.AppSettings.PrefsY = Position.Y;
             host.AppSettings.Save();
+            _libraryWindow?.Close();
         };
 
         Fill();
@@ -359,40 +353,28 @@ public partial class PrefsWindow : Window
         }
     }
 
-    /// A scan is running and has something to show. `mine` is the one started
-    /// from the button here, which is the one the button can stop.
-    public void ShowScan(double fraction, string detail, bool mine)
+    /// A scan's progress and result are shown on the settings window of the
+    /// library on the wall, beside the Rescan button that may have started it,
+    /// if that window is open. The main window shows its own line regardless.
+    public void ShowScan(double fraction, string detail, bool mine) => _libraryWindow?.ShowScan(fraction, detail, mine);
+    public void ScanEnded() => _libraryWindow?.ScanEnded();
+    public void ShowRescanResult(string text) => _libraryWindow?.ShowRescanResult(text);
+
+    /// ONE settings window, shown for one library at a time: Settings on another
+    /// line refills it rather than opening a second. Owned by this window, so it
+    /// goes when this one does.
+    private LibrarySettingsWindow? _libraryWindow;
+
+    private void OpenLibrarySettings(string id)
     {
-        ScanRow.IsVisible = true;
-        ScanFill.Width = fraction * ScanRow.Bounds.Width;
-        ScanDetail.Text = detail;
-        if (_rescan is not null)
+        if (_host is null) return;
+        if (_libraryWindow is null)
         {
-            _rescan.Content = mine ? "Stop" : "Rescan";
-            _rescan.IsEnabled = mine;       // not while another scan has the floor
+            _libraryWindow = new LibrarySettingsWindow(_host, this);
+            _libraryWindow.Closed += (_, _) => _libraryWindow = null;
         }
+        _libraryWindow.ShowFor(id);
     }
-
-    public void ScanEnded()
-    {
-        ScanRow.IsVisible = false;
-        ScanFill.Width = 0;
-        if (_rescan is not null)
-        {
-            _rescan.Content = "Rescan";
-            _rescan.IsEnabled = true;
-        }
-    }
-
-    public void ShowRescanResult(string text)
-    {
-        RescanResult.Text = text;
-        RescanResult.IsVisible = text.Length > 0;
-    }
-
-    /// The Rescan button on the row of the library on the wall. Rebuilt with
-    /// the rows, so whatever a scan last said about it is said again then.
-    private Button? _rescan;
 
     /// What Rescan does, in the terms he will experience it: when to press it,
     /// what it costs, and that it can be stopped. Three stories: a server, a
@@ -411,33 +393,27 @@ public partial class PrefsWindow : Window
              + "unchanged are not read again. Keep listening; stop it any time.";
     }
 
-    private void RenameSelected()
-    {
-        if (_host is null || _filling) return;
-        _host.RenameLibrary(Selected.Id, LibraryName.Text ?? "");
-        FillLibraries();
-        FillDetail();
-    }
 
-    /// One LINE per library: its name and where it is; Rescan on the one on the
-    /// wall, Switch to on the others, and Forget on all of them but the last,
-    /// since the wall has to show something. Rescan reads the library ON THE
-    /// WALL, so that is the only row it goes on: another is switched to first.
-    /// Clicking a line selects it for the detail below (FillDetail); Switch to
-    /// selects as well, so the detail follows the wall unless he looks elsewhere.
+
+    /// One LINE per library: its name, where it is, a mark on the one on the
+    /// wall, a word of status (a scan running, damage found), then Switch to on
+    /// the others and Settings on all of them. Rescan and Forget were on the
+    /// rows until 2026-10-10 and are on the settings window now, with the rest
+    /// of what is per library. Clicking a line selects it for the numbers
+    /// below; Switch to selects as well, so they follow the wall unless he
+    /// looks elsewhere.
     ///
     /// "Switch to" was "Show" until 2026-09-28: "Clicking isn't going to show
-    /// the library it's going to Load it and switch to it." It is the words the
-    /// tab already uses ("Switch between them with the name in the bottom
-    /// bar"), and it promises nothing heavy, because on Windows the index
-    /// brings a known library up in about a second.
+    /// the library it's going to Load it and switch to it." It promises
+    /// nothing heavy, because on Windows the index brings a known library up
+    /// in about a second.
     private static readonly Avalonia.Media.IBrush Damaged = Avalonia.Media.Brush.Parse("#B3261E");   // a red that reads on the light sheet
 
-    /// The library whose settings the detail shows. Null, or an id no longer in
-    /// the list (forgotten), means the one on the wall.
+    /// The library whose numbers are shown. Null, or an id no longer in the
+    /// list (forgotten), means the one on the wall.
     private string? _selectedId;
 
-    private Library Selected
+    internal Library Selected
     {
         get
         {
@@ -451,7 +427,7 @@ public partial class PrefsWindow : Window
     {
         _selectedId = id;
         FillLibraries();
-        FillDetail();
+        FillStatistics();
     }
 
     private void FillLibraries()
@@ -462,8 +438,7 @@ public partial class PrefsWindow : Window
         var selected = Selected;
 
         LibraryList.Children.Clear();
-        _rescan = null;
-        ThisLibraryPanel.IsVisible = all.Count > 0;
+        StatsPanel.IsVisible = all.Count > 0;
         if (all.Count == 0)
         {
             var none = new TextBlock
@@ -502,41 +477,26 @@ public partial class PrefsWindow : Window
             where.Classes.Add("mono");
             Grid.SetColumn(where, 1);
             line.Children.Add(where);
-            // The one thing worth a word in the list: damage the integrity check
-            // found. Everything else about a library waits in the detail.
-            if (library.IsFolder && library.CheckIntegrity && Domain.FlacIntegrity.Available)
+            // The one or two things worth a word in the list; everything else
+            // about a library is on its settings window.
+            string? word = null; var red = false;
+            if (shown && _host.RescanRunning) word = "reading\u2026";
+            else if (library.IsFolder && library.CheckIntegrity && Domain.FlacIntegrity.Available)
             {
                 var damaged = _host.IntegrityProblems(library).Count;
-                if (damaged > 0)
-                {
-                    var status = new TextBlock
-                    {
-                        Text = damaged == 1 ? "1 damaged" : $"{damaged} damaged", FontSize = 12, Foreground = Damaged,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    };
-                    Grid.SetColumn(status, 2);
-                    line.Children.Add(status);
-                }
+                if (damaged > 0) { word = damaged == 1 ? "1 damaged" : $"{damaged} damaged"; red = true; }
+            }
+            if (word is not null)
+            {
+                var status = new TextBlock { Text = word, FontSize = 12, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+                if (red) status.Foreground = Damaged; else status.Classes.Add("dim");
+                Grid.SetColumn(status, 2);
+                line.Children.Add(status);
             }
 
             var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 7,
                                            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            if (shown)
-            {
-                var running = _host.RescanRunning;
-                var rescan = new Button { Content = running ? "Stop" : "Rescan" };
-                rescan.Classes.Add("panel");
-                Avalonia.Controls.ToolTip.SetTip(rescan, RescanTip());
-                rescan.Click += (_, _) =>
-                {
-                    if (_host.RescanRunning) _host.StopRescan();
-                    else { ShowRescanResult(""); _host.Rescan(); }
-                    Fill();
-                };
-                buttons.Children.Add(rescan);
-                _rescan = rescan;
-            }
-            else
+            if (!shown)
             {
                 var switchTo = new Button { Content = "Switch to" };
                 switchTo.Classes.Add("panel");
@@ -544,16 +504,13 @@ public partial class PrefsWindow : Window
                 switchTo.Click += (_, _) => { _host.SwitchLibrary(id); _selectedId = id; Fill(); };
                 buttons.Children.Add(switchTo);
             }
-            if (all.Count > 1)
-            {
-                var forget = new Button { Content = "Forget" };
-                forget.Classes.Add("panel");
-                Avalonia.Controls.ToolTip.SetTip(forget, library.IsNavidrome
-                    ? "Removes it from this list, with its sign-in and the covers kept here. Nothing on the server is touched."
-                    : "Removes it from this list. Nothing on disk is touched.");
-                forget.Click += (_, _) => { _host.RemoveLibrary(id); Fill(); };
-                buttons.Children.Add(forget);
-            }
+            var settings = new Button { Content = "Settings\u2026" };
+            settings.Classes.Add("panel");
+            Avalonia.Controls.ToolTip.SetTip(settings, library.IsFolder
+                ? "Its name, its folder, reading it again, editing, the check for damage, and forgetting it."
+                : "Its name, the server, and forgetting it.");
+            settings.Click += (_, _) => { if (!picked) Select(id); OpenLibrarySettings(id); };
+            buttons.Children.Add(settings);
 
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
             row.Children.Add(line);
@@ -583,109 +540,6 @@ public partial class PrefsWindow : Window
         }
     }
 
-    /// The selected library's settings: its name, where it is, what kind it
-    /// is, and for a folder library the folder buttons (on the wall only, see
-    /// the tab), whether Properties may edit its files, and the integrity check
-    /// with what it has found. Moved here from the rows of the list on
-    /// 2026-10-10, when four libraries had outgrown the window.
-    private void FillDetail()
-    {
-        if (_host is null || _host.Libraries.Count == 0) return;
-        var library = Selected;
-        var shown = library.Id == _host.CurrentLibrary.Id;
-        var server = library.IsNavidrome;
-
-        ThisLibrary.Text = shown ? $"{library.Name}  \u2014 on the wall" : library.Name;
-        if (!LibraryName.IsFocused) LibraryName.Text = library.Name;
-        LibraryPath.Text = library.Root;
-        LibraryAbout.Text = server
-            ? "The albums are the server's, and so is the art. The files are played as they are, and nothing on the server is changed. Its album list and covers are kept on this computer so the wall opens at once."
-            : "Everything under this folder is scanned. Album art is taken from the tags, or from a cover file beside the tracks if there is none.";
-        FolderButtons.IsVisible = !server && shown;
-        FolderElsewhere.IsVisible = !server && !shown;
-
-        LibraryOptions.Children.Clear();
-        var id = library.Id;
-        if (server)
-        {
-            if (library.Server is { } address && Domain.Navidrome.IsPlainHttp(address))
-            {
-                var plain = new TextBlock { Text = Domain.Navidrome.PlainHttpShort, FontSize = 13, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-                plain.Classes.Add("dim");
-                Avalonia.Controls.ToolTip.SetTip(plain, Domain.Navidrome.PlainHttpWarning);
-                LibraryOptions.Children.Add(plain);
-            }
-            return;
-        }
-
-        var editable = new CheckBox
-        {
-            Content = "Allow editing (lyrics) in this library", FontSize = 13, IsChecked = library.Editable,
-            Margin = new Avalonia.Thickness(0, 4, 0, 0),
-        };
-        Avalonia.Controls.ToolTip.SetTip(editable,
-            "Lets Properties change the files here. Leave it off for a copy that is replaced from "
-            + "somewhere else, such as a nightly mirror: an edit made there would be lost.");
-        editable.IsCheckedChanged += (_, _) => { if (!_filling) _host.SetLibraryEditable(id, editable.IsChecked == true); };
-        LibraryOptions.Children.Add(editable);
-
-        // The integrity check (MainWindow.Integrity.cs). Greyed with the
-        // reason where there is no libFLAC, not left off.
-        var available = Domain.FlacIntegrity.Available;
-        var integrity = new CheckBox
-        {
-            Content = "Check the audio for damage now and then", FontSize = 13,
-            IsChecked = library.CheckIntegrity, IsEnabled = available,
-        };
-        Avalonia.Controls.ToolTip.SetTip(integrity, available
-            ? "Decodes each FLAC file in the background and compares it with the checksum stored "
-              + "inside it, as `flac -t` does: new and changed files soon, every file again once a "
-              + "month, one at a time at low priority, and only while AlbumWall is open. It only "
-              + "reads; it never changes a file. MP3 and AAC carry no checksum, so they are not checked."
-            : "Needs libFLAC, which this system does not have.");
-        integrity.IsCheckedChanged += (_, _) => { if (!_filling) { _host.SetLibraryIntegrity(id, integrity.IsChecked == true); Fill(); } };
-        LibraryOptions.Children.Add(integrity);
-        if (!(library.CheckIntegrity && available)) return;
-
-        var line = new TextBlock
-        {
-            Text = _host.IntegrityLine(library), FontSize = 12,
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new Avalonia.Thickness(28, 0, 0, 0),
-        };
-        line.Classes.Add("dim");
-        LibraryOptions.Children.Add(line);
-
-        // What it found, in a box of its own height so a bad batch cannot push
-        // the tab past the window: the list scrolls, the tab does not.
-        var problems = _host.IntegrityProblems(library);
-        if (problems.Count == 0) return;
-        var found = new StackPanel { Spacing = 2 };
-        foreach (var (path, problem) in problems.Take(8))
-        {
-            var bad = new TextBlock
-            {
-                Text = $"{path}: {problem}", FontSize = 12, Foreground = Damaged,
-                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-            };
-            bad.Classes.Add("mono");
-            found.Children.Add(bad);
-        }
-        var more = new TextBlock
-        {
-            Text = (problems.Count > 8 ? $"and {problems.Count - 8} more. " : "")
-                 + $"Every one is in {MainWindow.IntegrityLogPath}",
-            FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-        };
-        more.Classes.Add("dim");
-        found.Children.Add(more);
-        LibraryOptions.Children.Add(new ScrollViewer
-        {
-            Content = found, MaxHeight = 120, Margin = new Avalonia.Thickness(28, 0, 0, 0),
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-        });
-    }
-
     /// Re-reads everything shown. Called when it opens, after anything here
     /// changes the library, and by the main window when a scan finishes — the
     /// counts on the About tab are only as good as the last scan.
@@ -694,11 +548,10 @@ public partial class PrefsWindow : Window
         if (_host is null) return;
         if (IsVisible) Avalonia.Threading.Dispatcher.UIThread.Post(GrowForSelectedTab, Avalonia.Threading.DispatcherPriority.Background);
 
-        FillStatistics();
-
         _filling = true;
         FillLibraries();
-        FillDetail();
+        FillStatistics();
+        _libraryWindow?.Fill();
 
         // Resume is on unless turned off; auto-play is off unless turned on.
         Resume.IsChecked = _host.AppSettings.ResumeSession != false;

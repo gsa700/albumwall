@@ -30,13 +30,15 @@ public static class IntegrityChecker
         due, done, record.Files.Count(f => f.Value.Problem is not null),
         record.Files.Count(f => f.Value.NoChecksum), record.LastPass);
 
-    public static Task RunAsync(string root, string recordPath, string logPath,
+    /// `every` is how long a checked file is left alone before it is read
+    /// again (IntegrityRecord.Every unless the library says otherwise).
+    public static Task RunAsync(string root, string recordPath, string logPath, TimeSpan every,
                                 Action<Status> progress, CancellationToken ct)
     {
         var done = new TaskCompletionSource();
         var thread = new Thread(() =>
         {
-            try { Run(root, recordPath, logPath, progress, ct); done.TrySetResult(); }
+            try { Run(root, recordPath, logPath, every, progress, ct); done.TrySetResult(); }
             catch (OperationCanceledException) { done.TrySetCanceled(ct); }
             catch (Exception e) { done.TrySetException(e); }
         })
@@ -49,7 +51,7 @@ public static class IntegrityChecker
         return done.Task;
     }
 
-    private static void Run(string root, string recordPath, string logPath, Action<Status> progress, CancellationToken ct)
+    private static void Run(string root, string recordPath, string logPath, TimeSpan every, Action<Status> progress, CancellationToken ct)
     {
         var record = IntegrityRecord.Load(recordPath);
         var now = DateTime.UtcNow;
@@ -67,7 +69,7 @@ public static class IntegrityChecker
 
         // New and changed files first, then the longest unchecked.
         var due = files
-            .Where(f => record.IsDue(f.Key, f.Value, now))
+            .Where(f => record.IsDue(f.Key, f.Value, now, every))
             .OrderBy(f => record.Files.TryGetValue(f.Key, out var e) && e.Size == f.Value.Length
                           && e.Modified == f.Value.LastWriteTimeUtc.Ticks ? 1 : 0)
             .ThenBy(f => record.Files.TryGetValue(f.Key, out var e) ? e.Checked : DateTime.MinValue)

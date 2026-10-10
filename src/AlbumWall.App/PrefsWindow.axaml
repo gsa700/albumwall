@@ -67,110 +67,44 @@
          button. About is the last tab, by convention; new tabs go before it. -->
     <TabControl x:Name="Tabs" Margin="12">
         <TabItem Header="Library">
-            <!-- Scrolls, alone of the tabs: it is the one whose length he decides,
-                 one row per library. -->
+            <!-- THE LIST, THEN THE NUMBERS (2026-10-10, the third shape of this
+                 tab in a day). One LINE per library, built in code
+                 (FillLibraries): its name, where it is, a mark on the one on the
+                 wall, a word of status, and Switch to and Settings. Everything
+                 about one library - its name box, folder, rescan, editing, the
+                 integrity check and what it found, Forget - is on that library's
+                 own settings window (LibrarySettingsWindow), opened by Settings.
+                 The rows used to carry it all, then a detail section below did
+                 (0.6.12), and both grew with every library: "still busy".
+
+                 Below the line, the statistics of the SELECTED library, which is
+                 the one on the wall until another line is clicked. They were a
+                 tab of their own; now they change with the selection, from each
+                 library's stored numbers (Domain/LibraryStatsStore.cs), and the
+                 counts in the main window's bottom bar open this tab. Scrolls,
+                 alone of the tabs: how many rows the numbers take depends on
+                 whose music it is. -->
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="12" Margin="0,0,14,0">
-                <!-- THE LIST AND THE DETAIL (2026-10-10). One LINE per library,
-                     built in code (FillLibraries): its name, where it is, a mark on
-                     the one on the wall, and the buttons. Clicking a line selects
-                     it, and the section below shows that library's settings. The
-                     rows used to carry everything themselves - two checkboxes, the
-                     integrity status and up to eight damaged files each - and with
-                     four libraries the tab had outgrown the window ("growing
-                     exponentially with more libraries as expected"). Now the list
-                     grows one line per library and the detail is one library's
-                     worth, whichever is picked. Forgetting touches nothing on disk. -->
                 <TextBlock Text="Libraries" FontSize="14" FontWeight="SemiBold"/>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="The wall shows one library at a time and never mixes them. Switch to puts a library on the wall, as the name in the bottom bar does. Click a library to see its settings below."/>
+                           Text="The wall shows one library at a time and never mixes them. Switch to puts a library on the wall, as the name in the bottom bar does. Settings is everything about one library; click a line to see its numbers below."/>
                 <StackPanel x:Name="LibraryList" Spacing="4"/>
-
-                <!-- RESCAN IS A BUTTON ON THE ROW OF THE LIBRARY ON THE WALL, beside
-                     Switch to and Forget on the others ("lets remove and relocate it to a
-                     'Rescan' button in the library selector section", 2026-09-28).
-                     It had a section of its own with a paragraph of warning; the
-                     warning is the button's tooltip now, and there is still no "are
-                     you sure", because it can be stopped and stopping loses nothing.
-                     It was in the main menu before that, one slip from Preferences,
-                     back when a rescan was four seconds.
-
-                     Its progress and result sit right under the list, beside the
-                     button that started them. ANY scan that takes long enough to
-                     notice shows here, not only a rescan: choosing a new folder
-                     starts one too, and this window is very likely covering the
-                     main window's own progress line when it does. -->
-                <StackPanel x:Name="ScanRow" Spacing="7" IsVisible="False">
-                    <Border Height="4" CornerRadius="2" Background="{DynamicResource SheetBg}">
-                        <Border x:Name="ScanFill" Height="4" CornerRadius="2" Width="0" Opacity="0.72"
-                                HorizontalAlignment="Left"
-                                Background="{Binding $parent[Window].Foreground}"/>
-                    </Border>
-                    <TextBlock x:Name="ScanDetail" Classes="dim mono" FontSize="12"
-                               TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-                <TextBlock x:Name="RescanResult" Classes="dim" FontSize="13" TextWrapping="Wrap" IsVisible="False"/>
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <Button x:Name="AddFolderLibrary" Classes="panel" Content="Add a folder…"/>
                     <Button x:Name="AddNavidromeLibrary" Classes="panel" Content="Add a Navidrome server…"/>
                 </StackPanel>
 
-                <!-- THE DETAIL: the selected library, which is the one on the wall
-                     until another line is clicked. Hidden on a fresh install until
-                     the first library is chosen: there is nothing to describe. The
-                     folder buttons act on the library ON THE WALL, because changing
-                     a root starts a scan and only the wall's library is scanned, so
-                     for a folder library that is not on the wall they give way to a
-                     line saying so. The per-library options (editing, the integrity
-                     check and what it found) are built in code, in FillDetail. -->
-                <StackPanel x:Name="ThisLibraryPanel" Spacing="12">
-                <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
-                <TextBlock x:Name="ThisLibrary" FontSize="14" FontWeight="SemiBold"/>
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <TextBlock Text="Name" FontSize="13" VerticalAlignment="Center"/>
-                    <TextBox Grid.Column="1" x:Name="LibraryName" FontSize="13" MaxLength="60"/>
-                </Grid>
-                <Border CornerRadius="4" Padding="13,11" Background="{DynamicResource SheetBg}">
-                    <TextBlock x:Name="LibraryPath" FontSize="13" Classes="mono" TextWrapping="Wrap"/>
-                </Border>
-                <TextBlock x:Name="LibraryAbout" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
-                <StackPanel x:Name="FolderButtons" Orientation="Horizontal" Spacing="9">
-                    <Button x:Name="ChooseFolder" Classes="panel" Content="Choose folder…"/>
-                    <Button x:Name="UseDefault" Classes="panel" Content="Use my Music folder"/>
-                </StackPanel>
-                <TextBlock x:Name="FolderElsewhere" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" IsVisible="False"
-                           Text="Its folder can be changed once it is on the wall: Switch to, above."/>
-                <StackPanel x:Name="LibraryOptions" Spacing="6"/>
-                </StackPanel>
-            </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-
-        <!-- WHAT THE LIBRARY IS MADE OF. "detailed library stats like x number
-             file types and bitrates etc." — reached from the counts in the main
-             window's bottom bar, which are the first line of this same page.
-
-             A tab of its own and not more of Library, because Library is
-             settings (where the music is, reading it again) and this is
-             something to READ; and because Library was already the second
-             longest tab. Nothing here is a setting and nothing here opens a
-             file: it is all worked out from the last scan (Domain.LibraryStats).
-
-             The rows are built in code, since how many there are depends on
-             the library. A section with nothing in it is left out — this
-             library has no lossless files, Techbench's has few lossy ones.
-
-             THE ONE SCROLLVIEWER IN THIS WINDOW, against the format's "no
-             scrolling". The format's rule is there so tabs of fixed content are
-             sized once and never clip; this tab's height depends on someone's
-             music. It fits without scrolling for every library seen so far, and
-             when one day it does not, a scrollbar is better than rows falling
-             off the bottom edge with nothing to say so (see 352c479). -->
-        <TabItem Header="Statistics">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="10">
+                <!-- WHAT THE SELECTED LIBRARY IS MADE OF. "detailed library stats
+                     like x number file types and bitrates etc." The rows are
+                     built in code (PrefsWindow.Statistics.cs); a section with
+                     nothing in it is left out. Hidden on a fresh install until
+                     the first library is chosen. -->
+                <StackPanel x:Name="StatsPanel" Spacing="10">
+                    <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
+                    <TextBlock x:Name="StatsHeader" FontSize="14" FontWeight="SemiBold"/>
                     <TextBlock x:Name="StatsEmpty" Classes="dim" FontSize="13" IsVisible="False"
-                               Text="Nothing to count yet. This fills in when the library has been read."/>
+                               Text="Nothing to count yet. This fills in once the library has been read."/>
 
                     <Grid x:Name="StatsTotals" ColumnDefinitions="*,*,*,1.35*,*" Margin="0,2,0,6"/>
 
@@ -195,6 +129,7 @@
                         <StackPanel x:Name="StatsArt" Spacing="4"/>
                     </StackPanel>
                 </StackPanel>
+            </StackPanel>
             </ScrollViewer>
         </TabItem>
 

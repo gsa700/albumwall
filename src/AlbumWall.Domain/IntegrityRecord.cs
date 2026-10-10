@@ -5,7 +5,8 @@
 // wrong if anything. It is how the check knows what is due without decoding
 // the whole library at every launch:
 //   - a file not seen before, or whose size or time has changed, is due now;
-//   - every other file is due again a month after it was last checked.
+//   - every other file is due again a month after it was last checked, or
+//     after whatever the library's own interval is (Library.IntegrityDays).
 // So a new rip is checked within a session, and the whole library is checked
 // over again every month, a little at a time.
 
@@ -25,6 +26,8 @@ public sealed class IntegrityRecord
         public bool NoChecksum { get; set; }
     }
 
+    /// How long a checked file is left alone before it is read again, unless
+    /// the library says otherwise (Library.IntegrityDays).
     public static readonly TimeSpan Every = TimeSpan.FromDays(30);
 
     /// Relative path (from the library root) to what was found.
@@ -62,11 +65,13 @@ public sealed class IntegrityRecord
         }
     }
 
-    public bool IsDue(string relative, FileInfo file, DateTime now) =>
+    /// `every` is how long a checked file is left alone; TimeSpan.MaxValue
+    /// means only new and changed files are ever read.
+    public bool IsDue(string relative, FileInfo file, DateTime now, TimeSpan every) =>
         !Files.TryGetValue(relative, out var e)
         || e.Size != file.Length
         || e.Modified != file.LastWriteTimeUtc.Ticks
-        || now - e.Checked > Every;
+        || (every != TimeSpan.MaxValue && now - e.Checked > every);
 
     public IEnumerable<(string Path, string Problem)> Problems =>
         Files.Where(f => f.Value.Problem is not null)

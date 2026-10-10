@@ -36,6 +36,11 @@ public sealed class Settings
     public int? PropsX { get; set; }
     public int? PropsY { get; set; }
 
+    /// Where a library's settings window was, in screen pixels (one place for
+    /// all of them: it is one window, shown for one library at a time).
+    public int? LibraryX { get; set; }
+    public int? LibraryY { get; set; }
+
     /// ReplayGain mode, as the name of the enum member.
     public string? Gain { get; set; }
 
@@ -272,6 +277,17 @@ public sealed class Library
     /// (Domain/FlacIntegrity.cs). OFF until he turns it on: "we don't want
     /// some major background process going on without the users knowledge."
     public bool CheckIntegrity { get; set; }
+
+    /// How often every file is read again by the integrity check, in days:
+    /// null is the check's own month, 0 means only new and changed files
+    /// ("let the user set the frequency of the check", 2026-10-10).
+    public int? IntegrityDays { get; set; }
+
+    [JsonIgnore]
+    public TimeSpan IntegrityEvery =>
+        IntegrityDays is null ? Domain.IntegrityRecord.Every
+        : IntegrityDays == 0 ? TimeSpan.MaxValue
+        : TimeSpan.FromDays(IntegrityDays.Value);
 
     [JsonIgnore]
     public bool CanEdit => IsFolder && Editable;

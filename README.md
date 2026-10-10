@@ -71,7 +71,7 @@ could play music.
   `art:nonsquare`.
 - **Statistics**: press the library counts in the bottom bar for file types,
   bitrates, lossless formats, playing time, size on disk and the state of the
-  cover art.
+  cover art, for any library in the list, as of its last scan.
 - The play controls slide in when something is loaded and leave when the record
   ends. They sit above the bottom bar, or under the title bar if you prefer.
 - **The paperwork is light, the music dark.** The wall takes its color from your

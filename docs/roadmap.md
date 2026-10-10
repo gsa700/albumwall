@@ -145,6 +145,22 @@ is ahead, the history is for what is behind.
   was argued down: nested tab strips, four long names fill the strip, and
   Add/Forget/scan progress belong to no one library. Folder buttons act on the
   wall's library only, since changing a root starts a scan.
+  **Then a list and a settings window, the same afternoon** (0.6.14): "still
+  busy to me. Keep the Libraries list as is but move all the data after the
+  separator to a per Library setting page including rescan and forget which
+  would be replaced by the Settings button." So each line is name,
+  whereabouts, "on the wall", a word of status, Switch to and Settings…, and
+  `LibrarySettingsWindow` (Properties format: light, fixed width, Close
+  only, written through) holds the rest: name, folder and Rescan when on the
+  wall, Allow editing, the check for damage, Forget last. The check is
+  offered only where the last scan found FLAC files, and **how often every
+  file is read again is his to choose** (week, month, three months, only
+  new and changed; `Library.IntegrityDays`). **The Statistics tab became the
+  lower half of Library**, following the selected line, from each library's
+  numbers stored at the end of every finished scan
+  (`Domain/LibraryStatsStore.cs`, in the cache directory): his idea, "the
+  statistics tab could replace what's below the separator and change by
+  selection", and it is also what says whether FLAC files are present.
 
 - **A file-properties window**, in the SAME FORMAT as Preferences — "we'll use
   the same format with the file properties window when we get to it". The
