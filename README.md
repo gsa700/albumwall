@@ -28,10 +28,12 @@ could play music.
   ignored), then year, then title.
 - **Albums open in place**, centered, colored from their own artwork, with the
   track list inside the wall rather than on another page.
-- **Gapless playback**, handed to the system at the file's own sample rate, with ReplayGain by album
-  or by track. Gapless is measured, not assumed — see `tools/gapless-check.cs`.
+- **Gapless playback**, handed to the system at the file's own sample rate, with ReplayGain by album,
+  by track or off, chosen under Preferences › Playback or from the RG button on
+  the play controls. Gapless is measured, not assumed — see `tools/gapless-check.cs`.
 - **It picks up where you left off**: the album, the track, how far in, and the
-  album you had open — paused, until you press play. Both halves are options.
+  album you had open — paused, until you press play. Both halves are options
+  under Preferences › Playback.
 - **It watches the music folder.** Records you add, change or remove appear by
   themselves; there is nothing to press.
 - **The colors are your collection's.** The window has no theme of its own: it
@@ -56,6 +58,8 @@ could play music.
   asks which you want, and each becomes a wall of its own.
 - **More than one library**: folders and servers, added under Preferences ›
   Library and switched between from the bottom bar. They are never merged.
+  Each has a settings page of its own, behind its Settings button: its name,
+  its folder, Rescan, editing, the check for damage, and forgetting it.
 - **Right-click** an album or a track to play it, show its file, copy its path,
   or open **Properties**: the tags, the audio, the sleeve front and back, the
   ripper's log if there is one beside the album, and the lyrics if they are
@@ -69,9 +73,10 @@ could play music.
 - **Live search** by artist or album, a way back to whatever is playing, and
   three searches for art that wants attention: `art:missing`, `art:small`,
   `art:nonsquare`.
-- **Statistics**: press the library counts in the bottom bar for file types,
-  bitrates, lossless formats, playing time, size on disk and the state of the
-  cover art, for any library in the list, as of its last scan.
+- **Statistics**: press the library counts in the bottom bar. The totals sit
+  under the library list, and *All the numbers…* opens the file types,
+  bitrates, lossless formats and the state of the cover art, for any library
+  in the list, as of its last scan.
 - The play controls slide in when something is loaded and leave when the record
   ends. They sit above the bottom bar, or under the title bar if you prefer.
 - **The paperwork is light, the music dark.** The wall takes its color from your
@@ -81,11 +86,11 @@ could play music.
   checksum inside them, a little at a time, and any damage is listed (see below).
 
 <p align="center">
-  <img src="docs/screenshots/statistics.webp" width="40%" alt="Preferences: Statistics">
+  <img src="docs/screenshots/statistics.webp" width="40%" alt="All the numbers: one library's file types, bitrates and cover art">
   <img src="docs/screenshots/appearance.webp" width="40%" alt="Preferences: Appearance, where the window's color comes from">
 </p>
 
-- **It updates itself.** Preferences › About checks GitHub for a newer release,
+- **It updates itself.** Preferences › Updates checks GitHub for a newer release,
   downloads the build for your platform, checks it against the release's
   SHA-256 list, and restarts into it. A dot on the gear says there is one; nothing
   is ever downloaded until you ask. Two channels: **Edge** gets every build as it
@@ -121,15 +126,17 @@ scatter itself across a decade and a reissue date does not misfile a record.
 
 **The files are not changed** unless you ask. The one thing AlbumWall can
 write is a track's lyrics, from Properties, and only in a library where you
-have ticked *Allow editing* in Preferences › Library. It is off for every
-library until you do. Each edit keeps the old lyrics in a backup file first.
+have ticked *Allow editing* on its settings page (Preferences › Library ›
+Settings). It is off for every library until you do. Each edit keeps the old lyrics in a backup file first.
 
-**An integrity check, if you want one.** Tick *Check the audio for damage now
-and then* on a folder library in Preferences › Library, and AlbumWall decodes
-each FLAC file in the background and compares it with the checksum stored
-inside it, as `flac -t` does: new and changed files soon, every file again once
-a month, one at a time at low priority, and only while AlbumWall is open. It
-only reads. What it finds is under the library in Preferences, every damaged
+**An integrity check, if you want one.** Tick *Check the audio for damage* on a
+folder library's settings page (Preferences › Library › Settings; it is offered
+where the last scan found FLAC files) and choose how often every file is read
+again, and AlbumWall decodes each FLAC file in the background and compares it
+with the checksum stored inside it, as `flac -t` does: new and changed files
+soon, every file again every month unless you say otherwise, one at a time at
+low priority, and only while AlbumWall is open. It only reads. What it finds is
+on that same page, every damaged
 file is listed in `integrity.log` beside the settings, and the dot on the gear
 says so. Off until you turn it on. MP3 and AAC carry no checksum of their
 audio, so only FLAC is checked; it needs the system's libFLAC.
@@ -158,9 +165,9 @@ recognizes: a library that size opens in a fraction of a second. The index is a
 cache and nothing else — delete it and it is rebuilt.
 
 The one thing it cannot see is a tag edit that keeps both the size and the date
-of the file, made while the app was closed. **Rescan**, on the library's row in
-Preferences › Library, opens every file and rebuilds the index; that is what it
-is for.
+of the file, made while the app was closed. **Rescan**, on the library's
+settings page (Preferences › Library › Settings), opens every file and rebuilds
+the index; that is what it is for.
 
 ## Installing
 
