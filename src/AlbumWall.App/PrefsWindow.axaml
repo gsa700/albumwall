@@ -103,9 +103,9 @@
 
                 <!-- WHAT THE SELECTED LIBRARY IS MADE OF. "detailed library stats
                      like x number file types and bitrates etc." The rows are
-                     built in code (PrefsWindow.Statistics.cs); a section with
-                     nothing in it is left out. Hidden on a fresh install until
-                     the first library is chosen. -->
+                     laid out in code (PrefsWindow.Statistics.cs): the five
+                     totals here, everything else behind a button. Hidden on a
+                     fresh install until the first library is chosen. -->
                 <StackPanel x:Name="StatsPanel" Spacing="10">
                     <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
                     <TextBlock x:Name="StatsHeader" FontSize="14" FontWeight="SemiBold"/>
@@ -113,27 +113,12 @@
                                Text="Nothing to count yet. This fills in once the library has been read."/>
 
                     <Grid x:Name="StatsTotals" ColumnDefinitions="*,*,*,1.35*,*" Margin="0,2,0,6"/>
-
-                    <StackPanel x:Name="StatsTypesSection" Spacing="5">
-                        <TextBlock Text="File types" FontSize="14" FontWeight="SemiBold"/>
-                        <StackPanel x:Name="StatsTypes" Spacing="4"/>
-                    </StackPanel>
-
-                    <StackPanel x:Name="StatsBitratesSection" Spacing="5" Margin="0,8,0,0">
-                        <TextBlock Text="Bitrates" FontSize="14" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="StatsBitratesAbout" Classes="dim" FontSize="12" TextWrapping="Wrap"/>
-                        <StackPanel x:Name="StatsBitrates" Spacing="4"/>
-                    </StackPanel>
-
-                    <StackPanel x:Name="StatsLosslessSection" Spacing="5" Margin="0,8,0,0">
-                        <TextBlock Text="Lossless" FontSize="14" FontWeight="SemiBold"/>
-                        <StackPanel x:Name="StatsLossless" Spacing="4"/>
-                    </StackPanel>
-
-                    <StackPanel x:Name="StatsArtSection" Spacing="5" Margin="0,8,0,0">
-                        <TextBlock Text="Cover art" FontSize="14" FontWeight="SemiBold"/>
-                        <StackPanel x:Name="StatsArt" Spacing="4"/>
-                    </StackPanel>
+                    <!-- The rest - file types, bitrates, lossless formats, cover
+                         art - is a window of its own (StatisticsWindow): "I love
+                         the full data load, I don't want to lose that but maybe
+                         most people don't care", and with it here the tab was
+                         973 px tall, more than a 1080p laptop has. -->
+                    <Button x:Name="StatsMore" Classes="panel" Content="All the numbers…" HorizontalAlignment="Left"/>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

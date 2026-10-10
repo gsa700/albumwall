@@ -40,6 +40,7 @@ public partial class PrefsWindow : Window
                 Avalonia.Automation.AutomationProperties.SetName(item, header);
         WhenItOpens.Text = $"When {App.DisplayName} opens";
 
+        StatsMore.Click += (_, _) => OpenStatistics();
         AddFolderLibrary.Click += async (_, _) => { await host.AddFolderLibrary(this); Fill(); };
         AddNavidromeLibrary.Click += async (_, _) => { await host.AddNavidromeLibrary(this); Fill(); };
 
@@ -148,6 +149,7 @@ public partial class PrefsWindow : Window
             host.AppSettings.PrefsY = Position.Y;
             host.AppSettings.Save();
             _libraryWindow?.Close();
+            _statsWindow?.Close();
         };
 
         Fill();
