@@ -28,10 +28,13 @@ this one; the versions below are the ones a release carries.
   Source: https://github.com/mpv-player/mpv (tag `v0.41.0`)
 
 - **FFmpeg 9.0.2** — reads the files and decodes them: FLAC, MP3, AAC, ALAC,
-  Vorbis, Opus and PCM, and nothing else. Built without `--enable-gpl` and
-  without `--enable-nonfree`.
-  License: GNU LGPL, version 2.1 or later.
-  Source: https://github.com/FFmpeg/FFmpeg (tag `n9.0.2`)
+  Vorbis, Opus and PCM, and nothing else, and streams them over http or https.
+  Built without `--enable-gpl` and without `--enable-nonfree`. One local change:
+  the MP4 demuxer's `pssh` (DRM key) parsing is removed, for CVE-2026-107678.
+  License: GNU LGPL, version 2.1 or later on Windows; on Linux, where it includes
+  Mbed TLS, version 3 or later (`--enable-version3`).
+  Source: https://github.com/FFmpeg/FFmpeg (tag `n9.0.2`), with the change in
+  `scripts/build-libmpv/inner.sh`
 
 - **libplacebo 7.360.1** — a rendering library mpv will not build without. No
   picture is ever drawn with it here. It carries small third-party components
@@ -51,6 +54,11 @@ this one; the versions below are the ones a release carries.
 - **FriBidi 1.0.16** — right-to-left text layout, required by libass.
   License: GNU LGPL, version 2.1 or later.
   Source: https://github.com/fribidi/fribidi (tag `v1.0.16`)
+
+- **Mbed TLS 3.6.7** — TLS for https streams, in the Linux builds only (Windows
+  uses its own Schannel).
+  License: Apache License 2.0, or GNU GPL version 2 or later, at your choice.
+  Source: https://github.com/Mbed-TLS/mbedtls (tag `v3.6.7`)
 
 - **HarfBuzz 14.4.0** — text shaping, required by libass.
   License: MIT ("Old MIT").

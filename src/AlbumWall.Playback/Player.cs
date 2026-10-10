@@ -160,8 +160,17 @@ public sealed class Player : IDisposable
         // bundled engine has neither option, and refusing them there is harmless.
         Option("ytdl", "no");
         Option("load-scripts", "no");
-        // Certificates are checked, for the day the engine speaks https.
+        // https streams (engine libmpv-0.41.0-5 and later): the server's
+        // certificate is checked. On Linux the engine's TLS (mbedTLS, built in)
+        // has no store of its own, so it is given the system's bundle; with none
+        // found, an https server is refused rather than trusted. Windows uses
+        // Schannel and the Windows store.
         Option("tls-verify", "yes");
+        if (!OperatingSystem.IsWindows())
+        {
+            if (CaBundle() is { } bundle) Option("tls-ca-file", bundle);
+            else Console.WriteLine("[mpv] no CA certificate bundle found: an https server cannot be checked, so it will not play");
+        }
 
         ApplyGain(gain);
 
@@ -247,6 +256,17 @@ public sealed class Player : IDisposable
     }
 
     private void Option(string name, string value) => Mpv.mpv_set_option_string(_ctx, name, value);
+
+    /// The system's CA certificates, where the distributions keep them (the list Go's crypto/x509
+    /// uses). Fedora 45 no longer has /etc/pki/tls/certs/ca-bundle.crt, so no single path will do.
+    private static string? CaBundle() => new[]
+    {
+        "/etc/ssl/certs/ca-certificates.crt",                // Debian, Ubuntu, Raspberry Pi OS, Arch, Fedora (link)
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // Fedora, RHEL
+        "/etc/pki/tls/certs/ca-bundle.crt",                  // older Fedora and RHEL
+        "/etc/ssl/ca-bundle.pem",                            // openSUSE
+        "/etc/ssl/cert.pem",                                 // Alpine, macOS
+    }.FirstOrDefault(File.Exists);
 
     /// What a queue entry is called in the log: a file's name, or for an
     /// address only what comes before the "?", since what comes after it can

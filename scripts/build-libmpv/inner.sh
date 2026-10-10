@@ -45,22 +45,28 @@ LIBASS=0.17.5
 FREETYPE=VER-2-14-3
 FRIBIDI=v1.0.16
 HARFBUZZ=14.4.0
+# TLS for https streams, Linux only (Windows uses its own: Schannel). Static, so
+# the engine never depends on the host's OpenSSL soname: Fedora 45 ships only
+# libssl.so.4, and a library linked to .so.3 would not load there at all, which
+# for this one means no sound. The 3.6 line is mbedTLS's long-term support.
+MBEDTLS=v3.6.7
 
 # ---- The decoder list: exactly what the app's scanner accepts, nothing else. --
 # .flac .mp3 .m4a .ogg .opus .wav. AAC is the one entry with a live patent
 # question (see docs/roadmap.md, "AAC stays in the build"); dropping
 # aac,aac_latm here is the conservative lever.
 #
-# http/tcp are here for the day the app streams from Navidrome over the LAN.
-# https is NOT: it needs a TLS library, and that is a dependency to take on
-# when there is something to use it.
+# http/tcp/https/tls: streaming from Navidrome. https since libmpv-0.41.0-5
+# (2026-10-10): http stays allowed (his call), and a server that offers https
+# must work, with its certificate checked (the player sets tls-verify and, on
+# Linux, the system's CA bundle). TLS is mbedTLS on Linux, Schannel on Windows.
 FFMPEG_FEATURES=(
     --enable-decoder=flac,mp3,mp3float,aac,aac_latm,alac,vorbis,opus
     --enable-decoder=pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be
     --enable-decoder=pcm_f32le,pcm_f64le,pcm_u8
     --enable-demuxer=flac,mp3,mov,ogg,wav,aac
     --enable-parser=flac,mpegaudio,aac,aac_latm,vorbis,opus
-    --enable-protocol=file,http,tcp
+    --enable-protocol=file,http,tcp,https,tls
     --enable-filter=aresample,aformat,anull,atrim
     # astats: the level meters (compact view / front panel VU needles). It
     # only MEASURES, passing every sample through untouched; the kiosk still
@@ -84,9 +90,14 @@ MESON_CROSS=()
 case "$TARGET" in
 linux)
     apt-get install -y -qq --no-install-recommends \
-        libasound2-dev libpulse-dev libpipewire-0.3-dev >/dev/null
+        libasound2-dev libpulse-dev libpipewire-0.3-dev cmake >/dev/null
     export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-    export CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"
+    # Hardened (security review 2026-10-10): until then the .so had no stack
+    # protector, no FORTIFY and lazy binding. The engine parses files from
+    # anywhere; a parser bug should be as hard to use as the compiler can make it.
+    HARDEN="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -fstack-clash-protection"
+    [ "$(uname -m)" = x86_64 ] && HARDEN="$HARDEN -fcf-protection"
+    export CFLAGS="-O2 -fPIC $HARDEN" CXXFLAGS="-O2 -fPIC $HARDEN"
     ;;
 win64)
     # The posix-threads flavor of the toolchain: its libstdc++ is complete,
@@ -202,9 +213,33 @@ else
 fi
 sed -i "/^Libs:/ s|\$| $STDCXX|" "$PREFIX/lib/pkgconfig/libplacebo.pc"
 
+# mbedTLS for ffmpeg's https, Linux only. --recursive: since 3.6.2 its build
+# needs the "framework" submodule.
+if [ "$TARGET" = linux ]; then
+    fetch mbedtls https://github.com/Mbed-TLS/mbedtls "$MBEDTLS" --recursive
+    run mbedtls-setup cmake -S /src/mbedtls -B /src/mbedtls/b -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$PREFIX" -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DENABLE_PROGRAMS=OFF -DENABLE_TESTING=OFF \
+        -DUSE_STATIC_MBEDTLS_LIBRARY=ON -DUSE_SHARED_MBEDTLS_LIBRARY=OFF
+    run mbedtls-build cmake --build /src/mbedtls/b -j"$JOBS" --target install
+fi
+
 # ffmpeg: start from nothing and add back the list at the top. mpv insists on
 # all six libraries being present, so swscale and avfilter stay, empty.
 fetch ffmpeg https://github.com/FFmpeg/FFmpeg "$FFMPEG"
+
+# CVE-2026-107678 (security review 2026-10-10): the mov demuxer's 'pssh' boxes
+# (DRM key information) are parsed into a list that is re-walked per box and
+# freed recursively, so a crafted .m4a with thousands of them hangs a core or
+# exhausts the stack. Upstream's fix (FFmpeg PR #24593) changes the libavutil
+# API and is not merged. This player never decrypts anything, so the boxes are
+# of no use to it: their entry leaves the parse table and mov skips them as it
+# skips any atom it does not know. Remove this when the pin moves past the fix.
+sed -i "/{ MKTAG('p','s','s','h'), mov_read_pssh },/d" /src/ffmpeg/libavformat/mov.c
+if grep -q "MKTAG('p','s','s','h'), mov_read_pssh" /src/ffmpeg/libavformat/mov.c; then
+    echo "!! the pssh patch did not apply: mov.c has changed" >&2; exit 1
+fi
+echo "== ffmpeg: pssh parsing removed (CVE-2026-107678)"
 FFMPEG_ARGS=(--prefix="$PREFIX" --enable-static --disable-shared
              --disable-everything --disable-autodetect --disable-programs --disable-doc
              --disable-avdevice --disable-debug "${FFMPEG_FEATURES[@]}")
@@ -214,8 +249,14 @@ if [ "$TARGET" = win64 ]; then
     FFMPEG_ARGS+=(--arch=x86_64 --target-os=mingw32 --enable-cross-compile
                   --cross-prefix=x86_64-w64-mingw32- --cc="$CC" --cxx="$CXX"
                   --pkg-config=pkg-config --enable-w32threads --disable-pthreads)
+    FFMPEG_ARGS+=(--enable-schannel)
 else
-    FFMPEG_ARGS+=(--enable-pic)
+    # mbedTLS is Apache-2.0, which ffmpeg only combines with its LGPL v3 terms:
+    # hence version3. The app is GPL v3, so that is no change for it.
+    # --static: mbedTLS is three static archives, and without it pkg-config
+    # names only the first, so configure's test link fails ("mbedTLS not found").
+    FFMPEG_ARGS+=(--enable-pic --enable-mbedtls --enable-version3 --extra-cflags="$HARDEN"
+                  --pkg-config-flags=--static)
 fi
 cd /src/ffmpeg
 run ffmpeg-configure ./configure "${FFMPEG_ARGS[@]}"
@@ -245,8 +286,8 @@ else
     # -z defs makes an undefined symbol a LINK ERROR instead of something that
     # surfaces on someone else's machine.
     MPV_ARGS+=(-Dalsa=enabled -Dpulse=enabled -Dpipewire=enabled
-               "-Dc_link_args=-static-libgcc -Wl,-z,defs"
-               "-Dcpp_link_args=-static-libgcc -Wl,-z,defs")
+               "-Dc_link_args=-static-libgcc -Wl,-z,defs -Wl,-z,relro,-z,now"
+               "-Dcpp_link_args=-static-libgcc -Wl,-z,defs -Wl,-z,relro,-z,now")
 fi
 run mpv-setup meson setup /src/mpv/b /src/mpv "${MPV_ARGS[@]}"
 run mpv-build ninja -C /src/mpv/b
@@ -283,6 +324,18 @@ else
     if echo "$DEPS" | grep -q 'libstdc++'; then
         echo "!! the library depends on the host's libstdc++" >&2; exit 1
     fi
+    # The hardening is checked, not assumed: full RELRO, the stack protector
+    # and FORTIFY in the result, and mbedTLS inside rather than a host TLS lib.
+    # Read into variables first: under pipefail, `nm | grep -q` fails whenever
+    # grep stops at its first match and nm is cut off mid-write (SIGPIPE).
+    DYN=$(readelf -d "$OUTFILE"); SYMS=$(nm -D "$OUTFILE")
+    grep -q 'BIND_NOW' <<<"$DYN" || { echo "!! no BIND_NOW: RELRO is only partial" >&2; exit 1; }
+    grep -q '__stack_chk_fail' <<<"$SYMS" || { echo "!! no stack protector in the library" >&2; exit 1; }
+    grep -q '_chk@' <<<"$SYMS" || { echo "!! no FORTIFY functions in the library" >&2; exit 1; }
+    if echo "$DEPS" | grep -qE 'libssl|libcrypto|libmbed|libgnutls'; then
+        echo "!! the library depends on a host TLS library" >&2; exit 1
+    fi
+    echo "== hardening: BIND_NOW, stack protector and FORTIFY present; TLS built in"
 fi
 
 {
@@ -290,6 +343,8 @@ fi
     echo
     echo "mpv $MPV, ffmpeg $FFMPEG, libplacebo $LIBPLACEBO, libass $LIBASS,"
     echo "freetype $FREETYPE, fribidi $FRIBIDI, harfbuzz $HARFBUZZ"
+    if [ "$TARGET" = linux ]; then echo "mbedtls $MBEDTLS (TLS for https)"; else echo "TLS for https: Windows Schannel"; fi
+    echo "ffmpeg patch: mov 'pssh' parsing removed (CVE-2026-107678)"
     echo
     echo "Sources: the tags above, from each project's own repository. The exact"
     echo "recipe is scripts/build-libmpv/inner.sh in the AlbumWall repository."

@@ -76,6 +76,13 @@ Option("audio-samplerate", "0");
 // change which demuxer reads a file, so gapless must be measured with them.
 Option("demuxer", "lavf"); Option("access-references", "no"); Option("sid", "no");
 Option("sub-auto", "no"); Option("cover-art-auto", "no");
+// Certificates checked, as the player does (Player.cs): an https track measured here has also had
+// its server's certificate verified - by Schannel and the Windows store, or by the engine's mbedTLS
+// against the system bundle.
+Option("tls-verify", "yes");
+if (!OperatingSystem.IsWindows() && new[] { "/etc/ssl/certs/ca-certificates.crt", "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+        "/etc/pki/tls/certs/ca-bundle.crt", "/etc/ssl/ca-bundle.pem", "/etc/ssl/cert.pem" }.FirstOrDefault(File.Exists) is { } bundle)
+    Option("tls-ca-file", bundle);
 // And the measuring rig.
 Option("vid", "no"); Option("terminal", "no"); Option("idle", "yes");
 Option("ao", "pcm"); Option("ao-pcm-file", wav); Option("ao-pcm-waveheader", "yes");

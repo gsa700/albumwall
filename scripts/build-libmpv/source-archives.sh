@@ -58,6 +58,7 @@ PROJECTS=(
     "freetype   https://github.com/freetype/freetype  $(pin FREETYPE)    no   docs/FTL.TXT      freetype-FTL.TXT"
     "fribidi    https://github.com/fribidi/fribidi    $(pin FRIBIDI)     no   COPYING           fribidi-COPYING.txt"
     "harfbuzz   https://github.com/harfbuzz/harfbuzz  $(pin HARFBUZZ)    no   COPYING           harfbuzz-COPYING.txt"
+    "mbedtls    https://github.com/Mbed-TLS/mbedtls    $(pin MBEDTLS)     yes  LICENSE           mbedtls-LICENSE.txt"
 )
 
 for line in "${PROJECTS[@]}"; do

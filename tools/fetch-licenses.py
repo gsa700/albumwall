@@ -35,7 +35,7 @@ RECIPE = os.path.join(ROOT, "scripts", "build-libmpv", "inner.sh")
 def pins():
     text = io.open(RECIPE, encoding="utf-8").read()
     found = dict(re.findall(r"^([A-Z]+)=([^\s#]+)\s*$", text, flags=re.M))
-    wanted = ["MPV", "FFMPEG", "LIBPLACEBO", "LIBASS", "FREETYPE", "FRIBIDI", "HARFBUZZ"]
+    wanted = ["MPV", "FFMPEG", "LIBPLACEBO", "LIBASS", "FREETYPE", "FRIBIDI", "HARFBUZZ", "MBEDTLS"]
     missing = [w for w in wanted if w not in found]
     if missing:
         sys.exit("could not read these pins from inner.sh: " + ", ".join(missing))
@@ -52,7 +52,8 @@ WANTED = [
     # ---- the audio engine: exactly the pins the recipe builds
     ("mpv-LICENSE.GPL.txt", "mpv (GPL v2 or later, as built)", "mpv-player/mpv", [P["MPV"]], ["LICENSE.GPL"]),
     ("mpv-Copyright.txt", "mpv: which parts are under which license", "mpv-player/mpv", [P["MPV"]], ["Copyright"]),
-    ("ffmpeg-COPYING.LGPLv2.1.txt", "FFmpeg (LGPL v2.1 or later, as configured)", "FFmpeg/FFmpeg", [P["FFMPEG"]], ["COPYING.LGPLv2.1"]),
+    ("ffmpeg-COPYING.LGPLv2.1.txt", "FFmpeg (LGPL v2.1 or later: the Windows build)", "FFmpeg/FFmpeg", [P["FFMPEG"]], ["COPYING.LGPLv2.1"]),
+    ("ffmpeg-COPYING.LGPLv3.txt", "FFmpeg (LGPL v3 or later: the Linux builds, which include mbedTLS)", "FFmpeg/FFmpeg", [P["FFMPEG"]], ["COPYING.LGPLv3"]),
     ("ffmpeg-LICENSE.md", "FFmpeg: its own account of its licensing", "FFmpeg/FFmpeg", [P["FFMPEG"]], ["LICENSE.md"]),
     ("libplacebo-LICENSE.txt", "libplacebo (LGPL v2.1 or later)", "haasn/libplacebo", [P["LIBPLACEBO"]], ["LICENSE"]),
     ("libass-COPYING.txt", "libass (ISC)", "libass/libass", [P["LIBASS"]], ["COPYING"]),
@@ -60,6 +61,7 @@ WANTED = [
     ("freetype-LICENSE.TXT", "FreeType: its choice of licenses", "freetype/freetype", [P["FREETYPE"]], ["LICENSE.TXT"]),
     ("fribidi-COPYING.txt", "FriBidi (LGPL v2.1 or later)", "fribidi/fribidi", [P["FRIBIDI"]], ["COPYING"]),
     ("harfbuzz-COPYING.txt", "HarfBuzz (Old MIT)", "harfbuzz/harfbuzz", [P["HARFBUZZ"]], ["COPYING"]),
+    ("mbedtls-LICENSE.txt", "Mbed TLS (Apache 2.0 or GPL v2 or later; Linux builds)", "Mbed-TLS/mbedtls", [P["MBEDTLS"]], ["LICENSE"]),
 
     # ---- the application
     ("dotnet-runtime-LICENSE.TXT", ".NET runtime (MIT)", "dotnet/runtime", ["v10.0.0", None], ["LICENSE.TXT"]),
