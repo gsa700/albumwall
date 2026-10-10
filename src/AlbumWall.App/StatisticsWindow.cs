@@ -34,9 +34,15 @@ public sealed class StatisticsWindow : Window
     {
         _host = host;
         Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://AlbumWall/Assets/app.ico")));
+        // A FIXED size, set from here, never SizeToContent: on Wayland Avalonia
+        // sized a self-sizing window before it knew the display scale, and the
+        // first numbers window he opened on 0.6.16 came up at exactly half its
+        // width with the content laid out for the whole of it (his screenshot,
+        // 2026-10-10 16:43). Preferences never hit this because it measures its
+        // content after it opens and sets its own height (FitToTallestTab);
+        // this does the same (FitHeight).
         Width = 580;
-        SizeToContent = SizeToContent.Height;
-        MaxHeight = 820;        // a 1080p laptop at 125 %; past it the page scrolls
+        Height = 480;
         CanResize = false;
         ShowInTaskbar = false;
         RequestedThemeVariant = ThemeVariant.Light;
@@ -57,6 +63,20 @@ public sealed class StatisticsWindow : Window
         Styles.Add(Restyle<Button>(x => x.OfType<Button>().Class("link"), (Button.ForegroundProperty, Ink)));
         this[!BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
         KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape) Close(); };
+        Opened += (_, _) => FitHeight();
+    }
+
+    /// The page as tall as its content, up to what a 1080p laptop at 125 %
+    /// has; past that it scrolls. Measured after the page is in the tree.
+    private const double TallestPage = 820;
+    private Control? _page;
+
+    private void FitHeight()
+    {
+        if (_page is null) return;
+        _page.Measure(new Size(Width, double.PositiveInfinity));
+        var want = Math.Min(Math.Ceiling(_page.DesiredSize.Height), TallestPage);
+        if (want > 0 && Math.Abs(Height - want) > 0.5) Height = want;
     }
 
     public void Refill(Library library, LibraryStats? s, string asOf)
@@ -67,7 +87,9 @@ public sealed class StatisticsWindow : Window
         if (s is not { Tracks: > 0 })
         {
             page.Children.Add(Dim("Nothing to count yet. This fills in once the library has been read.", 13));
+            _page = page;
             Content = page;
+            Avalonia.Threading.Dispatcher.UIThread.Post(FitHeight, Avalonia.Threading.DispatcherPriority.Background);
             return;
         }
 
@@ -134,12 +156,14 @@ public sealed class StatisticsWindow : Window
         if (s.Art.Small > 0)
             art.Children.Add(ArtLine(N(s.Art.Small, "album has", "albums have") + $" a cover smaller than {LibraryStats.SmallCover} px", "art:small"));
 
+        _page = page;
         Content = new ScrollViewer
         {
             Content = page,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
         };
+        Avalonia.Threading.Dispatcher.UIThread.Post(FitHeight, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     private static StackPanel Section(StackPanel page, string heading)

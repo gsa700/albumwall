@@ -48,8 +48,11 @@ public sealed class LibrarySettingsWindow : Window
         _prefs = prefs;
 
         Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://AlbumWall/Assets/app.ico")));
+        // A FIXED size, set from here, never SizeToContent: see StatisticsWindow
+        // for the Wayland half-width window that ruled it out. The height is
+        // the page's, measured after it is in the tree (FitHeight).
         Width = 560;
-        SizeToContent = SizeToContent.Height;
+        Height = 420;
         CanResize = false;
         ShowInTaskbar = false;
         RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
@@ -76,6 +79,19 @@ public sealed class LibrarySettingsWindow : Window
 
         KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape) Close(); };
         RememberPlace(host.AppSettings);
+        Opened += (_, _) => FitHeight();
+    }
+
+    private Control? _page;
+
+    private void FitHeight()
+    {
+        if (_page is null) return;
+        _page.Measure(new Size(Width, double.PositiveInfinity));
+        var want = Math.Ceiling(_page.DesiredSize.Height);
+        if (Screens.ScreenFromWindow(this) is { } screen)
+            want = Math.Min(want, screen.WorkingArea.Height / screen.Scaling - 48);
+        if (want > 0 && Math.Abs(Height - want) > 0.5) Height = want;
     }
 
     /// Opens where it was last closed, if that place is still on a screen, and
@@ -116,10 +132,11 @@ public sealed class LibrarySettingsWindow : Window
     {
         if (Library is not { } library) { if (IsVisible) Close(); return; }
         Title = $"{App.DisplayName} — {library.Name}: settings";
-        Content = Build(library);
+        _page = Build(library);
+        Content = _page;
         // The height is the content's; a change in what is on the page (the
         // damaged list arriving) is measured again rather than clipped.
-        InvalidateMeasure();
+        Avalonia.Threading.Dispatcher.UIThread.Post(FitHeight, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     // ---- what a scan has to say, kept across rebuilds --------------------
