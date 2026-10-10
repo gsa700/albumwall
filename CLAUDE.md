@@ -43,10 +43,10 @@ it at release time; the rules above are for every push.
   **Edge** as a GitHub pre-release: `scripts/release.sh X.Y.Z --edge --publish`.
   Copies set to Edge (Preferences) are offered it; Stable copies are not.
 - **Promotion to Stable** is the same binary with its pre-release flag cleared,
-  once it has run on Edge without trouble:
-  `gh release edit vX.Y.Z -R gsa700/albumwall --prerelease=false --latest`.
-  His call, every time. A security fix may go straight to Stable. The libmpv-*
-  engine releases stay pre-releases and are never offered (ReleaseFeed).
+  once it has run on Edge without trouble: `scripts/promote.sh X.Y.Z`, which
+  also marks it latest and changes the first line of its notes to "Promoted to
+  Stable." His call, every time. A security fix may go straight to Stable. The
+  libmpv-* engine releases stay pre-releases and are never offered (ReleaseFeed).
 - The app: `scripts/release.sh X.Y.Z` without `--publish` makes a draft
   (`--dry-run` to build only). Bump `<Version>` in its own commit first.
 - The audio engine: `scripts/release-libmpv.sh libmpv-X.Y.Z-N`, then point
