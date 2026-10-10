@@ -560,7 +560,7 @@ public partial class PrefsWindow : Window
             Grid.SetColumn(buttons, 1);
             row.Children.Add(buttons);
 
-            // The selected line is the field color on the sheet, with an edge;
+            // The selected line is a shade darker than the sheet, with an edge;
             // the others are the sheet. A press anywhere on the line that is
             // not a button selects it.
             var border = new Border
@@ -571,7 +571,7 @@ public partial class PrefsWindow : Window
                 Child = row,
                 Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
             };
-            border[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(picked ? "SheetField" : "SheetBg");
+            border[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(picked ? "SheetPicked" : "SheetBg");
             border[!Border.BorderBrushProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(picked ? "SheetEdge" : "SheetBg");
             Avalonia.Automation.AutomationProperties.SetName(border, library.Name);
             border.PointerPressed += (_, e) =>

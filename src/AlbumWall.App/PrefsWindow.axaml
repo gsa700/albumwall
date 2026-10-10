@@ -22,6 +22,10 @@
         <SolidColorBrush x:Key="SheetBg" Color="#E4E4E2"/>
         <SolidColorBrush x:Key="SheetField" Color="#F6F6F4"/>
         <SolidColorBrush x:Key="SheetEdge" Color="#C2C2C6"/>
+        <!-- The selected line in the Library list: darker than the sheet, not
+             lighter ("a little darker", 2026-10-10, when it was the field color
+             and read as a panel rather than a pick), with the edge around it. -->
+        <SolidColorBrush x:Key="SheetPicked" Color="#CDCDD0"/>
     </Window.Resources>
     <Window.Styles>
         <Style Selector="TextBlock.dim">
