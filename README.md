@@ -142,6 +142,12 @@ this computer, so the wall opens at once and is brought up to date behind it.
 Properties shows what the server says about a track — its tags and, where the
 server offers them, its lyrics — without downloading the file.
 
+**Plain http.** Over http the sign-in crosses the network unencrypted, and the
+sign-in window says so: on your own home network that is no
+more exposed than anything else on it; over the internet, use a VPN. The saved
+sign-in works like your password, so don't use that password anywhere else, and
+change it in Navidrome if you think it has been seen.
+
 ### It remembers what it has read
 
 Opening a file on Windows costs a virus scan, and fifteen thousand of them are

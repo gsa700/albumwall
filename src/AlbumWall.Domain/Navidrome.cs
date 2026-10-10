@@ -109,6 +109,19 @@ public sealed class Navidrome
 
     public static bool IsTrack(string path) => path.StartsWith(Scheme, StringComparison.Ordinal);
 
+    /// A server reached over plain http: its sign-in crosses the network as it is.
+    public static bool IsPlainHttp(string server) => server.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
+
+    /// What is said about that, at sign-in and beside the library afterwards (his decision,
+    /// 2026-10-10: http stays allowed, and the risk is said once, plainly).
+    public const string PlainHttpWarning =
+        "This server is reached over plain http, so the sign-in crosses the network unencrypted. On your own "
+        + "home network that is no more exposed than anything else on it. Over the internet, use a VPN. The saved "
+        + "sign-in works like your password: don't use that password anywhere else, and change it in Navidrome "
+        + "if you think it has been seen; that stops the old sign-in working.";
+
+    public const string PlainHttpShort = "Plain http: the sign-in crosses the network unencrypted.";
+
     /// The library a track path belongs to, or null if it is not one of these.
     public static string? LibraryOf(string path)
     {

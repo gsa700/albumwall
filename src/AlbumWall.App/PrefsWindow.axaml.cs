@@ -473,6 +473,13 @@ public partial class PrefsWindow : Window
             where.Classes.Add("dim");
             where.Classes.Add("mono");
             words.Children.Add(where);
+            if (library.IsNavidrome && library.Server is { } address && Domain.Navidrome.IsPlainHttp(address))
+            {
+                var plain = new TextBlock { Text = Domain.Navidrome.PlainHttpShort, FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+                plain.Classes.Add("dim");
+                Avalonia.Controls.ToolTip.SetTip(plain, Domain.Navidrome.PlainHttpWarning);
+                words.Children.Add(plain);
+            }
             if (library.IsFolder)
             {
                 var editable = new CheckBox

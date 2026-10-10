@@ -33,6 +33,14 @@ public partial class ServerSignIn : UserControl
     {
         InitializeComponent();
         CancelButton.Click += (_, _) => Finished?.Invoke(null);
+        // Shown from the start, since an address typed without https:// is http, and read before
+        // the password is sent; hidden once the address is https. Never appearing mid-typing
+        // also keeps the window from growing under his hands.
+        HttpWarning.Text = Domain.Navidrome.PlainHttpWarning;
+        HttpWarning.IsVisible = true;
+        ServerBox.TextChanged += (_, _) =>
+            HttpWarning.IsVisible = !Domain.Navidrome.NormalizeServer(ServerBox.Text ?? "")
+                .StartsWith("https://", StringComparison.OrdinalIgnoreCase);
         SignInButton.Click += async (_, _) =>
         {
             if (_signedIn is null) await SignIn();

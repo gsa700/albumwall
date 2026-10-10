@@ -21,6 +21,7 @@
             <TextBlock Grid.Row="2" Text="Password" FontSize="13" VerticalAlignment="Center"/>
             <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" FontSize="13" PasswordChar="•"/>
         </Grid>
+        <TextBlock x:Name="HttpWarning" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
         <TextBlock x:Name="About" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                    Text="The password is used once, to sign in, and is not kept. AlbumWall only reads from the server: it plays the files as they are and changes nothing there."/>
         <StackPanel x:Name="FoldersPanel" Spacing="8" IsVisible="False">
