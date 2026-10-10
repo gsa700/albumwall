@@ -416,13 +416,7 @@ public sealed partial class LibraryScanner
 
     private static IEnumerable<FileInfo> EnumerateAudio(string root)
     {
-        var opts = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
-            AttributesToSkip = FileAttributes.System
-        };
-        foreach (var f in new DirectoryInfo(root).EnumerateFiles("*", opts))
+        foreach (var f in FolderWalk.Files(root, "*", FileAttributes.System))
             if (AudioExtensions.Contains(f.Extension, StringComparer.OrdinalIgnoreCase))
                 yield return f;
     }

@@ -187,11 +187,21 @@ public sealed class Settings
         try
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-            File.WriteAllText(Path,
-                JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
 
             // His alone: a Navidrome library keeps a sign-in token in here. Not
-            // the password (see Library.Token), but enough to sign in with.
+            // the password (see Library.Token), but enough to sign in with. So
+            // the file is CREATED his alone (it used to be written readable to
+            // all and narrowed after), and written beside itself and moved over,
+            // so a crash mid-write can never leave half a file that loads as
+            // defaults and saves away every library (security review 2026-10-10).
+            var tmp = Path + ".tmp";
+            var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write };
+            if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            File.Delete(tmp);   // UnixCreateMode applies only to a file that is created
+            using (var to = new StreamWriter(new FileStream(tmp, options)))
+                to.Write(json);
+            File.Move(tmp, Path, overwrite: true);
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(Path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }

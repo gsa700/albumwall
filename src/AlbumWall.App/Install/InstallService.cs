@@ -604,7 +604,8 @@ public static class InstallService
         }
         else
         {
-            var script = Path.Combine(Path.GetTempPath(), "albumwall-uninstall.sh");
+            // A private folder of its own, never a fixed name in the shared /tmp (security review 2026-10-10).
+            var script = Path.Combine(Directory.CreateTempSubdirectory("albumwall-uninstall-").FullName, "uninstall.sh");
             var lines = new List<string>
             {
                 "#!/bin/sh",

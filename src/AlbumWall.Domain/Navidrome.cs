@@ -61,6 +61,13 @@ public sealed class Navidrome
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
+    // What one answer may be (security review 2026-10-10). Http's Timeout ends
+    // with the headers, and a server that sent them and then stalled held a
+    // library scan for as long as it liked; a "cover" of 400 MB was saved whole.
+    private static readonly TimeSpan BodyTime = TimeSpan.FromSeconds(60);
+    private const long MaxJsonBytes = 64L * 1024 * 1024;    // a page of 500 albums is well under 1 MB
+    private const long MaxCoverBytes = 20L * 1024 * 1024;   // a 3000 px JPEG is a few MB
+
     private readonly string _library;
     private readonly string _server;
     private readonly string _auth;
@@ -393,9 +400,9 @@ public sealed class Navidrome
                         "image/gif" => ".gif",
                         _ => ".jpg",
                     };
+                    var bytes = Body(response, MaxCoverBytes, ct);   // whole, or not at all
                     var temp = file + ".tmp";
-                    using (var to = File.Create(temp))
-                        response.Content.ReadAsStream(ct).CopyTo(to);
+                    File.WriteAllBytes(temp, bytes);
                     File.Move(temp, file, overwrite: true);
                 }
             }
@@ -562,13 +569,45 @@ public sealed class Navidrome
         }
     }
 
+    /// An answer's body, read within BodyTime and no larger than max.
+    private static byte[] Body(HttpResponseMessage response, long max, CancellationToken ct)
+    {
+        if (response.Content.Headers.ContentLength > max)
+            throw new NavidromeException("the answer was larger than any real one", unreachable: false);
+        using var time = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        time.CancelAfter(BodyTime);
+        try
+        {
+            using var from = response.Content.ReadAsStream(time.Token);
+            using var to = new MemoryStream();
+            var buffer = new byte[1 << 16];
+            int n;
+            while ((n = from.ReadAsync(buffer, time.Token).AsTask().GetAwaiter().GetResult()) > 0)
+            {
+                if (to.Length + n > max)
+                    throw new NavidromeException("the answer was larger than any real one", unreachable: false);
+                to.Write(buffer, 0, n);
+            }
+            return to.ToArray();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or HttpRequestException)
+        {
+            throw new NavidromeException("the server stopped answering part way through", unreachable: true, ex);
+        }
+    }
+
     private JsonDocument Get(string call, string query, CancellationToken ct)
     {
         using var response = Send(query.Length > 0 ? $"{call}?{query}" : call, ct);
         JsonDocument doc;
+        var body = Body(response, MaxJsonBytes, ct);
         try
         {
-            doc = JsonDocument.Parse(response.Content.ReadAsStream(ct));
+            doc = JsonDocument.Parse(body);
         }
         catch (JsonException ex)
         {

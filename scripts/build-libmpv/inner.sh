@@ -17,9 +17,12 @@
 # WHY THE CHAIN IS THIS LONG FOR AN AUDIO PLAYER: mpv requires libass and
 # libplacebo at build time unconditionally — there is no option to leave them
 # out, even with video disabled — and libass in turn needs freetype, fribidi and
-# harfbuzz. None of it is ever exercised here. It is built as small as each
-# project allows and linked in, because the alternative is 338 shared libraries
-# on Linux and a 100 MB DLL full of video codecs on Windows.
+# harfbuzz. None of it is meant to be exercised here, and since 2026-10-10 the
+# player makes sure (Player.cs: demuxer=lavf, sid=no, sub-auto=no): until then a
+# Matroska file named .mp3 with a subtitle track DID reach libass, because mpv
+# picks its parser by content. It is built as small as each project allows and
+# linked in, because the alternative is 338 shared libraries on Linux and a
+# 100 MB DLL full of video codecs on Windows.
 set -euo pipefail
 
 TARGET=${1:-linux}

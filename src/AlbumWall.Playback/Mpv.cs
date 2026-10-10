@@ -41,7 +41,10 @@ internal static class Mpv
             // unpacked its native libraries.
             foreach (var candidate in Candidates())
                 if (NativeLibrary.TryLoad(candidate, asm, DllImportSearchPath.AssemblyDirectory, out var ours))
+                {
+                    IsBundled = true;
                     return _handle = ours;
+                }
 
             // A development checkout has no bundled copy and lands here, which
             // is right: it uses the distribution's libmpv, as it always did.
@@ -58,6 +61,10 @@ internal static class Mpv
     }
 
     private static IntPtr _handle;
+
+    /// True when the engine loaded is the one shipped with the app (audio-only,
+    /// no scripting, no yt-dlp), false when it is the distribution's.
+    public static bool IsBundled { get; private set; }
 
     /// The file the library was loaded from, on any platform: /proc on Linux,
     /// the module's own name on Windows. Null when it cannot be told.

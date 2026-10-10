@@ -100,7 +100,10 @@ public sealed class Player : IDisposable
                 "libmpv is not installed. On Fedora: sudo dnf install mpv-libs");
 
         _ctx = Mpv.mpv_create();
-        if (Mpv.LoadedFrom() is { } lib) Console.WriteLine($"[mpv] library: {lib}");
+        if (Mpv.LoadedFrom() is { } lib) Console.WriteLine($"[mpv] library: {lib}{(Mpv.IsBundled ? " (bundled)" : "")}");
+        if (!Mpv.IsBundled)
+            Console.WriteLine("[mpv] WARNING: not the bundled engine. The distribution's libmpv has scripting and "
+                            + "every protocol; the options below turn off what they can, but a release should ship its own.");
         if (_ctx == IntPtr.Zero)
             throw new InvalidOperationException("mpv_create failed");
 
@@ -138,6 +141,27 @@ public sealed class Player : IDisposable
         // simply stops after track one — which is exactly what it did.
         Option("keep-open", "no");
         Option("idle", "yes");   // do not exit when the album finishes
+
+        // WHAT A FILE MAY MAKE mpv DO (security review 2026-10-10). mpv picks a
+        // parser by a file's CONTENT, not its name, and its own parsers are not
+        // the FFmpeg list the engine build keeps short. Without these, a ".mp3"
+        // that is really Matroska with a subtitle track ran mpv's mkv demuxer
+        // and libass on it; a ".flac" holding playlist text made the player
+        // fetch URLs; a CUE named ".wav" opened other local files; and every
+        // track's cover.jpg and .srt siblings were opened and probed.
+        Option("demuxer", "lavf");             // FFmpeg's demuxers only: the short list the engine is built with
+        Option("access-references", "no");     // a file never opens another file or address
+        Option("sid", "no");                   // never pick a subtitle track
+        Option("sub-auto", "no");              // nor look for subtitle files beside a track
+        Option("cover-art-auto", "no");        // nor cover files: the wall shows art, mpv does not
+        // The distribution's libmpv (a development checkout, or a copy whose
+        // bundled engine is missing) has Lua and the yt-dlp hook: a stream that
+        // failed was handed, sign-in and all, to yt-dlp on its command line. The
+        // bundled engine has neither option, and refusing them there is harmless.
+        Option("ytdl", "no");
+        Option("load-scripts", "no");
+        // Certificates are checked, for the day the engine speaks https.
+        Option("tls-verify", "yes");
 
         ApplyGain(gain);
 

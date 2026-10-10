@@ -72,6 +72,10 @@ Option("gapless-audio", "yes");
 Option("prefetch-playlist", "yes");
 Option("audio-display", "no");
 Option("audio-samplerate", "0");
+// What a file may make mpv do (Player.cs, security review 2026-10-10): these
+// change which demuxer reads a file, so gapless must be measured with them.
+Option("demuxer", "lavf"); Option("access-references", "no"); Option("sid", "no");
+Option("sub-auto", "no"); Option("cover-art-auto", "no");
 // And the measuring rig.
 Option("vid", "no"); Option("terminal", "no"); Option("idle", "yes");
 Option("ao", "pcm"); Option("ao-pcm-file", wav); Option("ao-pcm-waveheader", "yes");

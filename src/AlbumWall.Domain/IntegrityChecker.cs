@@ -54,18 +54,11 @@ public static class IntegrityChecker
         var record = IntegrityRecord.Load(recordPath);
         var now = DateTime.UtcNow;
 
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
-            MatchCasing = MatchCasing.CaseInsensitive,
-            AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
-        };
         var files = new Dictionary<string, FileInfo>(StringComparer.Ordinal);
-        foreach (var path in Directory.EnumerateFiles(root, "*.flac", options))
+        foreach (var f in FolderWalk.Files(root, "*.flac", FileAttributes.Hidden | FileAttributes.System, MatchCasing.CaseInsensitive))
         {
             ct.ThrowIfCancellationRequested();
-            files[Path.GetRelativePath(root, path)] = new FileInfo(path);
+            files[Path.GetRelativePath(root, f.FullName)] = f;
         }
 
         // A file that has gone is no longer this library's business.

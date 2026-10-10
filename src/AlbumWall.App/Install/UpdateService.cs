@@ -193,7 +193,12 @@ public static class UpdateService
     /// working directory: a directory in use as one cannot be deleted, and the next update's
     /// clean-up of it would throw.
     /// </summary>
-    private static string StageRoot => Path.Combine(Path.GetTempPath(), "AlbumWall-update");
+    /// A new private folder each time (mode 0700 on Linux, unique name), never a fixed name in a
+    /// shared temp directory, where another account could make it first and swap the program
+    /// between the hash check and the copy (security review 2026-10-10; Deadwax 0.2.10 likewise).
+    private static string? _stageRoot;
+
+    private static string StageRoot => _stageRoot ?? throw new InvalidOperationException("Nothing has been staged.");
 
     /// <summary>
     /// Downloads the release's zip, checks it against the release's SHA256SUMS, unpacks it, and returns
@@ -208,9 +213,8 @@ public static class UpdateService
             throw new InvalidOperationException("This release publishes no SHA256SUMS, so its download "
                                               + "cannot be checked. It has not been installed.");
 
-        var tmp = StageRoot;
-        if (Directory.Exists(tmp)) Directory.Delete(tmp, recursive: true);
-        Directory.CreateDirectory(tmp);
+        var tmp = Directory.CreateTempSubdirectory("AlbumWall-update-").FullName;
+        _stageRoot = tmp;
 
         // The list first: it is 300 bytes, and without the zip's line in it there is no point
         // fetching fifty megabytes.
@@ -331,13 +335,14 @@ public static class UpdateService
         }
         else
         {
-            var sh = Path.Combine(Path.GetTempPath(), "albumwall-apply-update.sh");
+            // In a private folder of its own, for the same reason as the staging folder.
+            var sh = Path.Combine(Directory.CreateTempSubdirectory("albumwall-apply-").FullName, "apply-update.sh");
             File.WriteAllText(sh, UpdateApplyScript.Unix(pid, stagedExe, target, marker, targetDir,
                                                          StageRoot, InstallService.OwnExtractionDir, sh, args, Supervised));
             Process.Start(new ProcessStartInfo
             {
                 FileName = "/bin/sh",
-                Arguments = $"\"{sh}\"",
+                ArgumentList = { sh },
                 UseShellExecute = false,
                 WorkingDirectory = Path.GetTempPath(),
             });
