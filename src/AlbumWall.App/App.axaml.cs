@@ -130,6 +130,10 @@ public partial class App : Application
                 // unless this copy is the installed one.
                 Install.InstallService.EnsureRegistered();
 
+                // The unpacked native libraries of builds that are no longer running, see
+                // InstallService.SweepStaleExtractions. Off the UI thread: 46 folders once.
+                _ = Task.Run(Install.InstallService.SweepStaleExtractions);
+
                 LastUpdateFailed = Install.UpdateService.ConsumeUpdateFailed();
                 if (LastUpdateFailed) Console.WriteLine("[update] the last update was NOT applied; this is the old exe");
 

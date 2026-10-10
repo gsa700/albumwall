@@ -524,6 +524,48 @@ public static class InstallService
         }
     }
 
+    /// <summary>
+    /// Remove the unpacked folders of builds that are no longer running. The host unpacks each
+    /// build once and never removes it, and the updater removes only the build it replaces; every
+    /// build that arrived another way - a copy tried from Downloads, a test kit, a local publish -
+    /// left its 30 MB behind. Hambench had 13 of them (2026-10-10) and Techbench 46, 1.1 GB.
+    ///
+    /// Only when this is the ONLY copy running. A folder is unsafe to touch while a copy runs
+    /// from it, and the guard is deliberately blunter than asking which folder each copy uses:
+    /// libmpv is loaded on first play, so a copy that has not played yet has nothing of it mapped,
+    /// Windows would let it go, Linux always would, and that copy breaks the first time it plays.
+    /// A lone copy can only be running from its own folder; the next lone start sweeps what a
+    /// second copy kept alive. Nothing for a development build, which unpacks nothing.
+    /// </summary>
+    public static void SweepStaleExtractions()
+    {
+        try
+        {
+            var mine = OwnExtractionDir;
+            if (mine is null) return;
+            var root = Path.GetDirectoryName(mine)!;
+            if (!Directory.Exists(root)) return;
+            if (Process.GetProcessesByName("AlbumWall").Length > 1)
+            {
+                Console.WriteLine("[install] another copy is running; leaving the unpacked folders alone");
+                return;
+            }
+            var cmp = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+            var mineName = Path.GetFileName(mine.TrimEnd(Path.DirectorySeparatorChar));
+            int removed = 0, kept = 0;
+            foreach (var dir in Directory.EnumerateDirectories(root))
+            {
+                if (cmp.Equals(Path.GetFileName(dir), mineName)) continue;
+                try { Directory.Delete(dir, recursive: true); removed++; }
+                catch { kept++; }   // in use after all, or not ours to remove: next time
+            }
+            if (removed + kept > 0)
+                Console.WriteLine($"[install] unpacked folders of older builds: {removed} removed"
+                                + (kept > 0 ? $", {kept} could not be" : "") + $" ({root})");
+        }
+        catch { /* a cache; nothing depends on it being tidy */ }
+    }
+
     internal static string ExtractionRoot
     {
         get

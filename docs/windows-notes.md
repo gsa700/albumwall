@@ -548,6 +548,17 @@ with what this project's own day had taught:
   running AlbumWall has a module loaded from that folder (two copies of the
   same build share one), matching on the folder's own name because the same
   path turns up as `DAVIDE~1` and in full.
+- **And every other build's, at startup** (0.6.11, 2026-10-10). The updater
+  only ever removed the build it replaced; builds that arrived any other way —
+  a copy tried from Downloads, a test kit, a local publish — kept their folders.
+  Hambench had 13 (381 MB) and Techbench, which has the same cache under
+  `~/.net/AlbumWall` (Linux unpacks too), 46 (1.1 GB). Now a copy that is the
+  ONLY AlbumWall running sweeps every sibling of its own folder
+  (`InstallService.SweepStaleExtractions`). Blunter than asking which folder
+  each copy uses, on purpose: a copy that has not played yet has no libmpv
+  mapped, so Windows would let it go, Linux always would, and that copy would
+  break on its first play. A second copy just defers the sweep to the next
+  lone start.
 - The helper starts in the temp folder, not ours; paths are quoted for an
   apostrophe; `VersionOrder` and `UpdateApplyScript` live in Domain so
   `tools/update-check.cs` can run the family's test cases against them.
