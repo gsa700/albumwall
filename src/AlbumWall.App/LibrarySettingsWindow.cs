@@ -115,7 +115,7 @@ public sealed class LibrarySettingsWindow : Window
     public void Fill()
     {
         if (Library is not { } library) { if (IsVisible) Close(); return; }
-        Title = $"{App.DisplayName} — {library.Name}";
+        Title = $"{App.DisplayName} — {library.Name}: settings";
         Content = Build(library);
         // The height is the content's; a change in what is on the page (the
         // damaged list arriving) is measured again rather than clipped.

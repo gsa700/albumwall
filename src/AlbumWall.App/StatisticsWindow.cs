@@ -61,7 +61,7 @@ public sealed class StatisticsWindow : Window
 
     public void Refill(Library library, LibraryStats? s, string asOf)
     {
-        Title = $"{App.DisplayName} — {library.Name}";
+        Title = $"{App.DisplayName} — {library.Name}: the numbers";
         var page = new StackPanel { Spacing = 10, Margin = new Thickness(18, 14, 18, 18) };
         page.Children.Add(new TextBlock { Text = $"{library.Name}  —  {asOf}", FontSize = 15, FontWeight = FontWeight.SemiBold });
         if (s is not { Tracks: > 0 })
