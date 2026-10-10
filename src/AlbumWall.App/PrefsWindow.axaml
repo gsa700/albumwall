@@ -89,11 +89,11 @@
                 <TextBlock Text="Libraries" FontSize="14" FontWeight="SemiBold"/>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                            Text="The wall shows one library at a time and never mixes them. Switch to puts a library on the wall, as the name in the bottom bar does. Settings is everything about one library; click a line to see its numbers below."/>
-                <!-- Up to four lines, then the list scrolls on its own, so
+                <!-- Up to about six lines, then the list scrolls on its own, so
                      the add buttons and the numbers below stay put and the
                      window stops growing with every library ("we have to start
                      scrolling the library list at SOME point", 2026-10-10). -->
-                <ScrollViewer MaxHeight="158" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer MaxHeight="292" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="LibraryList" Spacing="4" Margin="0,0,4,0"/>
                 </ScrollViewer>
                 <StackPanel Orientation="Horizontal" Spacing="9">
