@@ -512,6 +512,12 @@ is ahead, the history is for what is behind.
   (his call: it costs $99 a year and shows his legal name). Not in
   release.sh yet: a release must carry its own engine, and the engine has no
   macOS build, so the Mac gets the CI artifact, not a release zip, for now.
+  HARD RULE (his point, 2026-10-10): Homebrew's libmpv is a bridge for HIS
+  Mac only. Most Macs have no Homebrew, and the people this app is for are
+  the least likely to install one to play music; nor can Homebrew's library
+  be copied in, it links 37 other Homebrew libraries, the sprawl the Linux
+  recipe exists to avoid. A bundled, audio-only libmpv.dylib from the same
+  recipe is a PREREQUISITE for any macOS release, not a follow-up.
 
 - **FOR THE NEXT TECHBENCH SESSION: tidy the lossy library** (note left from
   Hambench, 2026-10-04: "can you leave yourself a note in github so we can go
