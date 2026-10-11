@@ -92,8 +92,14 @@ internal static class Mpv
 
         if (OperatingSystem.IsMacOS())
         {
+            // Beside the app first (a release carries its own, like everywhere else), then
+            // Homebrew. dlopen on macOS searches DYLD paths, ~/lib, /usr/local/lib and
+            // /usr/lib, and NOT /opt/homebrew/lib, where Homebrew puts everything on Apple
+            // silicon, so a bare name finds nothing on a machine that has `brew install mpv`.
             yield return "libmpv.2.dylib";
             yield return "libmpv.dylib";
+            yield return "/opt/homebrew/lib/libmpv.2.dylib";
+            yield return "/usr/local/lib/libmpv.2.dylib";
             yield break;
         }
 

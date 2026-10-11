@@ -97,7 +97,8 @@ public sealed class Player : IDisposable
     {
         if (!Mpv.IsAvailable)
             throw new InvalidOperationException(
-                "libmpv is not installed. On Fedora: sudo dnf install mpv-libs");
+                OperatingSystem.IsMacOS() ? "libmpv is not installed. With Homebrew: brew install mpv"
+                                          : "libmpv is not installed. On Fedora: sudo dnf install mpv-libs");
 
         _ctx = Mpv.mpv_create();
         if (Mpv.LoadedFrom() is { } lib) Console.WriteLine($"[mpv] library: {lib}{(Mpv.IsBundled ? " (bundled)" : "")}");

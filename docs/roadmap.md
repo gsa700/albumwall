@@ -495,6 +495,23 @@ is ahead, the history is for what is behind.
   has no per-open antivirus scan like Defender, so the Windows reason does
   not apply, but a tagger that preserves modification times would bite as
   it does on Linux.
+  **STATUS 2026-10-10: a plan, now.** A Mac Studio (M5 Max) is ordered as
+  the primary workstation and the master of the music library, so the Mac is
+  where the library's editing rule lives from the migration on. Done today,
+  on Techbench, before the machine arrived: `dotnet publish -r osx-arm64`
+  builds the single file (Mach-O arm64, 117 MB) with no code changes beyond
+  the libmpv lookup (Homebrew's /opt/homebrew/lib, which dlopen does not
+  search) and the matching "brew install mpv" message; the csproj knows an
+  `osx-<arch>` native folder and carries `.dylib`s for the day the engine
+  recipe has a macOS target. `.github/workflows/macos.yml` builds it on
+  GitHub's Apple-silicon runner on every push and keeps the binary as an
+  artifact, and starts it for ten seconds as a smoke test. NOT done, in this
+  order: first real run on the Studio (day 1 of the migration); the Mac's
+  conventions from the list above; a bundled libmpv.dylib (until then it is
+  the unbundled-engine path, with its warning); signing and notarization
+  (his call: it costs $99 a year and shows his legal name). Not in
+  release.sh yet: a release must carry its own engine, and the engine has no
+  macOS build, so the Mac gets the CI artifact, not a release zip, for now.
 
 - **FOR THE NEXT TECHBENCH SESSION: tidy the lossy library** (note left from
   Hambench, 2026-10-04: "can you leave yourself a note in github so we can go

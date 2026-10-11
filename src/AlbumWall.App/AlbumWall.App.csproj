@@ -95,7 +95,10 @@
 
   <!-- The app's own libmpv, per platform: fetched on Windows
        (scripts/get-libmpv.ps1), built on Linux (scripts/build-libmpv/). Never
-       committed either way — native/ is git-ignored.
+       committed either way — native/ is git-ignored. macOS (osx-arm64, since
+       2026-10-10) has no bundled engine yet and plays through Homebrew's libmpv;
+       the folder and the .dylib glob are here for the day the recipe grows a
+       libmpv.dylib target (docs/roadmap.md, macOS).
 
        The folder follows what is being built FOR, same rule as the target
        framework above, so a win-x64 publish made on Fedora picks up the Windows
@@ -108,10 +111,11 @@
     <HostArch>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArch>
     <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-$(HostArch)</NativeRid>
     <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-$(HostArch)</NativeRid>
+    <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">osx-$(HostArch)</NativeRid>
     <NativeDir>$(MSBuildProjectDirectory)/../../native/$(NativeRid)</NativeDir>
   </PropertyGroup>
   <ItemGroup Condition="'$(NativeRid)' != '' and Exists('$(NativeDir)')">
-    <None Include="$(NativeDir)/*.dll;$(NativeDir)/*.so*" Link="%(Filename)%(Extension)"
+    <None Include="$(NativeDir)/*.dll;$(NativeDir)/*.so*;$(NativeDir)/*.dylib" Link="%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

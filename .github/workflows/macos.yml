@@ -1,0 +1,68 @@
+# AlbumWall for Apple silicon, built where it can actually run.
+#
+# Techbench can cross-publish osx-arm64 (it did, 2026-10-10), but it cannot run
+# the result. GitHub's macOS runners are Apple silicon, so this builds the
+# single file there, checks it is a Mach-O arm64 executable, starts it for ten
+# seconds as a smoke test (Avalonia up, no crash at startup), and keeps the
+# binary and its log as an artifact for a Mac to download. It is NOT a release:
+# a release carries its own audio engine (scripts/release.sh) and the engine has
+# no macOS build yet, so the artifact plays through Homebrew's libmpv.
+name: macOS build
+
+on:
+  push:
+    branches: [master]
+    paths: ["src/**", ".github/workflows/macos.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15          # Apple silicon
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish osx-arm64 single file
+        run: |
+          dotnet publish src/AlbumWall.App -c Release -r osx-arm64 -o out -nologo -v quiet
+          ls -la out
+          file out/AlbumWall
+          file out/AlbumWall | grep -q "Mach-O 64-bit executable arm64"
+          test "$(stat -f %z out/AlbumWall)" -gt 50000000
+
+      - name: Audio engine for the smoke test (Homebrew libmpv)
+        run: brew install mpv
+
+      - name: Smoke test, ten seconds alive
+        run: |
+          # The app has no headless mode; the runner has a window server, so it
+          # opens its window. Alive after ten seconds = Avalonia and the natives
+          # loaded. timeout's own exit code (124) is the pass.
+          set +e
+          perl -e 'alarm 10; exec @ARGV' ./out/AlbumWall > smoke.log 2>&1
+          rc=$?
+          set -e
+          echo "exit code $rc (124 or 142 = killed by the timer = alive = pass)"
+          cat smoke.log
+          test "$rc" -eq 142 -o "$rc" -eq 124 -o "$rc" -eq 137
+
+      - name: Package
+        run: |
+          cd out && zip -9 -q ../AlbumWall-osx-arm64.zip AlbumWall && cd ..
+          shasum -a 256 AlbumWall-osx-arm64.zip | tee SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlbumWall-osx-arm64
+          path: |
+            AlbumWall-osx-arm64.zip
+            SHA256SUMS
+            smoke.log
+          retention-days: 30
