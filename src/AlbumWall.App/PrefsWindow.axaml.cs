@@ -710,7 +710,12 @@ public partial class PrefsWindow : Window
                 break;
 
             default:
-                if (Install.InstallService.IsSingleFile)
+                if (!Install.InstallService.CanInstall)
+                {
+                    InstallStatus.Text = $"Running from {dir}. Installing is not available on macOS yet.";
+                    InstallButton.IsVisible = false;
+                }
+                else if (Install.InstallService.IsSingleFile)
                 {
                     InstallStatus.Text = $"Running from {dir}, not installed. Installing copies it to "
                                        + $"{Install.InstallService.InstallDirectory} and adds it to your menus.";

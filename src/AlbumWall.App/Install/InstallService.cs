@@ -169,7 +169,15 @@ public static class InstallService
     /// Whether this copy should offer to install itself: a release build, sitting wherever it was
     /// unzipped, that nobody has pinned as portable.
     /// </summary>
-    public static bool ShouldOfferInstall => IsSingleFile && Mode == InstallMode.Loose;
+    public static bool ShouldOfferInstall => CanInstall && IsSingleFile && Mode == InstallMode.Loose;
+
+    /// <summary>
+    /// False on macOS, which has no installer yet. The Unix path here is the Linux one: it would
+    /// copy the program under Application Support, link it from ~/.local/bin and write .desktop
+    /// files, one of them onto the Desktop, none of which a Mac reads (seen on the Mac Studio,
+    /// 2026-10-14). A Mac install is an AlbumWall.app in /Applications: docs/roadmap.md, macOS.
+    /// </summary>
+    public static bool CanInstall => !OperatingSystem.IsMacOS();
 
     /// <summary>
     /// Copy this executable into the install directory and register it. Returns the path of the
@@ -179,6 +187,9 @@ public static class InstallService
     /// </summary>
     public static InstallResult Install()
     {
+        if (!CanInstall)
+            throw new InstallBlockedException(
+                "Installing is not available on macOS yet. Run AlbumWall from where it is.");
         if (!IsSingleFile)
             throw new InstallBlockedException(
                 "This is a development build, which is many files, and installing copies only one. "

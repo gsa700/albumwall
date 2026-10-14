@@ -518,6 +518,19 @@ is ahead, the history is for what is behind.
   be copied in, it links 37 other Homebrew libraries, the sprawl the Linux
   recipe exists to avoid. A bundled, audio-only libmpv.dylib from the same
   recipe is a PREREQUISITE for any macOS release, not a follow-up.
+  **STATUS 2026-10-14: first real run on the Studio, on our own engine.** The
+  recipe has a macOS target (ef69276): built natively on the Mac, 7.7 MB,
+  only macOS's own libraries and frameworks, macOS 13 and later, with
+  `mpv-macos.patch` for two mpv 0.41 faults the checks found, one of them
+  mpv #18384 (nothing plays on some audio devices under macOS 27; seen on a
+  Scarlett 4i4). GAPLESS PROVEN: the Dark Side AAC tracks decode to
+  38,702,166 samples, +6, the same number as every other platform, with and
+  without the meter chain; FLAC and MP3 match the Linux engine sample for
+  sample. Also: the level meters work (Mpv.LoadedFile learned dladdr), and the
+  installer is OFF on macOS, because the Linux one wrote .desktop files there.
+  Still NOT done: a `libmpv-*` release carrying the dylib (and macos.yml
+  using it instead of Homebrew's); the `.app` bundle in /Applications, which
+  is what installing means on a Mac; the conventions in point 2; signing.
 
 - **FOR THE NEXT TECHBENCH SESSION: tidy the lossy library** (note left from
   Hambench, 2026-10-04: "can you leave yourself a note in github so we can go

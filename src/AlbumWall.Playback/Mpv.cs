@@ -67,11 +67,23 @@ internal static class Mpv
     public static bool IsBundled { get; private set; }
 
     /// The file the library was loaded from, on any platform: /proc on Linux,
-    /// the module's own name on Windows. Null when it cannot be told.
+    /// the module's own name on Windows, dladdr on macOS. Null when it cannot be
+    /// told.
+    ///
+    /// macOS until 2026-10-14 was "cannot be told", and that turned the level
+    /// meters off there: Player.HasMeterFilter reads this file to find astats.
     public static string? LoadedFile()
     {
         if (OperatingSystem.IsLinux()) return LoadedFrom();
-        if (!OperatingSystem.IsWindows() || _handle == IntPtr.Zero) return null;
+        if (_handle == IntPtr.Zero) return null;
+        if (OperatingSystem.IsMacOS())
+        {
+            // A dylib has no handle-to-path call; dladdr names the image that
+            // contains an address, so ask it about one of the library's exports.
+            if (!NativeLibrary.TryGetExport(_handle, "mpv_client_api_version", out var symbol)) return null;
+            return dladdr(symbol, out var info) != 0 ? Marshal.PtrToStringUTF8(info.dli_fname) : null;
+        }
+        if (!OperatingSystem.IsWindows()) return null;
         var buffer = new char[1024];
         var n = GetModuleFileNameW(_handle, buffer, buffer.Length);
         return n > 0 ? new string(buffer, 0, n) : null;
@@ -79,6 +91,15 @@ internal static class Mpv
 
     [DllImport("kernel32", CharSet = CharSet.Unicode)]
     private static extern int GetModuleFileNameW(IntPtr module, [Out] char[] name, int size);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DlInfo
+    {
+        public IntPtr dli_fname, dli_fbase, dli_sname, dli_saddr;
+    }
+
+    [DllImport("libSystem.dylib")]
+    private static extern int dladdr(IntPtr address, out DlInfo info);
 
     private static IEnumerable<string> Candidates()
     {
