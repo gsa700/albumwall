@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Runs INSIDE the build container. See build.sh, which is the one to run.
+# Runs INSIDE the build container, or on a Mac directly. See build.sh, which is
+# the one to run.
 #
-#   inner.sh linux     native build      -> /out/libmpv.so.2
-#   inner.sh win64     mingw cross-build -> /out/libmpv-2.dll
+#   inner.sh linux     native build      -> $OUT/libmpv.so.2
+#   inner.sh win64     mingw cross-build -> $OUT/libmpv-2.dll
+#   inner.sh macos     native, on a Mac  -> $OUT/libmpv.2.dylib
 #
 # Builds an audio-only libmpv with everything it needs folded in statically. On
 # Linux the result depends on nothing but glibc, zlib and the three audio client
-# libraries; on Windows, on nothing but DLLs that are part of Windows.
+# libraries; on Windows, on nothing but DLLs that are part of Windows; on macOS,
+# on nothing but libraries and frameworks that are part of macOS.
 #
 # ONE RECIPE FOR EVERY PLATFORM is the point: the same pins, the same decoder
 # list, the same switches, so the player inside the app is the same player
@@ -45,7 +48,7 @@ LIBASS=0.17.5
 FREETYPE=VER-2-14-3
 FRIBIDI=v1.0.16
 HARFBUZZ=14.4.0
-# TLS for https streams, Linux only (Windows uses its own: Schannel). Static, so
+# TLS for https streams, Linux and macOS (Windows uses its own: Schannel). Static, so
 # the engine never depends on the host's OpenSSL soname: Fedora 45 ships only
 # libssl.so.4, and a library linked to .so.3 would not load there at all, which
 # for this one means no sound. The 3.6 line is mbedTLS's long-term support.
@@ -59,7 +62,8 @@ MBEDTLS=v3.6.7
 # http/tcp/https/tls: streaming from Navidrome. https since libmpv-0.41.0-5
 # (2026-10-10): http stays allowed (his call), and a server that offers https
 # must work, with its certificate checked (the player sets tls-verify and, on
-# Linux, the system's CA bundle). TLS is mbedTLS on Linux, Schannel on Windows.
+# Linux and macOS, the system's CA bundle). TLS is mbedTLS on Linux and macOS,
+# Schannel on Windows.
 FFMPEG_FEATURES=(
     --enable-decoder=flac,mp3,mp3float,aac,aac_latm,alac,vorbis,opus
     --enable-decoder=pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be
@@ -74,18 +78,43 @@ FFMPEG_FEATURES=(
     --enable-filter=astats
 )
 
-PREFIX=/opt/min
-JOBS=$(nproc)
+# Where things go. In the container these are fixed paths in a throwaway
+# filesystem; on a Mac, build.sh hands over a work folder and the output folder.
+if [ "$TARGET" = macos ]; then
+    : "${WORK:?build.sh sets WORK}" "${OUT:?build.sh sets OUT}"
+    PREFIX="$WORK/min" SRC="$WORK/src" LOGS="$WORK/logs"
+    JOBS=$(sysctl -n hw.ncpu)
+else
+    PREFIX=/opt/min SRC=/src OUT=/out LOGS=/tmp/logs
+    JOBS=$(nproc)
+fi
 
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq --no-install-recommends \
-    build-essential git ca-certificates pkg-config python3 python3-pip \
-    python3-jinja2 ninja-build nasm autoconf automake libtool gperf >/dev/null
+if [ "$TARGET" = macos ]; then
+    # The build tools, from PyPI into a virtual environment in the work folder:
+    # nothing is installed on the machine, and build.sh deletes the folder before
+    # each build. Xcode's Command Line Tools provide clang, the SDK, git, make,
+    # gperf and the python3 this runs on. No nasm (x86 only) and no autotools
+    # (libass builds with meson here).
+    python3 -m venv "$WORK/venv"
+    "$WORK/venv/bin/pip" install -q --upgrade pip
+    "$WORK/venv/bin/pip" install -q 'meson>=1.4' ninja cmake pkgconf
+    export PATH="$WORK/venv/bin:$PATH"
+    export PKG_CONFIG="$WORK/venv/bin/pkgconf"
+    # ffmpeg's configure asks for pkg-config by that name.
+    ln -sf pkgconf "$WORK/venv/bin/pkg-config"
+else
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    apt-get install -y -qq --no-install-recommends \
+        build-essential git ca-certificates pkg-config python3 python3-pip \
+        python3-jinja2 ninja-build nasm autoconf automake libtool gperf >/dev/null
 
-# Debian 12's meson is 1.0; mpv wants 1.3 or newer.
-pip3 install -q --break-system-packages 'meson>=1.4'
+    # Debian 12's meson is 1.0; mpv wants 1.3 or newer.
+    pip3 install -q --break-system-packages 'meson>=1.4'
+fi
 
+# Expanded below as ${MESON_CROSS[@]+...}: macOS's bash is 3.2, where an EMPTY
+# array under set -u is an "unbound variable" error.
 MESON_CROSS=()
 case "$TARGET" in
 linux)
@@ -131,6 +160,16 @@ endian = 'little'
 EOF
     MESON_CROSS=(--cross-file /tmp/cross.txt)
     ;;
+macos)
+    # The oldest macOS the library will load on, the dylib's equivalent of the
+    # glibc floor: 13 Ventura. Linked against the newest SDK, it only calls what
+    # 13 has. Hardened as Linux is, minus RELRO and -z now, which are ELF
+    # (dyld makes __DATA_CONST read-only after binding on its own).
+    export MACOSX_DEPLOYMENT_TARGET=13.0
+    export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+    HARDEN="-fstack-protector-strong -D_FORTIFY_SOURCE=2"
+    export CFLAGS="-O2 -fPIC $HARDEN" CXXFLAGS="-O2 -fPIC $HARDEN"
+    ;;
 *)
     echo "unknown target: $TARGET" >&2; exit 1 ;;
 esac
@@ -139,55 +178,64 @@ esac
 # log, and a failing step prints the end of its own log before stopping —
 # meson and ninja report errors on STDOUT, so simply discarding stdout (as this
 # script first did) turns every failure into a bare "exit 1".
-mkdir -p /tmp/logs
+mkdir -p "$LOGS"
 run() { # label command...
     local label=$1; shift
-    if ! "$@" > "/tmp/logs/$label.log" 2>&1; then
+    if ! "$@" > "$LOGS/$label.log" 2>&1; then
         echo "!! $label failed — last 40 lines:" >&2
-        tail -40 "/tmp/logs/$label.log" >&2
+        tail -40 "$LOGS/$label.log" >&2
         exit 1
     fi
 }
 
 fetch() { # name url tag [--recursive]
-    git clone -q --depth 1 --branch "$3" ${4:-} "$2" "/src/$1" 2>/dev/null
+    git clone -q --depth 1 --branch "$3" ${4:-} "$2" "$SRC/$1" 2>/dev/null
     echo "== $1 @ $3"
 }
-mkdir -p /src "$PREFIX"
+mkdir -p "$SRC" "$PREFIX"
 
 # auto_features=disabled is what keeps every one of these minimal: anything a
 # project would switch on because it found a library is switched off instead,
 # and only what is named below comes back.
 MESON_COMMON=(--prefix="$PREFIX" --libdir=lib --buildtype=release
               -Ddefault_library=static -Db_staticpic=true -Dauto_features=disabled
-              "${MESON_CROSS[@]}")
+              ${MESON_CROSS[@]+"${MESON_CROSS[@]}"})
 
 fetch freetype https://github.com/freetype/freetype "$FREETYPE"
-run freetype-setup meson setup /src/freetype/b /src/freetype "${MESON_COMMON[@]}" -Dtests=disabled
-run freetype-build ninja -C /src/freetype/b install
+run freetype-setup meson setup "$SRC/freetype/b" "$SRC/freetype" "${MESON_COMMON[@]}" -Dtests=disabled
+run freetype-build ninja -C "$SRC/freetype/b" install
 
 fetch fribidi https://github.com/fribidi/fribidi "$FRIBIDI"
-run fribidi-setup meson setup /src/fribidi/b /src/fribidi "${MESON_COMMON[@]}" -Ddocs=false -Dbin=false -Dtests=false
-run fribidi-build ninja -C /src/fribidi/b install
+run fribidi-setup meson setup "$SRC/fribidi/b" "$SRC/fribidi" "${MESON_COMMON[@]}" -Ddocs=false -Dbin=false -Dtests=false
+run fribidi-build ninja -C "$SRC/fribidi/b" install
 
 fetch harfbuzz https://github.com/harfbuzz/harfbuzz "$HARFBUZZ"
-run harfbuzz-setup meson setup /src/harfbuzz/b /src/harfbuzz "${MESON_COMMON[@]}" \
+run harfbuzz-setup meson setup "$SRC/harfbuzz/b" "$SRC/harfbuzz" "${MESON_COMMON[@]}" \
     -Dtests=disabled -Ddocs=disabled -Dutilities=disabled
-run harfbuzz-build ninja -C /src/harfbuzz/b install
+run harfbuzz-build ninja -C "$SRC/harfbuzz/b" install
 
 fetch libass https://github.com/libass/libass "$LIBASS"
-LIBASS_ARGS=(--prefix="$PREFIX" --enable-static --disable-shared --with-pic
-             --disable-fontconfig --disable-require-system-font-provider)
-[ "$TARGET" = win64 ] && LIBASS_ARGS+=(--host=x86_64-w64-mingw32 --disable-directwrite)
-cd /src/libass
-run libass-autogen ./autogen.sh
-run libass-configure ./configure "${LIBASS_ARGS[@]}"
-run libass-build make -j"$JOBS" install
-cd /
+if [ "$TARGET" = macos ]; then
+    # libass has had a meson build since 0.17, and a Mac without a package
+    # manager has no autotools. auto_features leaves Core Text, fontconfig and
+    # the rest off; the same choices as the configure line below.
+    run libass-setup meson setup "$SRC/libass/b" "$SRC/libass" "${MESON_COMMON[@]}" \
+        -Drequire-system-font-provider=false
+    run libass-build ninja -C "$SRC/libass/b" install
+else
+    LIBASS_ARGS=(--prefix="$PREFIX" --enable-static --disable-shared --with-pic
+                 --disable-fontconfig --disable-require-system-font-provider)
+    [ "$TARGET" = win64 ] && LIBASS_ARGS+=(--host=x86_64-w64-mingw32 --disable-directwrite)
+    cd "$SRC/libass"
+    run libass-autogen ./autogen.sh
+    run libass-configure ./configure "${LIBASS_ARGS[@]}"
+    run libass-build make -j"$JOBS" install
+    cd /
+fi
 
 fetch libplacebo https://github.com/haasn/libplacebo "$LIBPLACEBO" --recursive
-run libplacebo-setup meson setup /src/libplacebo/b /src/libplacebo "${MESON_COMMON[@]}" -Ddemos=false -Dtests=false
-run libplacebo-build ninja -C /src/libplacebo/b install
+run libplacebo-setup meson setup "$SRC/libplacebo/b" "$SRC/libplacebo" "${MESON_COMMON[@]}" -Ddemos=false -Dtests=false
+run libplacebo-build ninja -C "$SRC/libplacebo/b" install
 
 # libplacebo has one C++ file (number formatting, via std::to_chars), and mpv
 # links as a C program, so nothing pulls the C++ runtime in. It has to be named
@@ -206,22 +254,31 @@ run libplacebo-build ninja -C /src/libplacebo/b install
 # into a clean process on a Pi it failed at once. A library that only works
 # inside a host that happens to bring its dependencies is not self-contained;
 # hence the -z defs and the clean-process load test further down.
+#
+# macOS is the exception: its C++ runtime, libc++, is part of the OS (in
+# /usr/lib, like the Windows system DLLs), so linking it dynamically is right.
 if [ "$TARGET" = win64 ]; then
     STDCXX="$($CXX -print-file-name=libstdc++.a) $($CXX -print-file-name=libwinpthread.a)"
+elif [ "$TARGET" = macos ]; then
+    STDCXX=-lc++
 else
     STDCXX=$(g++ -print-file-name=libstdc++.a)
 fi
-sed -i "/^Libs:/ s|\$| $STDCXX|" "$PREFIX/lib/pkgconfig/libplacebo.pc"
+# -i.orig, not -i: BSD sed (macOS) and GNU sed agree only on that form.
+sed -i.orig "/^Libs:/ s|\$| $STDCXX|" "$PREFIX/lib/pkgconfig/libplacebo.pc"
+rm -f "$PREFIX/lib/pkgconfig/libplacebo.pc.orig"
 
-# mbedTLS for ffmpeg's https, Linux only. --recursive: since 3.6.2 its build
-# needs the "framework" submodule.
-if [ "$TARGET" = linux ]; then
+# mbedTLS for ffmpeg's https, Linux and macOS (Windows uses Schannel). macOS
+# has its own TLS, but ffmpeg's SecureTransport backend is deprecated by Apple,
+# and the app already hands the engine /etc/ssl/cert.pem there, as on Linux.
+# --recursive: since 3.6.2 its build needs the "framework" submodule.
+if [ "$TARGET" != win64 ]; then
     fetch mbedtls https://github.com/Mbed-TLS/mbedtls "$MBEDTLS" --recursive
-    run mbedtls-setup cmake -S /src/mbedtls -B /src/mbedtls/b -DCMAKE_BUILD_TYPE=Release \
+    run mbedtls-setup cmake -S "$SRC/mbedtls" -B "$SRC/mbedtls/b" -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DENABLE_PROGRAMS=OFF -DENABLE_TESTING=OFF \
         -DUSE_STATIC_MBEDTLS_LIBRARY=ON -DUSE_SHARED_MBEDTLS_LIBRARY=OFF
-    run mbedtls-build cmake --build /src/mbedtls/b -j"$JOBS" --target install
+    run mbedtls-build cmake --build "$SRC/mbedtls/b" -j"$JOBS" --target install
 fi
 
 # ffmpeg: start from nothing and add back the list at the top. mpv insists on
@@ -235,8 +292,9 @@ fetch ffmpeg https://github.com/FFmpeg/FFmpeg "$FFMPEG"
 # API and is not merged. This player never decrypts anything, so the boxes are
 # of no use to it: their entry leaves the parse table and mov skips them as it
 # skips any atom it does not know. Remove this when the pin moves past the fix.
-sed -i "/{ MKTAG('p','s','s','h'), mov_read_pssh },/d" /src/ffmpeg/libavformat/mov.c
-if grep -q "MKTAG('p','s','s','h'), mov_read_pssh" /src/ffmpeg/libavformat/mov.c; then
+sed -i.orig "/{ MKTAG('p','s','s','h'), mov_read_pssh },/d" "$SRC/ffmpeg/libavformat/mov.c"
+rm -f "$SRC/ffmpeg/libavformat/mov.c.orig"
+if grep -q "MKTAG('p','s','s','h'), mov_read_pssh" "$SRC/ffmpeg/libavformat/mov.c"; then
     echo "!! the pssh patch did not apply: mov.c has changed" >&2; exit 1
 fi
 echo "== ffmpeg: pssh parsing removed (CVE-2026-107678)"
@@ -258,7 +316,7 @@ else
     FFMPEG_ARGS+=(--enable-pic --enable-mbedtls --enable-version3 --extra-cflags="$HARDEN"
                   --pkg-config-flags=--static)
 fi
-cd /src/ffmpeg
+cd "$SRC/ffmpeg"
 run ffmpeg-configure ./configure "${FFMPEG_ARGS[@]}"
 run ffmpeg-build make -j"$JOBS" install
 cd /
@@ -272,12 +330,40 @@ fetch mpv https://github.com/mpv-player/mpv "$MPV"
 MPV_ARGS=(--prefix="$PREFIX" --libdir=lib --buildtype=release
           -Dauto_features=disabled -Ddefault_library=shared
           -Dlibmpv=true -Dcplayer=false -Dbuild-date=false -Dgl=disabled
-          "${MESON_CROSS[@]}")
+          ${MESON_CROSS[@]+"${MESON_CROSS[@]}"})
 if [ "$TARGET" = win64 ]; then
     # WASAPI is the one output. -static folds the compiler runtime in; the
     # Windows system DLLs are import libraries and stay dynamic regardless.
     MPV_ARGS+=(-Dwasapi=enabled -Dwin32-threads=enabled
                -Dc_link_args=-static -Dcpp_link_args=-static)
+elif [ "$TARGET" = macos ]; then
+    # Core Audio is the one output, and it is part of macOS.
+    #
+    # b_lundef=true is the -z defs of this platform. mpv's own default is false,
+    # which links the dylib with -undefined dynamic_lookup, and the FIRST build
+    # here (2026-10-14) linked fine and then would not load: _cfstr_from_cstr
+    # was missing. Only the clean-process load test below caught it.
+    #
+    # The rest is mpv-macos.patch, beside this file, applied with git apply,
+    # which refuses outright if the source is not exactly the pinned one:
+    #
+    #  1. Core Audio's helpers call cfstr_from_cstr, which lives in
+    #     osdep/utils-mac.c, and mpv 0.41 compiles that file only with the Cocoa
+    #     feature (the player's GUI side, off here): it joins their sources.
+    #
+    #  2. mpv issue #18384, open: on macOS 27 the channel map mpv 0.41 sets on
+    #     the output unit (PR #15622) is refused with -50 by some devices, and
+    #     nothing plays. Found 2026-10-14 on a Focusrite Scarlett 4i4 (four
+    #     outputs, unlabeled), while the Mac's speakers and an LG display took the
+    #     map. Making the refusal a warning is NOT enough, as tried first: a unit
+    #     handed a map it refused opens and then never runs, so playback sits
+    #     silent at 0:00. Dropping the call (Anki's patch) would bring back
+    #     #15584, left and right swapped on some devices. So the map stays, and a
+    #     device that refuses it gets a fresh unit without one, as under 0.40.
+    #     Remove when upstream fixes #18384.
+    git -C "$SRC/mpv" apply "$(cd "$(dirname "$0")" && pwd)/mpv-macos.patch"
+    echo "== mpv: mpv-macos.patch applied (utils-mac.c; channel map retry, #18384)"
+    MPV_ARGS+=(-Dcoreaudio=enabled -Db_lundef=true)
 else
     # The three audio outputs a Linux desktop might be using. These are the
     # only things the result links against dynamically, on purpose — they must
@@ -289,14 +375,14 @@ else
                "-Dc_link_args=-static-libgcc -Wl,-z,defs -Wl,-z,relro,-z,now"
                "-Dcpp_link_args=-static-libgcc -Wl,-z,defs -Wl,-z,relro,-z,now")
 fi
-run mpv-setup meson setup /src/mpv/b /src/mpv "${MPV_ARGS[@]}"
-run mpv-build ninja -C /src/mpv/b
+run mpv-setup meson setup "$SRC/mpv/b" "$SRC/mpv" "${MPV_ARGS[@]}"
+run mpv-build ninja -C "$SRC/mpv/b"
 
 if [ "$TARGET" = win64 ]; then
-    LIB=$(find /src/mpv/b -maxdepth 1 -type f -name 'libmpv-2.dll' | head -1)
+    LIB=$(find "$SRC/mpv/b" -maxdepth 1 -type f -name 'libmpv-2.dll' | head -1)
     x86_64-w64-mingw32-strip --strip-unneeded "$LIB"
-    cp "$LIB" /out/libmpv-2.dll
-    OUTFILE=/out/libmpv-2.dll
+    cp "$LIB" "$OUT/libmpv-2.dll"
+    OUTFILE="$OUT/libmpv-2.dll"
     DEPS=$(x86_64-w64-mingw32-objdump -p "$OUTFILE" | awk '/DLL Name:/ {print "  " $3}' | sort -f)
 
     # A DLL that imports the compiler's own runtime loads on the machine that
@@ -307,13 +393,41 @@ if [ "$TARGET" = win64 ]; then
         echo "$DEPS" | grep -iE 'libstdc\+\+|libgcc|libwinpthread' >&2
         exit 1
     fi
+elif [ "$TARGET" = macos ]; then
+    LIB="$SRC/mpv/b/libmpv.2.dylib"
+    cp "$LIB" "$OUT/libmpv.2.dylib"
+    OUTFILE="$OUT/libmpv.2.dylib"
+    # strip changes the file, which voids the signature the linker gave it, and
+    # Apple silicon refuses to load unsigned code: so strip, then sign again
+    # (ad hoc; a Developer ID signature is a release matter, docs/roadmap.md).
+    strip -x "$OUTFILE"
+    codesign --force --sign - "$OUTFILE"
+    # otool's first line is the file name and the second the library's own id.
+    DEPS=$(otool -L "$OUTFILE" | tail -n +3 | awk '{print "  " $1}' | sort)
+
+    # The same three tests as Linux: it loads into a process with nothing else
+    # in it, it needs nothing that is not part of macOS, and it is hardened.
+    python3 -c "import ctypes, os; ctypes.CDLL('$OUTFILE', mode=os.RTLD_NOW)" \
+        || { echo "!! the library does not load into a clean process" >&2; exit 1; }
+    if echo "$DEPS" | grep -vqE '^  (/usr/lib/|/System/Library/)'; then
+        echo "!! the library depends on something that is not part of macOS:" >&2
+        echo "$DEPS" | grep -vE '^  (/usr/lib/|/System/Library/)' >&2
+        exit 1
+    fi
+    SYMS=$(nm -u "$OUTFILE")
+    grep -q '___stack_chk_fail' <<<"$SYMS" || { echo "!! no stack protector in the library" >&2; exit 1; }
+    grep -qE '_chk$' <<<"$SYMS" || { echo "!! no FORTIFY functions in the library" >&2; exit 1; }
+    MINOS=$(otool -l "$OUTFILE" | awk '/LC_BUILD_VERSION/ {f=1} f && $1 == "minos" {print $2; exit}')
+    [ "$MINOS" = "$MACOSX_DEPLOYMENT_TARGET" ] \
+        || { echo "!! built for macOS $MINOS, not $MACOSX_DEPLOYMENT_TARGET" >&2; exit 1; }
+    echo "== hardening: stack protector and FORTIFY present; TLS built in; loads on macOS $MINOS and later"
 else
     # -type f: meson keeps its object files in a DIRECTORY named
     # libmpv.so.2.x.y.p, which sorts first and is not what strip wants.
-    LIB=$(find /src/mpv/b -maxdepth 1 -type f -name 'libmpv.so.2.*' | head -1)
+    LIB=$(find "$SRC/mpv/b" -maxdepth 1 -type f -name 'libmpv.so.2.*' | head -1)
     strip --strip-unneeded "$LIB"
-    cp "$LIB" /out/libmpv.so.2
-    OUTFILE=/out/libmpv.so.2
+    cp "$LIB" "$OUT/libmpv.so.2"
+    OUTFILE="$OUT/libmpv.so.2"
     DEPS=$(readelf -d "$OUTFILE" | sed -nE 's/.*NEEDED.*\[(.*)\]/  \1/p' | sort)
 
     # The test the first version of this script lacked: load the library into a
@@ -343,14 +457,16 @@ fi
     echo
     echo "mpv $MPV, ffmpeg $FFMPEG, libplacebo $LIBPLACEBO, libass $LIBASS,"
     echo "freetype $FREETYPE, fribidi $FRIBIDI, harfbuzz $HARFBUZZ"
-    if [ "$TARGET" = linux ]; then echo "mbedtls $MBEDTLS (TLS for https)"; else echo "TLS for https: Windows Schannel"; fi
+    if [ "$TARGET" != win64 ]; then echo "mbedtls $MBEDTLS (TLS for https)"; else echo "TLS for https: Windows Schannel"; fi
+    [ "$TARGET" = macos ] && echo "macOS $MACOSX_DEPLOYMENT_TARGET or later, $(uname -m), SDK $(xcrun --show-sdk-version)"
     echo "ffmpeg patch: mov 'pssh' parsing removed (CVE-2026-107678)"
+    [ "$TARGET" = macos ] && echo "mpv patch: mpv-macos.patch (osdep/utils-mac.c built with Core Audio; a device that refuses the channel map is reopened without one, mpv #18384)"
     echo
     echo "Sources: the tags above, from each project's own repository. The exact"
     echo "recipe is scripts/build-libmpv/inner.sh in the AlbumWall repository."
     echo
     echo "Links dynamically against (direct dependencies only):"
     echo "$DEPS"
-} > /out/libmpv-build-info.txt
+} > "$OUT/libmpv-build-info.txt"
 
 echo "== done: $(du -h "$OUTFILE" | cut -f1)"

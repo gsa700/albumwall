@@ -3,6 +3,7 @@
 #
 #   scripts/build-libmpv/build.sh            native, for this machine
 #   scripts/build-libmpv/build.sh win-x64    the Windows DLL, cross-compiled
+#   scripts/build-libmpv/build.sh            on a Mac: libmpv.2.dylib, natively
 #
 # The result lands in native/linux-<arch>/libmpv.so.2, where the project picks
 # it up and the single-file publish folds it in — the same arrangement as the
@@ -36,6 +37,32 @@ ROOT=$(cd "$HERE/../.." && pwd)
 # What to build. With no argument: a native build for this machine. "win-x64"
 # cross-compiles the Windows DLL from here — the same recipe with a mingw
 # toolchain, which is also how mpv's own Windows builds are made.
+#
+# A MAC BUILDS ON THE MAC, NOT IN A CONTAINER: there is no macOS container to run
+# it in, and a dylib has to be linked against Apple's SDK by Apple's clang. What
+# the container gives Linux — a build that does not depend on the machine —
+# comes here from the SDK and the deployment target in inner.sh instead. The
+# build tools (meson, ninja, cmake, pkgconf) go into a virtual environment
+# inside the work folder, never onto the machine, so no package manager is
+# needed: Xcode's Command Line Tools are the only prerequisite.
+if [ "$(uname -s)" = Darwin ]; then
+    [ "${1:-native}" = native ] || { echo "on macOS only the native build is possible" >&2; exit 1; }
+    case "$(uname -m)" in
+        arm64)  RID=osx-arm64 ;;
+        x86_64) RID=osx-x64 ;;
+    esac
+    OUT="$ROOT/native/$RID"
+    WORK="${WORK:-$HOME/Library/Caches/albumwall-build-libmpv}"
+    rm -rf "$WORK"
+    mkdir -p "$OUT" "$WORK"
+    WORK="$WORK" OUT="$OUT" bash "$HERE/inner.sh" macos
+    printf 'local build %s\n' "$(date +%F)" > "$OUT/libmpv-source.txt"
+    echo
+    echo "Built into: $OUT"
+    cat "$OUT/libmpv-build-info.txt"
+    exit 0
+fi
+
 case "${1:-native}" in
     native)
         case "$(uname -m)" in
