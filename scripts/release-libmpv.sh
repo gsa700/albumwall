@@ -4,9 +4,9 @@
 #   scripts/release-libmpv.sh libmpv-0.41.0-4            a DRAFT pre-release, to check first
 #   scripts/release-libmpv.sh libmpv-0.41.0-4 --publish  published at once
 #
-# WHAT GOES UP. The three libraries as they are in native/<rid>/ right now (built
+# WHAT GOES UP. The four libraries as they are in native/<rid>/ right now (built
 # by scripts/build-libmpv/build.sh: x64 and win-x64 here, arm64 natively on a
-# Pi), each zipped with its libmpv-build-info.txt as libmpv-<tag-version>-<rid>.zip;
+# Pi, osx-arm64 natively on a Mac with the `macos` target), each zipped with its libmpv-build-info.txt as libmpv-<tag-version>-<rid>.zip;
 # SHA256SUMS over those; the source they were built from, made by
 # build-libmpv/source-archives.sh, with SHA256SUMS-sources. That last part is not
 # optional: handing out the binary is what obliges us to hand out the source.
@@ -65,9 +65,9 @@ VERSION=${TAG#libmpv-}
 # Every library in the set, present, and carrying astats: the app's level meters
 # need it, and since libmpv-0.41.0-4 a build without it is a build from the wrong
 # recipe (the app would play, but with no meters).
-for rid in linux-x64 linux-arm64 win-x64; do
+for rid in linux-x64 linux-arm64 win-x64 osx-arm64; do
     dir="$ROOT/native/$rid"
-    case $rid in win-*) lib=libmpv-2.dll ;; *) lib=libmpv.so.2 ;; esac
+    case $rid in win-*) lib=libmpv-2.dll ;; osx-*) lib=libmpv.2.dylib ;; *) lib=libmpv.so.2 ;; esac
     [ -f "$dir/$lib" ] || die "missing $dir/$lib"
     [ -f "$dir/libmpv-build-info.txt" ] || die "missing $dir/libmpv-build-info.txt"
     grep -aq 'Show time domain statistics about audio frames' "$dir/$lib" \
@@ -78,7 +78,7 @@ out, *files = sys.argv[1:]
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for f in files:
         info = zipfile.ZipInfo.from_file(f, os.path.basename(f))
-        info.external_attr = (0o755 if f.endswith((".so.2", ".dll")) else 0o644) << 16
+        info.external_attr = (0o755 if f.endswith((".so.2", ".dll", ".dylib")) else 0o644) << 16
         info.compress_type = zipfile.ZIP_DEFLATED
         with open(f, "rb") as src: z.writestr(info, src.read())
 PY
@@ -91,7 +91,7 @@ mkdir -p "$WORK/src"
 "$ROOT/scripts/build-libmpv/source-archives.sh" "$WORK/src"
 SOURCES=("$WORK"/src/*)
 
-ARGS=(--repo "$REPO" --prerelease --title "$TAG (audio-only libmpv, all three platforms)")
+ARGS=(--repo "$REPO" --prerelease --title "$TAG (audio-only libmpv: Linux, Windows and macOS)")
 [ -n "$NOTES" ] && ARGS+=(--notes-file "$NOTES") || ARGS+=(--notes "Audio-only libmpv builds for AlbumWall. Notes to be written before publishing.")
 [ $PUBLISH -eq 1 ] || ARGS+=(--draft)
 gh release create "$TAG" "${ARGS[@]}" "$WORK"/libmpv-*.zip "$WORK/SHA256SUMS" "${SOURCES[@]}"

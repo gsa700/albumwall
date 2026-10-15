@@ -30,7 +30,10 @@
 # same tag by another road. Hence two things below: every `git archive` runs with
 # autocrlf off, and that comparison is now part of this script, so a machine whose
 # git rewrites the source fails here instead of publishing it. gzip runs with -n,
-# so the same tag gives the same bytes on any machine on any day.
+# so the same tag gives the same bytes on any machine on any day - with GNU gzip.
+# Apple's gzip compresses the same tar to different bytes (seen 2026-10-15: every
+# archive made on a Mac had a new checksum and the identical tar inside), so
+# compare archives from different machines by `gzip -dc | sha256sum`.
 
 set -euo pipefail
 
@@ -69,7 +72,7 @@ for line in "${PROJECTS[@]}"; do
     src="$WORK/$name"
     extra=()
     [ "$recursive" = yes ] && extra=(--recursive --shallow-submodules)
-    git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" "${extra[@]}" "$url" "$src"
+    git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" ${extra[@]+"${extra[@]}"} "$url" "$src"
 
     prefix="$name-$tag"
     tar="$WORK/$prefix.tar"
@@ -82,7 +85,28 @@ for line in "${PROJECTS[@]}"; do
             [ -n "$sub" ] || continue
             echo "   + $sub"
             archive "$src/$sub" --prefix="$prefix/$sub/" HEAD > "$WORK/sub.tar"
-            tar --concatenate --file="$tar" "$WORK/sub.tar"
+            if tar --version 2>/dev/null | grep -q 'GNU tar'; then
+                tar --concatenate --file="$tar" "$WORK/sub.tar"
+            else
+                # macOS: bsdtar has no --concatenate. Drop the first archive's end
+                # marker, append the second's entries, end marker, pad to 10240-byte
+                # records. The entries come out byte for byte as GNU tar's (checked
+                # against libmpv-0.41.0-5 on 2026-10-15); only the zero padding at
+                # the very end can be shorter, which no tar reads.
+                python3 - "$tar" "$WORK/sub.tar" <<'PY'
+import sys
+def entries(b):
+    i = 0
+    while i + 512 <= len(b) and b[i:i+512] != bytes(512):
+        size = int(b[i+124:i+136].split(b"\0")[0].strip() or b"0", 8)
+        i += 512 + (size + 511) // 512 * 512
+    return b[:i]
+first, second = (open(p, "rb").read() for p in sys.argv[1:])
+out = entries(first) + entries(second) + bytes(1024)
+out += bytes(-len(out) % 10240)
+open(sys.argv[1], "wb").write(out)
+PY
+            fi
         done
     fi
 

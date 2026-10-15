@@ -50,9 +50,9 @@ it at release time; the rules above are for every push.
 - The app: `scripts/release.sh X.Y.Z` without `--publish` makes a draft
   (`--dry-run` to build only). Bump `<Version>` in its own commit first.
 - The audio engine: `scripts/release-libmpv.sh libmpv-X.Y.Z-N`, then point
-  `scripts/LIBMPV_RELEASE` at it. Gapless must pass on all three builds first
+  `scripts/LIBMPV_RELEASE` at it. Gapless must pass on all four builds first
   (`tools/gapless-check.cs`, with `GAPLESS_AF` for the player's filter chain),
-  on Windows ON WINDOWS.
+  on Windows ON WINDOWS, on macOS on a Mac.
 - Publishing an app release offers it to every installed copy. It is his call,
   every time.
 
