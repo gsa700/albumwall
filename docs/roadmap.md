@@ -528,9 +528,18 @@ is ahead, the history is for what is behind.
   without the meter chain; FLAC and MP3 match the Linux engine sample for
   sample. Also: the level meters work (Mpv.LoadedFile learned dladdr), and the
   installer is OFF on macOS, because the Linux one wrote .desktop files there.
+  Same day, from his first use: the main window keeps the system's title bar
+  (real traffic lights; full screen OFF on the Mac, the green button zooms;
+  43eba1e), and `scripts/make-macos-app.sh` builds AlbumWall.app
+  (io.github.gsa700.AlbumWall, the engine inside, icon on Apple's grid) and
+  `--install` puts it in /Applications, where it runs on the Studio now. Signed
+  with a LOCAL self-signed certificate when the Mac has one, so the Music-folder
+  permission survives rebuilds (ad hoc, it was asked again after every one).
   Still NOT done: a `libmpv-*` release carrying the dylib (and macos.yml
-  using it instead of Homebrew's); the `.app` bundle in /Applications, which
-  is what installing means on a Mac; the conventions in point 2; signing.
+  using it instead of Homebrew's); the rest of point 2 (Cmd keys, a menu bar,
+  Now Playing and the media keys); signing with a Developer ID, and the
+  updater replacing a bundle rather than a loose exe (installing is still OFF
+  in the app on macOS: the .app is made by the script, not by the app).
 
 - **FOR THE NEXT TECHBENCH SESSION: tidy the lossy library** (note left from
   Hambench, 2026-10-04: "can you leave yourself a note in github so we can go

@@ -102,6 +102,12 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        // The application menu's title in the macOS menu bar, beside the Apple
+        // menu. Avalonia takes it from here, not from the bundle's Info.plist, and
+        // left unset it is Avalonia's own default (2026-10-14, first .app build).
+        // macOS only: elsewhere the name can reach the window's identity on the
+        // desktop, which already matches its launcher.
+        if (OperatingSystem.IsMacOS()) Name = DisplayName;
     }
 
     public override void OnFrameworkInitializationCompleted()
