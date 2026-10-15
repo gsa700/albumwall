@@ -7,7 +7,9 @@
 //
 // In the format of Preferences (see PrefsWindow.axaml): a proper decorated
 // window, fixed size, one instance, owned by the window that opened it, the
-// sheet's colors. Built in code because it is one scrolling column of text and
+// sheet's LIGHT colors, as Preferences and Properties have been since the
+// paperwork went light (2026-10-08). This one was left dark until 2026-10-14:
+// "lets make that the light color pattern as the rest of the small windows". Built in code because it is one scrolling column of text and
 // the markup would be longer than this.
 
 using Avalonia;
@@ -57,20 +59,26 @@ public sealed class NoticesWindow : Window
         Height = 700;
         CanResize = false;
         ShowInTaskbar = false;
-        RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
-        Foreground = SolidColorBrush.Parse("#F3EEE6");
+        RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
+        Foreground = SolidColorBrush.Parse("#1D1D20");
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        // Preferences' sheet colors, named here so they override the dark ones
+        // ApplyGround sets on the application, for this window only.
+        Resources["SheetBg"] = SolidColorBrush.Parse("#E4E4E2");
+        Resources["SheetField"] = SolidColorBrush.Parse("#F6F6F4");
+        Resources["SheetEdge"] = SolidColorBrush.Parse("#C2C2C6");
         this[!BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
 
         var column = new StackPanel { Spacing = 4, Margin = new Thickness(26, 20, 30, 26) };
 
-        // The folds in the sheet's colors and at a height meant for a list of
-        // twenty-one. The theme's own are near-black slabs 48 px tall, which on
-        // this panel read as a wall of buttons rather than a list of documents.
+        // The folds in the panel's color and at a height meant for a list of
+        // twenty-one. The theme's own are solid slabs 48 px tall, which on this
+        // panel read as a wall of buttons rather than a list of documents. A
+        // touch darker under the pointer, as the Library list's pick is.
         column.Resources["ExpanderMinHeight"] = 34.0;
-        foreach (var key in new[] { "ExpanderHeaderBackground", "ExpanderHeaderBackgroundPointerOver",
-                                    "ExpanderHeaderBackgroundPressed" })
-            column.Resources[key] = Application.Current!.Resources["SheetBg"];
+        column.Resources["ExpanderHeaderBackground"] = SolidColorBrush.Parse("#F6F6F4");
+        column.Resources["ExpanderHeaderBackgroundPointerOver"] = SolidColorBrush.Parse("#EBEBE9");
+        column.Resources["ExpanderHeaderBackgroundPressed"] = SolidColorBrush.Parse("#CDCDD0");
         column.Resources["ExpanderContentBackground"] = Brushes.Transparent;
         foreach (var block in Read())
             column.Children.Add(block);
