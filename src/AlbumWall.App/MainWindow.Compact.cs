@@ -124,6 +124,10 @@ public partial class MainWindow
 
         // The window buttons the desktop asks for, minus Maximize: a compact window
         // has one bigger size and the expand button is it.
+        //
+        // None on macOS, whose own traffic lights are on this window already
+        // (UseMacTitleBar); drawing ours too put a second set in the other corner.
+        if (OperatingSystem.IsMacOS()) return;
         var (left, right) = WindowButtons.Layout();
         foreach (var kind in left.Concat(right))
         {

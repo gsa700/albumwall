@@ -23,10 +23,12 @@ public partial class PrefsWindow
             ("→   ←", "Forward or back ten seconds."),
             ("Ctrl + ↑   Ctrl + ↓", "Louder, quieter. This app only, not the computer."),
             ("Ctrl + F   or   /", "Go to the search box."),
-            ("Esc", "Clear the search; or, with nothing searched for, fold the open album."),
+            ("Esc", OperatingSystem.IsMacOS()
+                ? "Clear the search; or, with nothing searched for, fold the open album."
+                : "Leave full screen; or clear the search; or, with nothing searched for, fold the open album."),
             ("Ctrl + L", "Go to the album that is playing, and open it."),
             ("Ctrl + M", "Compact: the window becomes just what is playing. Again, or Esc, for the wall."),
-            ("F11", "Full screen, and back."),
+            (OperatingSystem.IsMacOS() ? null : "F11", "Full screen, and back."),     // none on the Mac
             ("Ctrl + ,", "Preferences."),
             ("F1", "This page."));
         Note("The arrow keys alone, Page Up, Page Down, Home and End scroll the wall. Tab moves from cover to "
@@ -58,10 +60,12 @@ public partial class PrefsWindow
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 3)
         });
 
-    private void Rows(params (string Keys, string Does)[] rows)
+    /// A row whose keys are null is left out: a key this platform does not have.
+    private void Rows(params (string? Keys, string Does)[] rows)
     {
         foreach (var (keys, does) in rows)
         {
+            if (keys is null) continue;
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("160,*"), MinHeight = 22 };
             row.Children.Add(new TextBlock
             {

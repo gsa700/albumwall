@@ -123,6 +123,7 @@ public partial class MainWindow : Window
         // maximize, and the buttons the desktop asked for.
         TopBar.PointerPressed += OnTitleBarPressed;
         WireContextMenu();
+        UseMacTitleBar();
         BuildWindowButtons();
         BuildTransport();
         ApplyTransportPosition();
@@ -1278,6 +1279,15 @@ public partial class MainWindow : Window
     /// still maximizes, which is how GNOME expects it to be done.
     private void BuildWindowButtons()
     {
+        // macOS draws its own traffic lights over the top bar (UseMacTitleBar), so
+        // nothing is drawn here: the left panel only keeps their place clear.
+        if (OperatingSystem.IsMacOS())
+        {
+            LeftButtons.Width = MacTrafficLightsWidth;
+            Console.WriteLine("[wall] window buttons: the system's (macOS traffic lights)");
+            return;
+        }
+
         var (left, right) = WindowButtons.Layout();
         Console.WriteLine($"[wall] window buttons left=[{string.Join(",", left)}] "
                         + $"right=[{string.Join(",", right)}]");
@@ -1322,9 +1332,54 @@ public partial class MainWindow : Window
 
     private StandardCursorType _cursor = StandardCursorType.Arrow;
 
+    /// How much of the top bar's left end the traffic lights take on macOS: the
+    /// three buttons and the gap the system leaves around them.
+    private const double MacTrafficLightsWidth = 70;
+
+    /// macOS: a REAL title bar, extended under the top bar, instead of none.
+    ///
+    /// Everywhere else the main window has no system decorations at all and draws
+    /// its own buttons. On macOS that went wrong twice (Dave, 2026-10-14, first
+    /// use): the buttons looked like Windows ones, and full screen moved the
+    /// window into a full-screen Space without making it any bigger. A window
+    /// with no title bar is a borderless NSWindow, and macOS only fills the
+    /// screen with a titled one; the window stayed 1444x1080 in the middle of a
+    /// black screen and Avalonia never saw a resize. With the system's title bar
+    /// in place macOS draws the traffic lights itself and the window edges resize
+    /// natively.
+    ///
+    /// FULL SCREEN IS THEN OFF ON THE MAC (his call, 2026-10-14: "we just disable
+    /// full screen as it's unlikely to be used much outside of kiosk which is not
+    /// really a mac targeted feature"). Real full screen worked, but at the top
+    /// edge macOS brings down its menu bar and the window's own title strip, a
+    /// separate window of the system's that COVERS our top bar (measured from the
+    /// window list: menu bar 0-30, strip 30-74), and the traffic lights cannot be
+    /// moved onto ours. Entering it also now and then drew a quarter of the
+    /// window, skewed, until full screen was left and entered again. So the green
+    /// button zooms instead (MacWindow), and there is no full-screen button or key.
+    private void UseMacTitleBar()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        WindowDecorations = WindowDecorations.Full;
+        ExtendClientAreaToDecorationsHint = true;
+        // The traffic lights are centred in a title bar of this height, so they
+        // line up with the top bar instead of sitting at its top edge.
+        ExtendClientAreaTitleBarHeightHint = TopBar.Height;
+
+        FullScreenButton.IsVisible = false;
+        Opened += (_, _) =>
+        {
+            var h = TryGetPlatformHandle();
+            var zoom = MacWindow.ZoomInsteadOfFullScreen(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor);
+            Console.WriteLine($"[wall] green button: {(zoom ? "zoom" : "full screen (could not change it)")} "
+                            + $"({h?.HandleDescriptor})");
+        };
+    }
+
     private WindowEdge? EdgeAt(Point p)
     {
         if (WindowState != WindowState.Normal) return null;   // nothing to resize
+        if (OperatingSystem.IsMacOS()) return null;           // the system's own edges do it
 
         double w = Bounds.Width, h = Bounds.Height;
         bool l = p.X <= ResizeBand, r = p.X >= w - ResizeBand;
@@ -1672,8 +1727,11 @@ public partial class MainWindow : Window
 
     /// Rounded only when the window is a floating window. Maximized or full
     /// screen, the corners are the SCREEN's corners and must be filled.
+    ///
+    /// On macOS never: a titled window's corners are the system's to round.
     private void ApplyCorners() =>
-        Surface.CornerRadius = new CornerRadius(WindowState == WindowState.Normal ? 12 : 0);
+        Surface.CornerRadius = new CornerRadius(
+            WindowState == WindowState.Normal && !OperatingSystem.IsMacOS() ? 12 : 0);
 
     /// Puts the window back to the size it had before it was maximized, when the
     /// window manager has not done it.
@@ -3658,14 +3716,19 @@ public partial class MainWindow : Window
                 break;
 
             case Key.Escape:
-                // Out of whatever was last gone into: the search first, then the album.
-                if (_filter.Length > 0 || (typing && !string.IsNullOrEmpty(SearchBox.Text))) SearchBox.Text = "";
+                // Out of whatever was last gone into: full screen first ("in full
+                // screen it should return to the normal window on first press",
+                // Dave 2026-10-14), then the search, then the album.
+                if (WindowState == WindowState.FullScreen) ToggleFullScreen();
+                else if (_filter.Length > 0 || (typing && !string.IsNullOrEmpty(SearchBox.Text))) SearchBox.Text = "";
                 else if (typing) WallScroller.Focus();
                 else if (_open is not null) SetOpen(null);
                 else return;
                 break;
 
-            case Key.F11 when !ctrl:
+            // Not on macOS, which has no full screen here (UseMacTitleBar), and
+            // where F11 is the system's Show Desktop anyway.
+            case Key.F11 when !ctrl && !OperatingSystem.IsMacOS():
                 ToggleFullScreen();
                 break;
 
