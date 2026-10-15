@@ -536,8 +536,9 @@ is ahead, the history is for what is behind.
   with a LOCAL self-signed certificate when the Mac has one, so the Music-folder
   permission survives rebuilds (ad hoc, it was asked again after every one).
   Still NOT done: a `libmpv-*` release carrying the dylib (and macos.yml
-  using it instead of Homebrew's); the rest of point 2 (Cmd keys, a menu bar,
-  Now Playing and the media keys); signing with a Developer ID, and the
+  using it instead of Homebrew's); the rest of point 2 (Cmd keys, a menu
+  bar; Now Playing and the media keys are DONE, MacNowPlaying.cs, the same
+  day); signing with a Developer ID, and the
   updater replacing a bundle rather than a loose exe (installing is still OFF
   in the app on macOS: the .app is made by the script, not by the app).
 

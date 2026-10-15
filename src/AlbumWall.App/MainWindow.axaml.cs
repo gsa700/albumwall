@@ -552,6 +552,11 @@ public partial class MainWindow : Window
         _smtc = Smtc.Start(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, MprisCommand,
                            to => Dispatcher.UIThread.Post(() => SeekFromSystem(to)));
 #endif
+
+        // And for the Mac: Now Playing and the media keys (MacNowPlaying.cs),
+        // into the same MprisCommand. Null everywhere else.
+        _macNowPlaying = MacNowPlaying.Start(MprisCommand, to => Dispatcher.UIThread.Post(() => SeekFromSystem(to)));
+        if (_macNowPlaying is not null) PushToSystem();
     }
 
     /// Where the music lives: the current library's folder, or the platform's
@@ -3268,6 +3273,7 @@ public partial class MainWindow : Window
 #if WINDOWS
     private Smtc? _smtc;
 #endif
+    private MacNowPlaying? _macNowPlaying;
 
     private volatile Mpris.State _mprisState =
         new(false, false, "", "", "", "", 0, 0, 1.0);
@@ -3325,19 +3331,21 @@ public partial class MainWindow : Window
         _mpris?.NotifyChanged();
 #if WINDOWS
         _smtc?.Update(_mprisState, _playingAlbum?.Album);
-        PushTimeline();
 #endif
+        _macNowPlaying?.Update(_mprisState, _playingAlbum?.Album);
+        PushTimeline();
     }
 
     /// Tells the desktop's media controls where the track is. Called when
     /// something changes and, from the position timer, every two seconds.
     private void PushTimeline()
     {
+        if (_player is null || !_mprisState.HasTrack) return;
 #if WINDOWS
-        if (_smtc is null || _player is null || !_mprisState.HasTrack) return;
-        _smtc.UpdateTimeline(_player.Position, _player.Duration);
-        _timelineSent = Environment.TickCount64;
+        _smtc?.UpdateTimeline(_player.Position, _player.Duration);
 #endif
+        _macNowPlaying?.UpdateTimeline(_player.Position, _player.Duration);
+        _timelineSent = Environment.TickCount64;
     }
 
     private long _timelineSent;
