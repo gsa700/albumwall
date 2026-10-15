@@ -19,18 +19,18 @@ public partial class PrefsWindow
         Heading("Keys", first: true);
         Rows(
             ("Space", "Play or pause."),
-            ("Ctrl + →   Ctrl + ←", "Next track, previous track."),
+            ($"{Shortcut.Name("→")}   {Shortcut.Name("←")}", "Next track, previous track."),
             ("→   ←", "Forward or back ten seconds."),
-            ("Ctrl + ↑   Ctrl + ↓", "Louder, quieter. This app only, not the computer."),
-            ("Ctrl + F   or   /", "Go to the search box."),
+            ($"{Shortcut.Name("↑")}   {Shortcut.Name("↓")}", "Louder, quieter. This app only, not the computer."),
+            ($"{Shortcut.Name("F")}   or   /", "Go to the search box."),
             ("Esc", OperatingSystem.IsMacOS()
                 ? "Clear the search; or, with nothing searched for, fold the open album."
                 : "Leave full screen; or clear the search; or, with nothing searched for, fold the open album."),
-            ("Ctrl + L", "Go to the album that is playing, and open it."),
-            ("Ctrl + M", "Compact: the window becomes just what is playing. Again, or Esc, for the wall."),
+            (Shortcut.Name("L"), "Go to the album that is playing, and open it."),
+            (Shortcut.Compact, "Compact: the window becomes just what is playing. Again, or Esc, for the wall."),
             (OperatingSystem.IsMacOS() ? null : "F11", "Full screen, and back."),     // none on the Mac
-            ("Ctrl + ,", "Preferences."),
-            ("F1", "This page."));
+            (Shortcut.Name(","), "Preferences."),
+            (OperatingSystem.IsMacOS() ? "F1   or   ⌘?" : "F1", "This page."));
         Note("The arrow keys alone, Page Up, Page Down, Home and End scroll the wall. Tab moves from cover to "
            + "cover and Enter opens the one it is on. The keyboard's own media keys work too, whether or not "
            + "this window is in front.");

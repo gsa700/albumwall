@@ -434,7 +434,7 @@ public sealed class PropertiesWindow : Window
             save.Click += async (_, _) => await Save();
             box.KeyDown += async (_, e) =>
             {
-                if (e.Key != Avalonia.Input.Key.S || e.KeyModifiers != Avalonia.Input.KeyModifiers.Control) return;
+                if (e.Key != Avalonia.Input.Key.S || e.KeyModifiers != Shortcut.Primary) return;    // Ctrl+S, Cmd+S on the Mac
                 e.Handled = true;
                 await Save();
             };

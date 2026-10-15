@@ -637,7 +637,7 @@
                          playing ... then a button back to the full wall". The glyph is
                          the shape the window turns into. -->
                     <Button x:Name="CompactButton" Classes="chrome" VerticalAlignment="Center"
-                            Padding="8,4" ToolTip.Tip="Compact (Ctrl+M)">
+                            Padding="8,4">
                         <Path Stretch="Uniform" Width="17" Height="15"
                               Stroke="#F3EEE6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
                               Data="M 1 5 L 19 5 L 19 12 L 1 12 Z M 4 8.5 L 7 8.5"/>

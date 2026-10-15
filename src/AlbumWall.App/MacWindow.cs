@@ -36,7 +36,23 @@ internal static class MacWindow
         return ((ulong)Send(window, Sel("collectionBehavior")) & FullScreenNone) != 0;
     }
 
+    /// Sends an NSApplication action with no sender: hide:, hideOtherApplications:,
+    /// unhideAllApplications:. For the application menu, whose standard items
+    /// Avalonia's defaults would have supplied (MainWindow.MacMenu.cs).
+    public static void AppAction(string selector)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var app = Send(objc_getClass("NSApplication"), Sel("sharedApplication"));
+        SendPtr(app, Sel(selector), IntPtr.Zero);
+    }
+
     private static IntPtr Sel(string name) => sel_registerName(name);
+
+    [DllImport("/usr/lib/libobjc.A.dylib")]
+    private static extern IntPtr objc_getClass(string name);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void SendPtr(IntPtr receiver, IntPtr selector, IntPtr value);
 
     [DllImport("/usr/lib/libobjc.A.dylib")]
     private static extern IntPtr sel_registerName(string name);

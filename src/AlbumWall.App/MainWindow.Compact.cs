@@ -96,6 +96,7 @@ public partial class MainWindow
     private void SetUpCompact()
     {
         CompactButton.Click += (_, _) => EnterCompact();
+        ToolTip.SetTip(CompactButton, $"Compact ({Shortcut.Compact})");
         Compact.TitleSize = CompactTitleSize;
 
         Compact.ExpandRequested += ExitCompact;

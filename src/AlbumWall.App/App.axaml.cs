@@ -108,6 +108,12 @@ public partial class App : Application
         // macOS only: elsewhere the name can reach the window's identity on the
         // desktop, which already matches its launcher.
         if (OperatingSystem.IsMacOS()) Name = DisplayName;
+
+        // The application menu must EXIST before Avalonia looks for one, or it
+        // makes its own, starting "About Avalonia", and a menu set later does not
+        // replace it ("About: Avalonia", 2026-10-14). Empty here; the main window
+        // fills it (MainWindow.MacMenu.cs).
+        if (OperatingSystem.IsMacOS()) Avalonia.Controls.NativeMenu.SetMenu(this, new Avalonia.Controls.NativeMenu());
     }
 
     public override void OnFrameworkInitializationCompleted()

@@ -535,10 +535,13 @@ is ahead, the history is for what is behind.
   `--install` puts it in /Applications, where it runs on the Studio now. Signed
   with a LOCAL self-signed certificate when the Mac has one, so the Music-folder
   permission survives rebuilds (ad hoc, it was asked again after every one).
+  Point 2 is DONE the same evening: Now Playing and the media keys
+  (MacNowPlaying.cs), Cmd for Ctrl in every shortcut and in the Help tab, with
+  compact on Option+Cmd+M because Cmd+M is Minimize (Shortcut.cs), and a menu
+  bar of our own with the application menu in full, Avalonia's "About
+  Avalonia" defaults off (MainWindow.MacMenu.cs).
   Still NOT done: a `libmpv-*` release carrying the dylib (and macos.yml
-  using it instead of Homebrew's); the rest of point 2 (Cmd keys, a menu
-  bar; Now Playing and the media keys are DONE, MacNowPlaying.cs, the same
-  day); signing with a Developer ID, and the
+  using it instead of Homebrew's); signing with a Developer ID, and the
   updater replacing a bundle rather than a loose exe (installing is still OFF
   in the app on macOS: the .app is made by the script, not by the app).
 

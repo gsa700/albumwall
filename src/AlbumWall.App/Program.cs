@@ -112,6 +112,9 @@ class Program
             .WithDeveloperTools()
 #endif
             .WithInterFont()
+            // macOS: Avalonia's own application-menu items include "About
+            // Avalonia"; MainWindow.MacMenu.cs supplies the whole menu instead.
+            .With(new MacOSPlatformOptions { DisableDefaultApplicationMenuItems = true })
             .AfterSetup(_ => Avalonia.Logging.Logger.Sink =
                 new ConsoleLogSink(Avalonia.Logging.LogEventLevel.Warning));
 

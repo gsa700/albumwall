@@ -515,6 +515,7 @@ public partial class MainWindow : Window
         AlbumVm.Scaling = RenderScaling;
 
         SetUpMenu();
+        SetUpMacMenu();
         SetUpWelcome();
         CountsLink.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);     // its lower half is the statistics
         LibraryLink.Click += (_, _) => OpenLibraryPicker();
@@ -3702,16 +3703,20 @@ public partial class MainWindow : Window
     {
         var focused = FocusManager?.GetFocusedElement();
         var typing = focused is TextBox;
-        var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
-        var other = e.KeyModifiers & ~KeyModifiers.Control;
-        if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift)) return;
+        // "ctrl" is the platform's shortcut modifier: Ctrl, or Cmd on the Mac
+        // (Shortcut.cs). The name stayed; on a Mac read it as Cmd.
+        var ctrl = e.KeyModifiers.HasFlag(Shortcut.Primary);
+        var other = e.KeyModifiers & ~Shortcut.Primary;
+        var compactKey = e.Key == Key.M && ctrl && other == Shortcut.CompactExtra;
+        var helpKey = OperatingSystem.IsMacOS() && e.Key == Key.OemQuestion && ctrl && other == KeyModifiers.Shift;  // Cmd+?
+        if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift) && !compactKey) return;
 
         // Compact first. Esc is the way back to the wall, and the keys that only
         // mean something on the wall - search, go to the playing album - take you
         // back to it first and then do their job there.
         if (_compact)
         {
-            if (e.Key == Key.Escape || (e.Key == Key.M && ctrl)) { ExitCompact(); e.Handled = true; return; }
+            if (e.Key == Key.Escape || compactKey) { ExitCompact(); e.Handled = true; return; }
             if ((e.Key == Key.F && ctrl) || (e.Key == Key.L && ctrl)
                 || (e.Key == Key.OemQuestion && !ctrl && other == KeyModifiers.None))
                 ExitCompact();
@@ -3719,7 +3724,7 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
-            case Key.M when ctrl:
+            case Key.M when compactKey:
                 ToggleCompact();
                 break;
 
@@ -3751,6 +3756,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F1:
+            case Key.OemQuestion when helpKey:
                 ShowPrefs(PrefsWindow.Tab.Help);
                 break;
 
@@ -3805,7 +3811,7 @@ public partial class MainWindow : Window
                 return;
         }
         e.Handled = true;
-        Console.WriteLine($"[key] {(ctrl ? "Ctrl+" : "")}{e.Key}"
+        Console.WriteLine($"[key] {(ctrl ? (OperatingSystem.IsMacOS() ? "Cmd+" : "Ctrl+") : "")}{e.Key}"
                         + (_player is not null && _mprisState.HasTrack ? $"  (track {_player.Index + 1}, {Clock(_player.Position)}, "
                                                                        + $"{(_player.IsPlaying ? "playing" : "paused")}, volume {VolumeSlider.Value:0})" : ""));
     }
