@@ -16,3 +16,6 @@ __pycache__/
 
 # scripts/release.sh --dry-run
 dist/
+
+# Finder's per-folder view settings, written into any folder opened on a Mac.
+.DS_Store
