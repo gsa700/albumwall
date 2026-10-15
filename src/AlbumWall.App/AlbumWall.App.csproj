@@ -97,10 +97,10 @@
 
   <!-- The app's own libmpv, per platform: fetched on Windows
        (scripts/get-libmpv.ps1), built on Linux (scripts/build-libmpv/). Never
-       committed either way — native/ is git-ignored. macOS (osx-arm64, since
-       2026-10-10) has no bundled engine yet and plays through Homebrew's libmpv;
-       the folder and the .dylib glob are here for the day the recipe grows a
-       libmpv.dylib target (docs/roadmap.md, macOS).
+       committed either way — native/ is git-ignored. macOS (osx-arm64): built
+       on a Mac by the recipe's `macos` target, libmpv.2.dylib, published on the
+       libmpv-* releases since libmpv-0.41.0-6 (.github/workflows/macos.yml
+       fetches it from there).
 
        The folder follows what is being built FOR, same rule as the target
        framework above, so a win-x64 publish made on Fedora picks up the Windows

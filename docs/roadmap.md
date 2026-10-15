@@ -540,8 +540,12 @@ is ahead, the history is for what is behind.
   compact on Option+Cmd+M because Cmd+M is Minimize (Shortcut.cs), and a menu
   bar of our own with the application menu in full, Avalonia's "About
   Avalonia" defaults off (MainWindow.MacMenu.cs).
-  Still NOT done: a `libmpv-*` release carrying the dylib (and macos.yml
-  using it instead of Homebrew's); signing with a Developer ID, and the
+  2026-10-15: libmpv-0.41.0-6 carries the dylib (osx-arm64 beside the other
+  three, which are -5's files unchanged), measured on the Studio first: gapless
+  26,440,602 as everywhere, the same with the meter chain, https 538,382, a
+  self-signed server refused. scripts/LIBMPV_RELEASE names it, and macos.yml
+  builds with it instead of Homebrew's.
+  Still NOT done: signing with a Developer ID, and the
   updater replacing a bundle rather than a loose exe (installing is still OFF
   in the app on macOS: the .app is made by the script, not by the app).
 
