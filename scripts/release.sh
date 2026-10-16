@@ -143,7 +143,7 @@ for rid in "${RIDS[@]}"; do
     case $rid in win-*) exe=AlbumWall.exe; magic=4d5a ;; *) exe=AlbumWall; magic=7f454c46 ;; esac
     [ -f "$out/$exe" ] || die "$rid: no $exe after publish"
     head -c 4 "$out/$exe" | od -An -tx1 | tr -d ' \n' | grep -q "^$magic" || die "$rid: $exe is not a $rid executable"
-    [ "$(stat -c %s "$out/$exe")" -gt 50000000 ] || die "$rid: $exe is too small to be the single-file build"
+    [ "$(wc -c < "$out/$exe")" -gt 50000000 ] || die "$rid: $exe is too small to be the single-file build"
     "$PY" - "$WORK/AlbumWall-$rid.zip" "$out/$exe" <<'PY'
 import sys, zipfile, os
 out, exe = sys.argv[1:]
