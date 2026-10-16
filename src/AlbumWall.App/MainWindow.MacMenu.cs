@@ -22,26 +22,26 @@ namespace AlbumWall.App;
 
 public partial class MainWindow
 {
+    private const KeyModifiers Cmd = KeyModifiers.Meta;
+
+    private static NativeMenuItem Item(string header, Action run, Key? key = null, KeyModifiers mods = Cmd)
+    {
+        var item = new NativeMenuItem(header);
+        if (key is { } k) item.Gesture = new KeyGesture(k, mods);
+        item.Click += (_, _) => run();
+        return item;
+    }
+
+    private static NativeMenuItem Menu(string header, params NativeMenuItemBase[] items)
+    {
+        var menu = new NativeMenu();
+        foreach (var i in items) menu.Items.Add(i);
+        return new NativeMenuItem(header) { Menu = menu };
+    }
+
     private void SetUpMacMenu()
     {
         if (!OperatingSystem.IsMacOS()) return;
-
-        const KeyModifiers Cmd = KeyModifiers.Meta;
-
-        static NativeMenuItem Item(string header, Action run, Key? key = null, KeyModifiers mods = Cmd)
-        {
-            var item = new NativeMenuItem(header);
-            if (key is { } k) item.Gesture = new KeyGesture(k, mods);
-            item.Click += (_, _) => run();
-            return item;
-        }
-
-        static NativeMenuItem Menu(string header, params NativeMenuItemBase[] items)
-        {
-            var menu = new NativeMenu();
-            foreach (var i in items) menu.Items.Add(i);
-            return new NativeMenuItem(header) { Menu = menu };
-        }
 
         // The application menu, the one named AlbumWall, in full. Avalonia's
         // defaults are off (Program.cs) because they began with "About Avalonia"
@@ -60,12 +60,38 @@ public partial class MainWindow
         app.Items.Add(Item("Quit AlbumWall", Close, Key.Q));
         NativeMenu.SetMenu(Avalonia.Application.Current!, app);
 
+        NativeMenu.SetMenu(this, MenuBar());
+        // macOS shows the menus of the window in FRONT, and Avalonia keeps them
+        // per window: Preferences, Properties and the rest had a bar with only
+        // the application menu in it (found in Deadwax on the first Mac,
+        // 2026-10-15). Every other window gets its own copy as it opens.
+        Window.WindowOpenedEvent.AddClassHandler<Window>((w, _) =>
+        {
+            if (w != this && NativeMenu.GetMenu(w) is null) NativeMenu.SetMenu(w, MenuBar());
+        });
+    }
+
+    /// File, Edit, Controls, View, Window and Help, a new set each time: one
+    /// NativeMenu cannot sit on two windows.
+    private NativeMenu MenuBar()
+    {
+        // Cmd+W and Cmd+M act on the window in front, so Cmd+W in Preferences
+        // closes Preferences, not AlbumWall. The compact front panel stands for
+        // the main window, as it does everywhere else.
+        Window Front()
+        {
+            var windows = (Avalonia.Application.Current?.ApplicationLifetime
+                as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Windows;
+            var front = windows?.FirstOrDefault(w => w.IsActive);
+            return front is null or FrontPanelWindow ? this : front;
+        }
+
         var bar = new NativeMenu();
         bar.Items.Add(Menu("File",
             Item("Libraries…", OpenLibraryPicker),
             Item("Rescan Library", () => ScanLibrary(asked: true)),
             new NativeMenuItemSeparator(),
-            Item("Close Window", Close, Key.W)));
+            Item("Close Window", () => Front().Close(), Key.W)));
         bar.Items.Add(Menu("Edit",
             Item("Find", () => { SearchBox.Focus(); SearchBox.SelectAll(); }, Key.F)));
         bar.Items.Add(Menu("Controls",
@@ -80,11 +106,11 @@ public partial class MainWindow
         bar.Items.Add(Menu("View",
             Item("Compact", ToggleCompact, Key.M, Cmd | Shortcut.CompactExtra)));
         bar.Items.Add(Menu("Window",
-            Item("Minimize", () => WindowState = WindowState.Minimized, Key.M),
+            Item("Minimize", () => Front().WindowState = WindowState.Minimized, Key.M),
             Item("Zoom", ToggleMaximized)));
         bar.Items.Add(Menu("Help",
             Item("AlbumWall Help", () => ShowPrefs(PrefsWindow.Tab.Help), Key.OemQuestion, Cmd | KeyModifiers.Shift),
             Item("What's Inside", () => NoticesWindow.ShowFrom(this))));
-        NativeMenu.SetMenu(this, bar);
+        return bar;
     }
 }
