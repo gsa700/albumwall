@@ -137,7 +137,7 @@ public sealed class NoticesWindow : Window
                 fold.Content = new SelectableTextBlock
                 {
                     Text = text.Replace("\r", "").Replace("\f", "").TrimStart('\uFEFF'),
-                    FontFamily = new FontFamily("Consolas, DejaVu Sans Mono, monospace"),
+                    FontFamily = App.Mono,
                     FontSize = 11, LineHeight = 15, TextWrapping = TextWrapping.Wrap, Opacity = 0.86
                 };
             };

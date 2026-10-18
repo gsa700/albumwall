@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 
 namespace AlbumWall.App;
 
@@ -99,9 +100,39 @@ public partial class App : Application
         Avalonia.Automation.AutomationProperties.SetName(block, DisplayName);
     }
 
+    /// The monospace family every "mono" text uses, as ONE family that is
+    /// actually installed, or the desktop's default font when none of them is.
+    ///
+    /// Never a list of names. It used to be "Consolas, DejaVu Sans Mono,
+    /// monospace", and a Mac has none of the three, so the text fell back to the
+    /// default font - and on macOS, Avalonia 12.1.2 drawing the VU meters'
+    /// numbers in the default font loads a fresh in-memory copy of it for every
+    /// draw and never lets it go. The meters redraw thirty times a second, so
+    /// compact mode leaked about 100 MB a second until macOS killed the app for
+    /// running out of swap (2026-10-18). Tested on the Mac: a missing name, a
+    /// "$Default" and FontFamily.Default all leak the same; Menlo does not. So
+    /// the choice is made here against the installed fonts, and a name that is
+    /// not there cannot send the text to the default. Every Mac has Menlo and
+    /// every Windows Consolas; the default is left for a Linux without DejaVu,
+    /// where the leak has never been seen.
+    public static FontFamily Mono => _mono ??= ResolveMono();
+    private static FontFamily? _mono;
+
+    private static readonly string[] MonoCandidates = ["Consolas", "Menlo", "DejaVu Sans Mono"];
+
+    private static FontFamily ResolveMono()
+    {
+        var installed = FontManager.Current.SystemFonts.Select(f => f.Name)
+                                   .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var name = MonoCandidates.FirstOrDefault(installed.Contains);
+        Console.WriteLine($"[fonts] mono: {name ?? "none installed, the default font"}");
+        return name is null ? FontFamily.Default : new FontFamily(name);
+    }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        Resources["MonoFont"] = Mono;
         // The application menu's title in the macOS menu bar, beside the Apple
         // menu. Avalonia takes it from here, not from the bundle's Info.plist, and
         // left unset it is Avalonia's own default (2026-10-14, first .app build).

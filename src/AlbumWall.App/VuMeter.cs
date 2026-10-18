@@ -163,7 +163,7 @@ public sealed class VuMeter : Control
     private static readonly Geometry ScaleArc = Arc(Position(-20), Position(0), ArcR);
     private static readonly Geometry RedArc = Arc(Position(0), 1, ArcR + 3);
 
-    private static readonly Typeface Numbers = new("Consolas, DejaVu Sans Mono, monospace", FontStyle.Normal, FontWeight.Medium);
+    private static readonly Typeface Numbers = new(App.Mono, FontStyle.Normal, FontWeight.Medium);
     private static readonly Typeface Caption = new(FontFamily.Default, FontStyle.Normal, FontWeight.SemiBold);
 
     public override void Render(DrawingContext ctx)

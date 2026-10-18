@@ -22,7 +22,7 @@
             <Setter Property="Foreground" Value="#F3EEE6"/>
         </Style>
         <Style Selector="TextBlock.npmono">
-            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
         </Style>
         <!-- Round, borderless glyph buttons for the hover controls. -->
         <Style Selector="Button.np">

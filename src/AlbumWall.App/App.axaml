@@ -15,7 +15,7 @@
             <Setter Property="Foreground" Value="#A2978A"/>
         </Style>
         <Style Selector="TextBlock.mono">
-            <Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono, monospace"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
         </Style>
         <!-- Text that goes somewhere. Looks like the text around it until the
              pointer is on it, because its two uses are a line of figures in the
