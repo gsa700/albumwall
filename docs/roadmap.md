@@ -545,6 +545,21 @@ is ahead, the history is for what is behind.
   26,440,602 as everywhere, the same with the meter chain, https 538,382, a
   self-signed server refused. scripts/LIBMPV_RELEASE names it, and macos.yml
   builds with it instead of Homebrew's.
+  2026-10-18: compact mode LEAKED on the Mac, about 100 MB a second, paused or
+  playing, until macOS killed the app for running out of swap after fifteen
+  minutes ("albumwall just crashed while in compact mode"). The mono family
+  named only fonts a Mac does not have, so the text fell back to the default
+  font, Inter (embedded), and the VU meters' redraws each left a copy of it
+  behind. App.Mono now picks a mono font that is installed (Menlo on the Mac;
+  fdc2c7a), and the meters no longer redraw while resting (a52acbe). A small
+  Avalonia app with the same meter does not leak, so what else it takes is not
+  known, and no report has gone to Avalonia.
+  DECIDED the same day, the media keys after a launch: the first press of Play
+  goes to Music (or whichever app played last) until AlbumWall has played once,
+  because macOS only makes an app the Now Playing app once it has played, and
+  AlbumWall opens paused. Claiming "playing" for a moment at launch would get
+  around it, but it would also take the keys from a player that IS playing.
+  "ok leave it as is." AutoPlay avoids it.
   Still NOT done: signing with a Developer ID, and the
   updater replacing a bundle rather than a loose exe (installing is still OFF
   in the app on macOS: the .app is made by the script, not by the app).
