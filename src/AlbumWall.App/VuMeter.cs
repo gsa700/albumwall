@@ -65,7 +65,12 @@ public sealed class VuMeter : Control
             ? 0
             : Math.Pow(10, (dbfs - ZeroVuDbfs) / 20);
         // The needle hits the pin a little past +3 and goes no further.
-        _target = Math.Min(volts / FullScale, 1.05);
+        var target = Math.Min(volts / FullScale, 1.05);
+        // Paused, the same zero comes thirty times a second. A needle already
+        // resting there has nothing to draw; restarting it anyway redrew both
+        // meters at that rate all through a pause (2026-10-18).
+        if (!_animating && target == _target) return;
+        _target = target;
         StartAnimating();
     }
 
