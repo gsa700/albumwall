@@ -118,7 +118,17 @@ public partial class MainWindow
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             // Double-click goes back to the wall, as double-clicking a title bar
             // is the one gesture every desktop agrees means "make this bigger".
-            if (e.ClickCount == 2) { ExitCompact(); e.Handled = true; return; }
+            //
+            // Once the click is over, not inside it: left at once, the wall came
+            // up under the pointer while the Mac was still handling that click,
+            // now on the wall's top bar, which is title bar to it, and it zoomed
+            // (2026-10-18, "double click still makes maximize").
+            if (e.ClickCount == 2)
+            {
+                e.Handled = true;
+                Dispatcher.UIThread.Post(ExitCompact, DispatcherPriority.Background);
+                return;
+            }
             if (e.ClickCount > 2 || WindowState != WindowState.Normal) return;
             BeginMoveDrag(e);
         };
@@ -128,7 +138,18 @@ public partial class MainWindow
         //
         // None on macOS, whose own traffic lights are on this window already
         // (UseMacTitleBar); drawing ours too put a second set in the other corner.
-        if (OperatingSystem.IsMacOS()) return;
+        //
+        // And there the strip's top is under the title bar that the height hint
+        // asks for, so it is marked as the app's own: input on it is ours, not
+        // the title bar's. On its own this did NOT stop a double-click bringing
+        // the wall back maximized (2026-10-18); leaving compact after the click
+        // rather than inside it did (BackgroundPressed above).
+        if (OperatingSystem.IsMacOS())
+        {
+            Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole(
+                CompactHost, WindowDecorationsElementRole.User);
+            return;
+        }
         var (left, right) = WindowButtons.Layout();
         foreach (var kind in left.Concat(right))
         {
@@ -194,6 +215,7 @@ public partial class MainWindow
         StartMeters();
         CompactTick();
         Console.WriteLine($"[compact] on  {w}x{h}  (was {_beforeCompact})");
+        if (OperatingSystem.IsMacOS()) RecenterTrafficLights();   // and close alone
     }
 
     /// Asks for the compact size, and asks again for a moment if it has not
@@ -258,6 +280,7 @@ public partial class MainWindow
         _settings.Compact = false;
         ScheduleSave();
         Console.WriteLine($"[compact] off  back to {(_beforeCompact == WindowState.Maximized ? "maximized" : $"{Width}x{Height}")}");
+        if (OperatingSystem.IsMacOS()) RecenterTrafficLights();   // and all three buttons back
     }
 
     /// The compact size, written down as he leaves it. Not in the first half

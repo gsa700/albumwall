@@ -1368,8 +1368,10 @@ public partial class MainWindow : Window
         if (!OperatingSystem.IsMacOS()) return;
         WindowDecorations = WindowDecorations.Full;
         ExtendClientAreaToDecorationsHint = true;
-        // The traffic lights are centred in a title bar of this height, so they
-        // line up with the top bar instead of sitting at its top edge.
+        // Meant to centre the traffic lights on the top bar. On the Mac it does
+        // not (MacWindow.CenterTrafficLights says how it was found), so
+        // CenterTrafficLights below does it, but the hint stays: it is what
+        // Avalonia's own layout reads as the title bar's height.
         ExtendClientAreaTitleBarHeightHint = TopBar.Height;
 
         FullScreenButton.IsVisible = false;
@@ -1379,7 +1381,57 @@ public partial class MainWindow : Window
             var zoom = MacWindow.ZoomInsteadOfFullScreen(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor);
             Console.WriteLine($"[wall] green button: {(zoom ? "zoom" : "full screen (could not change it)")} "
                             + $"({h?.HandleDescriptor})");
+
+            var center = CenterTrafficLights();
+            Console.WriteLine($"[wall] traffic lights centred {center:0.#} pt from the top "
+                            + $"(the bar is {TopBar.Height} pt)");
+            // Read back, not set: whether AppKit has put them back on its own.
+            DispatcherTimer.RunOnce(() =>
+            {
+                var hh = TryGetPlatformHandle();
+                var now = MacWindow.TrafficLightCenter(hh?.Handle ?? IntPtr.Zero, hh?.HandleDescriptor);
+                Console.WriteLine($"[wall] traffic lights 2 s later: {now:0.#} pt from the top");
+            }, TimeSpan.FromSeconds(2));
         };
+        // AppKit lays its title bar out again after each of these and puts the
+        // lights back where it keeps them, so they are moved again once it has.
+        SizeChanged += (_, _) => RecenterTrafficLights();
+        Activated += (_, _) => RecenterTrafficLights();
+        Deactivated += (_, _) => RecenterTrafficLights();
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property != WindowStateProperty) return;
+            // Compact is never maximized, whatever asked (a double-click on the
+            // strip, say, with the green button hidden).
+            if (IsCompact && WindowState == WindowState.Maximized)
+            {
+                Dispatcher.UIThread.Post(() => WindowState = WindowState.Normal);
+                return;
+            }
+            RecenterTrafficLights();
+        };
+    }
+
+    /// Centres the traffic lights on the top bar, or, compact, puts them back
+    /// where AppKit has them: the compact view has no bar for them to sit in.
+    /// Compact shows the close button alone (MacWindow.ShowCloseOnly), set again
+    /// each time in case AppKit's layout brings the others back.
+    private double? CenterTrafficLights()
+    {
+        var h = TryGetPlatformHandle();
+        MacWindow.ShowCloseOnly(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor, IsCompact);
+        return MacWindow.CenterTrafficLights(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor,
+                                             IsCompact ? null : TopBar.Height);
+    }
+
+    /// At once and again once AppKit is done: during a live resize it lays the
+    /// title bar out on every frame, and moved only afterwards the lights
+    /// jumped about until the drag stopped ("jump around but settle where they
+    /// should", 2026-10-18).
+    private void RecenterTrafficLights()
+    {
+        CenterTrafficLights();
+        Dispatcher.UIThread.Post(() => CenterTrafficLights(), DispatcherPriority.Render);
     }
 
     private WindowEdge? EdgeAt(Point p)
@@ -1726,10 +1778,13 @@ public partial class MainWindow : Window
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
     }
 
-    private void ToggleMaximized() =>
+    private void ToggleMaximized()
+    {
+        if (IsCompact) return;      // one bigger size, and the expand button is it
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
             : WindowState.Maximized;
+    }
 
     /// Rounded only when the window is a floating window. Maximized or full
     /// screen, the corners are the SCREEN's corners and must be filled.
