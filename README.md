@@ -16,6 +16,11 @@ Early, and built for one person's library first. It works, on Linux and on
 Windows, and it has been its author's daily player on both since the day it
 could play music.
 
+Its companion is [Deadwax](https://github.com/gsa700/deadwax), a CD ripper that
+verifies every rip against AccurateRip and files each disc into the library the
+way AlbumWall reads it, with the front cover and the back that AlbumWall turns
+the sleeve over to show.
+
 <p align="center">
   <img src="docs/screenshots/wall.webp" width="49%" alt="The wall: nothing but covers">
   <img src="docs/screenshots/dark-side.webp" width="49%" alt="The Dark Side of the Moon open, the panel tinted by its sleeve">
