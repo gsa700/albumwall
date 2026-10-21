@@ -3,8 +3,8 @@
 // Linux has had most of this through MPRIS and playerctl; Windows had nothing,
 // and a script on any of them can now say `AlbumWall --next`. The commands are
 // carried to the copy that is running (SingleInstance) and done there by
-// MainWindow.RunCommand; they never start one. The Help tab lists them too, and
-// THE LISTS MUST AGREE.
+// MainWindow.RunCommand; they never start one. --help is their list; the Help
+// tab only points to it.
 
 namespace AlbumWall.App;
 
@@ -12,7 +12,7 @@ public static class CommandLine
 {
     public sealed record Command(string Name, string? Text);
 
-    /// Flag, what it does: for --help and the Help tab.
+    /// Flag, what it does: the list --help prints.
     public static readonly (string Flag, string Does)[] Commands =
     [
         ("--play-pause", "Play or pause."),

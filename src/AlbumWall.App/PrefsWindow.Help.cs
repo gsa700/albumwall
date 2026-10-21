@@ -1,5 +1,5 @@
 // AlbumWall - the Help tab of Preferences: the keys, what the search box understands,
-// and the command line.
+// and where the command line's list is.
 //
 // The two things in this app that cannot be found by looking at it. The keys are
 // handled in MainWindow.OnShortcutKey, and THE TWO LISTS MUST AGREE: a key added
@@ -46,11 +46,11 @@ public partial class PrefsWindow
         Note("Covers are never fetched from the internet. Better art belongs in the files themselves, put "
            + "there with a tagger; these searches say which albums to look at.");
 
-        // CommandLine.Commands, the same list --help prints.
+        // One line, not the list: few will use the commands, and those who do
+        // are in a terminal already (his call, 2026-10-21). --help has them all.
         Heading("Command line");
         Note($"Only one {App.DisplayName} runs at a time: starting it again brings this window forward. "
-           + "Given to the copy that is running, for scripts and shortcuts:");
-        Rows(CommandLine.Commands.Select(c => ((string?)c.Flag, c.Does)).ToArray());
+           + $"Scripts can play, pause, skip and more; run {App.DisplayName} --help for the commands.");
     }
 
     private void Heading(string text, bool first = false) =>
