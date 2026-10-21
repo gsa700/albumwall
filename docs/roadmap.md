@@ -110,15 +110,6 @@ is ahead, the history is for what is behind.
   music server) and our own AAC decoder (large, a paid standard, iTunes gapless
   trims).
 
-- **Tag editing.** Lyrics are done (Properties, Decided below); the other
-  fields are not. It was the first time the app would WRITE to his music, and the README
-  says today that it never does — so it wants a design, not a button handler:
-  how a write is made safe, what happens to the file's date (he tags with
-  `metaflac --preserve-modtime`), and how the index and the watcher are kept
-  honest about a change the app made itself.
-  Timed lyrics (`SYLT`, LRC) are a separate and much larger feature; unsynced
-  lyrics are viewed and edited in Properties already.
-
 - **Arrow-key navigation of the wall**, and the rest of keyboard and screen-reader
   access. The shortcuts and the Help page are DONE (2026-09-20: Space, Ctrl+arrows,
   arrows to seek, Ctrl+Up/Down, Ctrl+F or `/`, Esc, Ctrl+L, Ctrl+`,`, F1; the Help
@@ -171,6 +162,18 @@ is ahead, the history is for what is behind.
   makes an app Now Playing only once it plays). "ok leave it as is."
 
 ## Decided
+
+- **AlbumWall is for LISTENING; tags and art are edited elsewhere.** His
+  words, 2026-10-21: "advanced tag and image editing may be better served by a
+  dedicated app separate from albumwall. The goal of albumwall is simple tactile
+  music LISTENING experience. I think if we add too much we will wreck that."
+  And: "I don't want one huge app that tries to do it all. So I lean towards a
+  small dedicated tag and art editor if we do it." So general tag editing and
+  fetching art from the internet are NOT built here. What stays: the lyrics
+  box in Properties (small, built, and for singing along: the one exception,
+  not a first step), and the `art:` searches, which only show what needs work.
+  If the editor is made, it is its own small app; Deadwax's Cover Art Archive
+  and FLAC tag code are the place to start rather than a copy in AlbumWall.
 
 - **Dead simple for the inexperienced, flexible for the experienced.** His
   words, 2026-10-04, while designing the first run: "the best apps are dead
@@ -249,11 +252,11 @@ is ahead, the history is for what is behind.
 
 ## Decided against, for now
 
-- **Fetching album art from the internet** — "at least not yet". The app does
-  the best with the art in the files, and `art:missing`, `art:small` and
-  `art:nonsquare` in the search box list the albums whose files want attention.
-  (The lossy library's art was fixed in its files by separate tools, done
-  2026-10-06. AlbumWall itself still fetches nothing.)
+- **Fetching album art from the internet.** Not in AlbumWall at all
+  (2026-10-21, see Decided: AlbumWall is for listening); a small dedicated
+  editor's job if one is made. The app does the best with the art in the
+  files, and `art:missing`, `art:small` and `art:nonsquare` in the search box
+  list the albums whose files want attention.
 
 - **More from a server library** (2026-10-21: "I am happy with it as is for
   now"). A Navidrome server is a read-only library, gapless by ear. Writing to
