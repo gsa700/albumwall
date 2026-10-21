@@ -295,6 +295,60 @@ is ahead, the history is for what is behind.
   is built natively on the Pi 5 at Pi5-POE, which is also the only arm64
   machine that can run the gapless check.
 
+- **Our own audio engine: mpv out, in steps** (agreed 2026-10-20, on Control,
+  the night Deadwax 0.6.0 shipped its own FLAC encoder and decoder): "I'd like
+  to do it. It simplifies the code, may increase performance / lower memory
+  footprint etc. Plus, it will be fun." And: "we don't have to do it all in one
+  go." What mpv costs now: seven projects per build (mpv, FFmpeg, libplacebo,
+  libass, FreeType, FriBidi and the rest), two of them needed only because mpv
+  will not build without them; 8-10 MB of `native/` on each of four platforms;
+  a GPL engine, its source archives for every `libmpv-*` release, and FFmpeg
+  CVE patches. What the app actually asks of it (`Player.cs`, `Mpv.cs`): a
+  playlist, play/pause/seek/next, volume, ReplayGain, gapless, exclusive output
+  and one filter.
+  **The libraries it plays** (counted 2026-10-20 on Navidrome's mounts): FLAC
+  4,136 files; the lossy library 8,672 MP3 and 6,857 M4A, every M4A AAC (ffprobe
+  over all of them on Control's `~/MusicFolder`). So FLAC alone is a fifth of
+  what is played, and MP3 and AAC cannot wait for the end.
+  **The pieces:** the stream is .NET's HttpClient (`format=raw`, as now). FLAC
+  is Deadwax's decoder (RFC 9639; checks every frame's CRCs and the stream MD5;
+  decoded his whole FLAC library the same as FFmpeg on 2026-10-20), shared
+  between the repos by copy or a small library, his call when we get there.
+  Gapless is simpler than in mpv: one continuous stream of samples, and FLAC
+  states its exact sample count. ReplayGain and volume are a multiply. Meters
+  (Wanted, above) get the samples in hand instead of `astats`. The real work is
+  the output, one per platform: CoreAudio on the Mac, WASAPI on Windows, ALSA or
+  PipeWire on Linux, keeping "Desktop audio: be a good neighbour" (Decided,
+  below) on a desktop and bit-perfect only on a dedicated device.
+  **The steps, mpv the fallback until the last; each one ships on its own and
+  a pause between any two is fine:**
+  1. Our engine, FLAC only, on the Mac (CoreAudio), behind a switch; mpv
+     still plays everything else and stays the default.
+  2. Windows output (WASAPI), then Linux (ALSA/PipeWire); the kiosk is the
+     bit-perfect test, `tools/gapless-check.cs` the measure.
+  3. Every other format through a small FFmpeg of decoders only (libavcodec
+     and libavformat for the containers, the same decoder list as
+     `scripts/build-libmpv/inner.sh`, so Vorbis, Opus, ALAC and PCM still play
+     for other people's libraries). mpv out of the path, still bundled. One
+     LGPL dependency instead of seven projects; "AAC stays in the build"
+     (Decided) carries over unchanged.
+  4. The default, once gapless passes on all four builds.
+  5. mpv and its companions removed, with their notices and source archives.
+  6. Later, if wanted: the OS's own MP3/AAC decoders on the Mac and Windows
+     (AudioToolbox, Media Foundation; nothing bundled), or our own MP3 decoder.
+  **What it must play** (his scope, 2026-10-20): "FLAC, mp3, and aac will
+  cover all my needs and most others. There are likely a few more we can
+  support cheaply." While FFmpeg's decoders are bundled (step 3 on), the
+  others in today's list cost a few hundred KB each and stay. Written by us,
+  the cheap ones are PCM (WAV and AIFF: a header and samples) and ALAC (Apple's
+  decoder is open, Apache 2.0, and it is a close cousin of FLAC; it shares the
+  MP4 container with AAC). Vorbis and Opus are not cheap (Opus is RFC 6716,
+  two codecs in one), so they are kept only for as long as FFmpeg is.
+  Weighed and not chosen first: Navidrome transcoding everything to FLAC
+  (seeking restarts the stream, no duration, gapless trimming to prove, CPU on the
+  music server) and our own AAC decoder (large, a paid standard, iTunes gapless
+  trims).
+
 - **Tag editing.** Lyrics are done (see the right-click menu, above); the
   other fields are not. It was the first time the app would WRITE to his music, and the README
   says today that it never does — so it wants a design, not a button handler:
