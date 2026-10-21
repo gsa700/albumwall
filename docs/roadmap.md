@@ -151,13 +151,6 @@ is ahead, the history is for what is behind.
   3. A NETWORK REMOTE (a phone, a web page): not now. A listening socket with
      the security questions that come with one, for no concrete use yet.
 
-- **Navidrome: what is left.** A server is a library since 2026-10-03
-  (read-only; gapless over the stream confirmed by ear on Hambench, see
-  `docs/windows-notes.md`). Not built: anything that WRITES to the server, and a
-  second server kind. The code says Navidrome because that is what it was tested
-  against, though it speaks plain Subsonic, so a second kind is mostly a test
-  against another server.
-
 - **Libraries that are not always there: what is left** (2026-09-25; the
   first three, unreachable is not "wrong folder", empty is absent, and trusting
   the index, are done).
@@ -277,6 +270,11 @@ is ahead, the history is for what is behind.
   `art:nonsquare` in the search box list the albums whose files want attention.
   (The lossy library's art was fixed in its files by separate tools, done
   2026-10-06. AlbumWall itself still fetches nothing.)
+
+- **More from a server library** (2026-10-21: "I am happy with it as is for
+  now"). A Navidrome server is a read-only library, gapless by ear. Writing to
+  the server and a second server kind (the code speaks plain Subsonic) are not
+  planned.
 
 - **Detecting blank covers.** The two blankest real covers in his library are
   Spinal Tap's black album and the White Album.
