@@ -50,6 +50,18 @@ is ahead, the history is for what is behind.
   and the warm-up time from its log line. The kiosk files must be reinstalled
   there for `--kiosk`, though ALBUMWALL_SUPERVISED already turns it on.
 
+- **Desktop: covers seen stay in memory until the library reloads.** Found
+  2026-10-21 while building the kiosk warm-up. ArtCache's 160 MB budget only
+  drops the CACHE's reference; each AlbumVm keeps its decoded Cover for as
+  long as the library is on the wall, so a full scroll of 1,034 albums holds
+  them all (Techbench: RSS ~480 MB -> 1.1 GB after one pass; the Mac starts
+  at ~690 MB). The status bar's "MB art" counts only the cache, so it
+  understates it. Not hurting anyone yet. The fix is for a tile that leaves
+  the screen (WallView.Retire) to let its albums' covers go once they are
+  well out of view, re-decoding from the cache or the file when they return:
+  a kiosk keeps them all on purpose (MainWindow.Kiosk.cs), a desktop would
+  not. Measure before and after with the same full scroll.
+
 - **Our own audio engine: mpv out, in steps** (agreed 2026-10-20, on Control,
   the night Deadwax 0.6.0 shipped its own FLAC encoder and decoder): "I'd like
   to do it. It simplifies the code, may increase performance / lower memory
