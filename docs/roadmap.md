@@ -121,9 +121,12 @@ is ahead, the history is for what is behind.
   arrows to seek, Ctrl+Up/Down, Ctrl+F or `/`, Esc, Ctrl+L, Ctrl+`,`, F1; the Help
   tab lists them and the `art:` searches, and must be kept in step with
   `MainWindow.OnShortcutKey`). Asked whether that helps accessibility, the honest
-  answer was "partly": what a keyboard-only or screen-reader user still lacks is
-  - moving about the wall with the ARROW keys, with a focus ring that can be
-    seen — Tab reaches every cover today, one at a time, through a thousand;
+  answer was "partly": what a keyboard-only or screen-reader user lacked was
+  - ~~moving about the wall with the ARROW keys, with a focus ring~~: DONE
+    2026-10-21 (MainWindow.Keyboard.cs). The arrows move, Shift+← → seeks
+    (his call), Enter opens or plays, ↓ goes into the open album's tracks,
+    Esc comes back; covers and tracks are no longer Tab stops. What is left
+    below, in this order: reduce motion, the names, contrast;
   - an audit of what each control is CALLED. The Preferences tabs all said
     "Avalonia.Controls.StackPanel" until the updater's test tripped on it, and
     the covers had no name until they were given "Title, by Artist, year".

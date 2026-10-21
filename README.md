@@ -71,8 +71,9 @@ the sleeve over to show.
   embedded. Step through an album's tracks from the window's header.
 - **Media keys and the desktop's own controls** — MPRIS on Linux (the GNOME
   panel and lock screen), the media flyout and hardware keys on Windows.
-- **The keyboard works**: Space to play or pause, Ctrl+arrows for the next and
-  previous track, arrows to seek, Ctrl+F to search, Esc to back out, Ctrl+M for
+- **The keyboard works**: the arrows move about the wall and into an album's
+  tracks, Enter opens and plays, Space to play or pause, Ctrl+arrows for the
+  next and previous track, Shift+arrows to seek, Ctrl+F to search, Esc to back out, Ctrl+M for
   compact, F11 for full screen, and F1 for the list — Preferences › Help has
   every key and every search the box understands.
 - **One copy at a time, and a command line to it**: starting it again brings

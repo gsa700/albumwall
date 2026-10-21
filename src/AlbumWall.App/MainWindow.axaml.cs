@@ -3810,7 +3810,9 @@ public partial class MainWindow : Window
         var other = e.KeyModifiers & ~Shortcut.Primary;
         var compactKey = e.Key == Key.M && ctrl && other == Shortcut.CompactExtra;
         var helpKey = OperatingSystem.IsMacOS() && e.Key == Key.OemQuestion && ctrl && other == KeyModifiers.Shift;  // Cmd+?
-        if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift) && !compactKey) return;
+        // Shift+← → seeks: the arrows alone move about the wall (MainWindow.Keyboard.cs).
+        var seekKey = !ctrl && other == KeyModifiers.Shift && e.Key is Key.Left or Key.Right;
+        if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift) && !compactKey && !seekKey) return;
 
         // Compact first. Esc is the way back to the wall, and the keys that only
         // mean something on the wall - search, go to the playing album - take you
@@ -3821,6 +3823,20 @@ public partial class MainWindow : Window
             if ((e.Key == Key.F && ctrl) || (e.Key == Key.L && ctrl)
                 || (e.Key == Key.OemQuestion && !ctrl && other == KeyModifiers.None))
                 ExitCompact();
+        }
+
+        // The wall's own keys: the arrows, Home, End, Page Up and Down, Enter, and
+        // Esc while in a track list. Not over a slider, which has its own arrows,
+        // and Enter only where the wall has the focus, not on another button.
+        if (!ctrl && other == KeyModifiers.None && !_compact && focused is not Slider
+            && e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End
+                     or Key.PageUp or Key.PageDown or Key.Enter or Key.Escape
+            && (e.Key != Key.Escape || _trackCursor >= 0)
+            && (e.Key != Key.Enter || focused is not Button || focused is Button { Classes: var c } && (c.Contains("tile") || c.Contains("track")))
+            && WallKey(e.Key, typing))
+        {
+            e.Handled = true;
+            return;
         }
 
         switch (e.Key)
@@ -3888,8 +3904,8 @@ public partial class MainWindow : Window
                 _player.Previous();
                 break;
 
-            case Key.Right when !typing && focused is not Slider:
-            case Key.Left when !typing && focused is not Slider:
+            case Key.Right when seekKey && !typing && focused is not Slider:
+            case Key.Left when seekKey && !typing && focused is not Slider:
             {
                 if (_player is null || !_mprisState.HasTrack) return;
                 var duration = _player.Duration;
@@ -4044,6 +4060,8 @@ public partial class MainWindow : Window
     /// </param>
     private async void SetOpen(AlbumVm? album, bool animate = true)
     {
+        // A click puts the keyboard there too, so the next arrow starts from it.
+        if (album is not null) { _keyAlbum = album; _trackCursor = -1; }
         var closing = ReferenceEquals(_open, album) || album is null;
         Console.WriteLine($"[wall] SetOpen({album?.Title ?? "null"}) was={_open?.Title ?? "none"} "
                         + $"{(closing ? "CLOSING" : "opening")} animate={animate} "

@@ -21,7 +21,7 @@ public partial class PrefsWindow
         Rows(
             ("Space", "Play or pause."),
             ($"{Shortcut.Name("→")}   {Shortcut.Name("←")}", "Next track, previous track."),
-            ("→   ←", "Forward or back ten seconds."),
+            (OperatingSystem.IsMacOS() ? "⇧→   ⇧←" : "Shift+→   Shift+←", "Forward or back ten seconds."),
             ($"{Shortcut.Name("↑")}   {Shortcut.Name("↓")}", "Louder, quieter. This app only, not the computer."),
             ($"{Shortcut.Name("F")}   or   /", "Go to the search box."),
             ("Esc", OperatingSystem.IsMacOS()
@@ -32,9 +32,10 @@ public partial class PrefsWindow
             (OperatingSystem.IsMacOS() ? null : "F11", "Full screen, and back."),     // none on the Mac
             (Shortcut.Name(","), "Preferences."),
             (OperatingSystem.IsMacOS() ? "F1   or   ⌘?" : "F1", "This page."));
-        Note("The arrow keys alone, Page Up, Page Down, Home and End scroll the wall. Tab moves from cover to "
-           + "cover and Enter opens the one it is on. The keyboard's own media keys work too, whether or not "
-           + "this window is in front.");
+        Note("The arrow keys move from cover to cover; Page Up and Page Down by a screen, Home and End to "
+           + "either end. Enter opens an album, ↓ from the open one goes into its tracks, Enter plays one and "
+           + "Esc comes back out. From the search box, ↓ goes to the first album found. The keyboard's own "
+           + "media keys work too, whether or not this window is in front.");
 
         Heading("Searching");
         Note("Type part of an artist's name or an album's title and the wall narrows as you type. Three "

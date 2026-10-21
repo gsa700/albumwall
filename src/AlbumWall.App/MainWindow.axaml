@@ -39,7 +39,10 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="app:AlbumVm">
-                        <Button Classes="tile" Command="{Binding OpenCommand}"
+                        <!-- Not a Tab stop: Tab through a thousand covers is no way to
+                             move. The arrows do that (MainWindow.Keyboard.cs) and give
+                             the tile real focus, which draws Border.keyring below. -->
+                        <Button Classes="tile" Command="{Binding OpenCommand}" IsTabStop="False"
                                 AutomationProperties.Name="{Binding Spoken}">
                             <StackPanel Spacing="5" Width="{DynamicResource CoverPx}">
                                 <Panel Width="{DynamicResource CoverPx}"
@@ -97,6 +100,13 @@
                                     <Border CornerRadius="2" BorderThickness="3"
                                             BorderBrush="{Binding RingBrush}"
                                             IsVisible="{Binding IsSelected}"/>
+                                    <!-- The keyboard's ring, over the art's edge like the
+                                         selection ring and on top of it: the tile clips
+                                         anything drawn outside (tried, 2026-10-21: only its
+                                         bottom edge showed). White, so it reads apart from
+                                         the open album's colored ring. -->
+                                    <Border Classes="keyring" CornerRadius="2" BorderThickness="4"
+                                            IsHitTestVisible="False"/>
                                 </Panel>
                                 <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Medium"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"/>
@@ -248,7 +258,7 @@
                            FontSize="11" FontWeight="Bold" Margin="0,14,0,5"
                            Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Accent}"/>
                 <Button Classes="track" Classes.playing="{Binding IsPlaying}"
-                        IsVisible="{Binding !IsHeader}"
+                        IsVisible="{Binding !IsHeader}" IsTabStop="False"
                         Command="{Binding PlayCommand}">
                 <Grid ColumnDefinitions="30,*,Auto" Height="28">
                     <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="12"
@@ -386,6 +396,23 @@
         </Style>
         <Style Selector="Button.tile /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- The keyboard's ring: only for focus the KEYBOARD gave (:focus-visible),
+             never after a click. The theme's own focus adorner is off, or there
+             would be two. -->
+        <Style Selector="Button.tile, Button.track">
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <Style Selector="Button.tile Border.keyring">
+            <Setter Property="BorderBrush" Value="#F2EDE4"/>
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Button.tile:focus-visible Border.keyring">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.track:focus-visible /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="#B3FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <!-- Window buttons. Two treatments, because the conventions genuinely
              differ: GNOME draws circular controls, Windows draws full-height
