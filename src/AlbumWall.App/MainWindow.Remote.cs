@@ -73,6 +73,11 @@ public partial class MainWindow
         if (hit is null) return $"! No album's title or artist contains \"{words}\".";
 
         StartPlayback(hit, 0, shuffle: false);
-        return _playerFailed ? "! It could not be played." : $"Playing {hit.Artist} - {hit.Title}";
+        if (_playerFailed) return "! It could not be played.";
+
+        // And the wall goes to it, as ⌘L would: a different album is playing now,
+        // so that is what to look at (his call, 2026-10-21). Compact has no wall.
+        if (!_compact) OnRevealPlaying(null, new Avalonia.Interactivity.RoutedEventArgs());
+        return $"Playing {hit.Artist} - {hit.Title}";
     }
 }

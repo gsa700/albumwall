@@ -17,7 +17,7 @@ public static class CommandLine
     [
         ("--play-pause", "Play or pause."),
         ("--play", "Play, after a pause."),
-        ("--play \"dark side\"", "Play the first album whose title, or else whose artist, contains the words."),
+        ("--play \"dark side\"", "Play the first album whose title, or else whose artist, contains the words, and open it on the wall."),
         ("--pause", "Pause."),
         ("--next", "Next track."),
         ("--previous", "Previous track."),
