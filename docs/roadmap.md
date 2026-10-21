@@ -134,38 +134,22 @@ is ahead, the history is for what is behind.
   - "reduce motion": the sliding play controls and the unfolding album ignore
     the system setting;
   - contrast, which depends on his Light and Tint.
-  `--help` and `--version` go with the command-line work below; a man page for
-  Linux can be generated from the Help tab's text, later.
+  `--help` and `--version` exist (CommandLine.cs); a man page for Linux can be
+  generated from the Help tab's text, later.
 
-- **One instance, and a command line to it** (2026-09-20, from "remote control
-  and/or specialized command line arguments?"). Three things, in this order:
-  1. SINGLE INSTANCE: a second launch brings the running window forward instead
-     of starting a copy that fights the first over the settings and the session.
-     "Never run both" was a rule to be remembered all through 2026-09-20; it
-     should be a thing that cannot happen.
-  2. COMMANDS TO THE RUNNING COPY: `AlbumWall --next`, `--play-pause`,
-     `--play "dark side"` — nearly free once (1) exists, since the second launch
-     hands over its arguments. Linux has most of it through MPRIS and
-     `playerctl`; Windows has nothing. It would also replace the DEBUG
-     trigger-file channel the test rig uses with something real.
-  3. A NETWORK REMOTE (a phone, a web page): not now. A listening socket with
-     the security questions that come with one, for no concrete use yet.
+- **A network remote** (a phone, a web page): not now. A listening socket with
+  the security questions that come with one, for no concrete use yet. One copy
+  at a time and the command line to it are built (SingleInstance.cs,
+  CommandLine.cs); a remote would be one more way in to MainWindow.RunCommand.
+  The DEBUG trigger-file channel the test rig uses could move onto the same
+  pipe.
 
-- **Libraries that are not always there: what is left** (2026-09-25; the
-  first three, unreachable is not "wrong folder", empty is absent, and trusting
-  the index, are done).
-  1. WATCHING A NETWORK FOLDER. Over NFS the watcher generally hears nothing
-     done from another machine, and over SMB it is unreliable. The scan at
-     launch catches it all; a library on a share might also want an occasional
-     quiet recheck while the app is running.
-  2. FORGET LEAVES THE FORGOTTEN LIBRARY'S ROWS IN `index.db`. Harmless (a few
-     MB nothing reads), but `RemoveLibrary` should drop them.
-  3. RESCANNING A LIBRARY THAT IS NOT ON THE WALL (2026-09-28: "could I rescan
-     Music while listening to NAS Music?"). Safe to build, since e7ad028 a scan
-     only touches index rows under its own root, but it buys little while
-     switching already rescans through the index. Worth it with libraries that
-     change while nobody looks (a server, a USB drive), as "keep the other
-     libraries fresh in the background".
+- **Rescanning a library that is not on the wall** (2026-09-28: "could I
+  rescan Music while listening to NAS Music?"). Safe to build, since e7ad028 a
+  scan only touches index rows under its own root, but it buys little while
+  switching already rescans through the index. Worth it with libraries that
+  change while nobody looks (a server, a USB drive), as "keep the other
+  libraries fresh in the background".
 
 - **macOS: what is left.** The Mac build runs on Control from
   `scripts/make-macos-app.sh --install` with our own engine (libmpv-0.41.0-6

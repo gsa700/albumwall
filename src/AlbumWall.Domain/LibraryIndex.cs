@@ -151,6 +151,34 @@ public sealed class LibraryIndex
         return path => path.StartsWith(prefix, comparison);
     }
 
+    /// Drops what is remembered under `root`, for a library that has been
+    /// forgotten, except under any of `keep`: the roots of the libraries that
+    /// remain, one of which may sit inside the forgotten one, or hold it.
+    /// Roots are spelled here as the scanner spells them (DirectoryInfo.FullName).
+    public void ForgetUnder(string root, IEnumerable<string> keep)
+    {
+        static string Spelled(string r) => new DirectoryInfo(r).FullName;
+        var under = UnderTest(Spelled(root));
+        var kept = keep.Select(r => UnderTest(Spelled(r))).ToList();
+        bool Drop(string path) => under(path) && !kept.Any(k => k(path));
+
+        lock (_gate)
+        {
+            var dropTracks = _tracks.Keys.Where(Drop).ToList();
+            var dropArt = _art.Keys.Where(Drop).ToList();
+            if (dropTracks.Count + dropArt.Count == 0) return;
+            foreach (var p in dropTracks) _tracks.Remove(p);
+            foreach (var p in dropArt) _art.Remove(p);
+            try { Save([], [], dropTracks, dropArt); }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[index] not saved: {ex.Message}");
+                return;
+            }
+            Console.WriteLine($"[index] forgot {dropTracks.Count} tracks, {dropArt.Count} sidecars under {root}");
+        }
+    }
+
     public void Commit(IReadOnlyDictionary<string, TrackFacts> tracks,
                        IReadOnlyDictionary<string, ArtFacts> art,
                        long startedAt, bool complete, string root)

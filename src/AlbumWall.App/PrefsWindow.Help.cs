@@ -1,4 +1,5 @@
-// AlbumWall - the Help tab of Preferences: the keys, and what the search box understands.
+// AlbumWall - the Help tab of Preferences: the keys, what the search box understands,
+// and the command line.
 //
 // The two things in this app that cannot be found by looking at it. The keys are
 // handled in MainWindow.OnShortcutKey, and THE TWO LISTS MUST AGREE: a key added
@@ -44,6 +45,12 @@ public partial class PrefsWindow
             ("art:nonsquare", "Albums whose cover is not square."));
         Note("Covers are never fetched from the internet. Better art belongs in the files themselves, put "
            + "there with a tagger; these searches say which albums to look at.");
+
+        // CommandLine.Commands, the same list --help prints.
+        Heading("Command line");
+        Note($"Only one {App.DisplayName} runs at a time: starting it again brings this window forward. "
+           + "Given to the copy that is running, for scripts and shortcuts:");
+        Rows(CommandLine.Commands.Select(c => ((string?)c.Flag, c.Does)).ToArray());
     }
 
     private void Heading(string text, bool first = false) =>

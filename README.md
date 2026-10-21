@@ -75,6 +75,10 @@ the sleeve over to show.
   previous track, arrows to seek, Ctrl+F to search, Esc to back out, Ctrl+M for
   compact, F11 for full screen, and F1 for the list — Preferences › Help has
   every key and every search the box understands.
+- **One copy at a time, and a command line to it**: starting it again brings
+  the window forward, and `--play-pause`, `--next`, `--previous`, `--stop` or
+  `--play "dark side"` drive the copy that is running, for scripts and
+  shortcuts (`--help` lists them all).
 - **Live search** by artist or album, a way back to whatever is playing, and
   three searches for art that wants attention: `art:missing`, `art:small`,
   `art:nonsquare`.
@@ -173,6 +177,10 @@ The one thing it cannot see is a tag edit that keeps both the size and the date
 of the file, made while the app was closed. **Rescan**, on the library's
 settings page (Preferences › Library › Settings), opens every file and rebuilds
 the index; that is what it is for.
+
+A library on a network share is also looked at again every fifteen minutes
+while the app runs, because changes made to a share from another machine are
+not announced the way changes to a local folder are.
 
 ## Installing
 

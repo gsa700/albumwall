@@ -19,6 +19,16 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Before the log: a second launch must not rotate the running copy's log away.
+        if (CommandLine.AsksHelp(args) || CommandLine.AsksVersion(args))
+        {
+            CommandLine.AttachConsole();
+            Console.WriteLine(CommandLine.AsksHelp(args) ? CommandLine.Help() : Install.InstallService.CurrentVersion);
+            return;
+        }
+        if (Install.InstallCommandLine.Parse(args).Action == Install.InstallAction.None && !RunsHere(args))
+            return;
+
         LogFile.Start();
         FrontPanel = args.Any(a => a.Equals("--front-panel", StringComparison.OrdinalIgnoreCase));
 
@@ -65,6 +75,39 @@ class Program
 
         WindowsShell.ClaimIdentity();       // before any window exists, or it does not take
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
+
+    /// Whether this launch is the copy that runs (SingleInstance). A command is
+    /// handed to the running copy and its answer printed; a plain launch while
+    /// one runs brings that one forward. Either way this process then goes.
+    private static bool RunsHere(string[] args)
+    {
+        if (CommandLine.Parse(args) is not null)
+        {
+            var reply = SingleInstance.Send(args, TimeSpan.FromSeconds(1));
+            CommandLine.AttachConsole();
+            // "! " starts an answer that says it could not be done.
+            var failed = reply is null || reply.StartsWith("! ", StringComparison.Ordinal);
+            var text = reply is null ? $"{App.DisplayName} is not running." : failed ? reply[2..] : reply;
+            if (text.Length > 0) (failed ? Console.Error : Console.Out).WriteLine(text);
+            Environment.ExitCode = failed ? 1 : 0;
+            return false;
+        }
+
+        if (SingleInstance.TryBecomeFirst()) return true;
+        if (SingleInstance.Send(args, TimeSpan.FromSeconds(3)) is not null) return false;
+
+        // Nobody answered: the copy that has the lock is closing (or hung).
+        // Closing lets go of it, so wait a little and run in its place.
+        for (var i = 0; i < 25; i++)
+        {
+            Thread.Sleep(200);
+            if (SingleInstance.TryBecomeFirst()) return true;
+        }
+        CommandLine.AttachConsole();
+        Console.Error.WriteLine($"{App.DisplayName} is already running, but did not answer.");
+        Environment.ExitCode = 1;
+        return false;
     }
 
     /// <summary>

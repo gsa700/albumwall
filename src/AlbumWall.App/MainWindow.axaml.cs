@@ -531,6 +531,8 @@ public partial class MainWindow : Window
             _spaceUpAt = Environment.TickCount64;
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
         ScanLibrary();
+        ListenForSecondLaunches();
+        StartNetworkRecheck();
 
         // The shell wants a media player on the bus whether or not anything is
         // playing yet, so this starts with the app rather than with playback.
@@ -1146,6 +1148,25 @@ public partial class MainWindow : Window
         _watcher?.Dispose();
         _watcher = null;
     }
+
+    /// A library on a network folder is looked at again every so often, quietly,
+    /// because the watcher hears nothing done to it from another machine (roadmap,
+    /// "Libraries that are not always there"). The same scan the watcher asks
+    /// for: the index is trusted, only what changed is opened, and the wall moves
+    /// only if something did. A local folder has the watcher, a server is asked
+    /// at every start, and a library that cannot be reached has its own retry.
+    private static readonly TimeSpan NetworkRecheck = TimeSpan.FromMinutes(15);
+
+    private void StartNetworkRecheck() => DispatcherTimer.Run(() =>
+    {
+        if (_settings.HasLibrary() && _settings.Current() is { IsFolder: true, Network: true }
+            && !_scanning && _unreachable is null)
+        {
+            Console.WriteLine("[watch] network folder: looking again");
+            ScanLibrary(asked: false);
+        }
+        return true;
+    }, NetworkRecheck);
 
     private void WatchLibrary(string root)
     {
@@ -2104,6 +2125,13 @@ public partial class MainWindow : Window
             Domain.Navidrome.Forget(files.List, files.Covers);
         }
         Domain.LibraryStatsStore.Forget(StatsPath(library));
+        // What the index remembers of its files, unless a remaining library
+        // covers them too. Off this thread: the index may not be loaded yet.
+        if (library.IsFolder && File.Exists(IndexPath))
+        {
+            var keep = all.Where(l => l.IsFolder).Select(l => l.Root).ToList();
+            _ = Task.Run(() => _index.Value.ForgetUnder(library.Root, keep));
+        }
         if (wasCurrent)
         {
             _settings.CurrentLibrary = null;        // Current() falls back to the first

@@ -243,6 +243,9 @@ public partial class App : Application
                     .ShowDialog<bool>(owner);
             }
 
+            // The installed copy must find the lock free, or it hands itself to
+            // this window, which is about to close (SingleInstance.Release).
+            SingleInstance.Release();
             Install.InstallService.LaunchDetached(installed.ExePath);
 
             // Closing runs the normal save path on purpose, so the session carries
