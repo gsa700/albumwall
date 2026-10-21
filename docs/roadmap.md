@@ -122,13 +122,6 @@ is ahead, the history is for what is behind.
   `--help` and `--version` exist (CommandLine.cs); a man page for Linux can be
   generated from the Help tab's text, later.
 
-- **A network remote** (a phone, a web page): not now. A listening socket with
-  the security questions that come with one, for no concrete use yet. One copy
-  at a time and the command line to it are built (SingleInstance.cs,
-  CommandLine.cs); a remote would be one more way in to MainWindow.RunCommand.
-  The DEBUG trigger-file channel the test rig uses could move onto the same
-  pipe.
-
 - **Rescanning a library that is not on the wall** (2026-09-28: "could I
   rescan Music while listening to NAS Music?"). Safe to build, since e7ad028 a
   scan only touches index rows under its own root, but it buys little while
@@ -168,6 +161,16 @@ is ahead, the history is for what is behind.
   not a first step), and the `art:` searches, which only show what needs work.
   If the editor is made, it is its own small app; Deadwax's Cover Art Archive
   and FLAC tag code are the place to start rather than a copy in AlbumWall.
+
+- **The network remote is SSH and the command line.** 2026-10-21, after Claude
+  on Control drove a test copy on Techbench with `ssh techbench AlbumWall
+  --play "dark side"`; his words: "I'd say you just demonstrated #5 pretty
+  effectively?" Any machine or phone with an SSH client is a remote, with
+  SSH's keys and encryption, and the app opens no port of its own. A web page
+  or phone app with a listener of its own comes back only if SSH falls short.
+  For it to work the command socket sits beside the settings, not in the
+  temp folder (SingleInstance.PipeName: a Mac's SSH login has a different
+  TMPDIR from its desktop). A Mac needs Remote Login turned on to be reached.
 
 - **Dead simple for the inexperienced, flexible for the experienced.** His
   words, 2026-10-04, while designing the first run: "the best apps are dead

@@ -78,7 +78,8 @@ the sleeve over to show.
 - **One copy at a time, and a command line to it**: starting it again brings
   the window forward, and `--play-pause`, `--next`, `--previous`, `--stop` or
   `--play "dark side"` drive the copy that is running, for scripts and
-  shortcuts (`--help` lists them all).
+  shortcuts (`--help` lists them all). Over SSH they make a remote:
+  `ssh living-room AlbumWall --next`.
 - **Live search** by artist or album, a way back to whatever is playing, and
   three searches for art that wants attention: `art:missing`, `art:small`,
   `art:nonsquare`.

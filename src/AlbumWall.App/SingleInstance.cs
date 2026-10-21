@@ -31,14 +31,27 @@ public static class SingleInstance
 
     private static string ConfigDir => Path.GetDirectoryName(Settings.Path)!;
 
-    /// One name per user and settings folder. Short, because a Unix socket's
-    /// path has a limit of about a hundred bytes and the Mac's temp folder is long.
+    /// One name per user and settings folder.
+    ///
+    /// On Linux and the Mac the pipe is a socket FILE, and given a bare name .NET
+    /// puts it in the temp folder, which is not the same for everyone who asks:
+    /// on the Mac the desktop's TMPDIR is a per-user folder under /var/folders,
+    /// and a command over SSH may have none and look in /tmp, so `ssh mac
+    /// AlbumWall --next` said "not running" with it open (2026-10-21, found
+    /// before anyone relied on it). So the socket sits beside the settings, a
+    /// path every login agrees on. A full path is used as is. A socket path has
+    /// a limit of about a hundred bytes; a settings folder too deep for it (a
+    /// test run's scratch folder) gets one in /tmp, which every login also
+    /// shares, named for the user and the folder.
     private static string PipeName
     {
         get
         {
             var key = Encoding.UTF8.GetBytes(Environment.UserName + "\n" + Path.GetFullPath(ConfigDir));
-            return "albumwall-" + Convert.ToHexString(SHA256.HashData(key))[..16].ToLowerInvariant();
+            var name = "albumwall-" + Convert.ToHexString(SHA256.HashData(key))[..16].ToLowerInvariant();
+            if (OperatingSystem.IsWindows()) return name;
+            var beside = Path.Combine(Path.GetFullPath(ConfigDir), "instance.sock");
+            return Encoding.UTF8.GetByteCount(beside) <= 100 ? beside : $"/tmp/{name}.sock";
         }
     }
 
@@ -84,11 +97,11 @@ public static class SingleInstance
         var stop = (_listening = new CancellationTokenSource()).Token;
         var name = PipeName;
 
-        // On Unix the pipe is a socket file in the temp folder. One left by a copy
-        // that crashed would stop the server binding; holding the lock means it is
-        // nobody's, so it goes.
+        // On Unix the pipe is a socket file (PipeName says where). One left by a
+        // copy that crashed would stop the server binding; holding the lock means
+        // it is nobody's, so it goes.
         if (!OperatingSystem.IsWindows())
-            try { File.Delete(Path.Combine(Path.GetTempPath(), "CoreFxPipe_" + name)); } catch { }
+            try { File.Delete(name); } catch { }
 
         _ = Task.Run(async () =>
         {
