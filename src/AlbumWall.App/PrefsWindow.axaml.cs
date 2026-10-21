@@ -513,6 +513,8 @@ public partial class PrefsWindow : Window
                 var switchTo = new Button { Content = "Switch to" };
                 switchTo.Classes.Add("panel");
                 Avalonia.Controls.ToolTip.SetTip(switchTo, "Puts this library on the wall. The music keeps playing.");
+                // Named for its library: a screen reader hears the button, not the row.
+                Avalonia.Automation.AutomationProperties.SetName(switchTo, $"Switch to {library.Name}");
                 switchTo.Click += (_, _) => { _host.SwitchLibrary(id); _selectedId = id; Fill(); };
                 buttons.Children.Add(switchTo);
             }
@@ -521,6 +523,7 @@ public partial class PrefsWindow : Window
             Avalonia.Controls.ToolTip.SetTip(settings, library.IsFolder
                 ? "Its name, its folder, reading it again, editing, the check for damage, and forgetting it."
                 : "Its name, the server, and forgetting it.");
+            Avalonia.Automation.AutomationProperties.SetName(settings, $"Settings for {library.Name}");
             settings.Click += (_, _) => { if (!picked) Select(id); OpenLibrarySettings(id); };
             buttons.Children.Add(settings);
 

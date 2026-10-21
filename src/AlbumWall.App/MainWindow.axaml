@@ -196,6 +196,7 @@
                              is the reason this app exists; chrome does not get to
                              cover it up. -->
                         <Button Grid.Column="1" Classes="coverplay"
+                                AutomationProperties.Name="{Binding Album.Title, StringFormat='Play {0}'}"
                                 Command="{Binding PlayCommand}"
                                 IsEnabled="{Binding CanPlay}"
                                 VerticalAlignment="Top">
@@ -258,6 +259,7 @@
                            FontSize="11" FontWeight="Bold" Margin="0,14,0,5"
                            Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Accent}"/>
                 <Button Classes="track" Classes.playing="{Binding IsPlaying}"
+                        AutomationProperties.Name="{Binding Spoken}"
                         IsVisible="{Binding !IsHeader}" IsTabStop="False"
                         Command="{Binding PlayCommand}">
                 <Grid ColumnDefinitions="30,*,Auto" Height="28">
@@ -632,6 +634,7 @@
                              the control down 4.5 and puts the thumb on the speaker's
                              center line, measured from a snapshot to half a pixel. -->
                         <Slider x:Name="VolumeSlider" Width="132" VerticalAlignment="Center"
+                                AutomationProperties.Name="Volume"
                                 Margin="0,9,0,0"
                                 Minimum="0" Maximum="100"
                                 TickFrequency="1" IsSnapToTickEnabled="True"
@@ -665,19 +668,19 @@
                          playing ... then a button back to the full wall". The glyph is
                          the shape the window turns into. -->
                     <Button x:Name="CompactButton" Classes="chrome" VerticalAlignment="Center"
-                            Padding="8,4">
+                            Padding="8,4" AutomationProperties.Name="Compact">
                         <Path Stretch="Uniform" Width="17" Height="15"
                               Stroke="#F3EEE6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
                               Data="M 1 5 L 19 5 L 19 12 L 1 12 Z M 4 8.5 L 7 8.5"/>
                     </Button>
                     <Button x:Name="FullScreenButton" Classes="chrome" VerticalAlignment="Center"
-                            Padding="8,4" ToolTip.Tip="Full screen (F11)">
+                            Padding="8,4" ToolTip.Tip="Full screen (F11)" AutomationProperties.Name="Full screen">
                         <Path x:Name="FullScreenGlyph" Stretch="Uniform" Width="15" Height="15"
                               Stroke="#F3EEE6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
                               Data="M 1 6 L 1 1 L 6 1 M 12 1 L 17 1 L 17 6 M 17 12 L 17 17 L 12 17 M 6 17 L 1 17 L 1 12"/>
                     </Button>
                     <Button x:Name="SettingsButton" Classes="chrome" VerticalAlignment="Center"
-                            Padding="8,4" ToolTip.Tip="Preferences">
+                            Padding="8,4" ToolTip.Tip="Preferences" AutomationProperties.Name="Preferences">
                         <!-- The dot says a newer version exists. It is the only thing the
                              launch-time check ever does on its own: nothing is downloaded
                              or installed until it is asked for on the Updates tab. -->
@@ -742,6 +745,7 @@
                 <TextBlock Grid.Column="0" x:Name="StatusText" Classes="dim" FontSize="11"
                            HorizontalAlignment="Left" VerticalAlignment="Center"/>
                 <TextBox Grid.Column="1" x:Name="SearchBox" Classes="search" Width="320"
+                         AutomationProperties.Name="Search artist or album"
                          PlaceholderText="Search artist or album…" VerticalAlignment="Center"
                          FontSize="13" Padding="11,5"/>
                 <!-- THE LIBRARY PICKER sits in front of the counts, because the
@@ -839,7 +843,7 @@
                  The hover mark is an arrow, not a triangle — pressing this
                  takes you somewhere, it does not start anything. -->
             <Button Grid.Column="0" Classes="coverplay" VerticalAlignment="Center"
-                    Click="OnRevealPlaying">
+                    Click="OnRevealPlaying" AutomationProperties.Name="Go to the album that is playing">
                 <Border Width="58" Height="58" CornerRadius="3" ClipToBounds="True">
                     <Panel>
                         <Image x:Name="TransportArt" Stretch="UniformToFill"/>
@@ -866,9 +870,13 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                         VerticalAlignment="Center" Margin="16,0,16,0">
-                <Button x:Name="PrevButton" Classes="transport" ToolTip.Tip="Previous"/>
-                <Button x:Name="PlayPauseButton" Classes="transport big" ToolTip.Tip="Play / pause"/>
-                <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"/>
+                <Button x:Name="PrevButton" Classes="transport" ToolTip.Tip="Previous"
+                        AutomationProperties.Name="Previous track"/>
+                <!-- Named "Play" or "Pause" for what a press will do: SetPlayGlyph. -->
+                <Button x:Name="PlayPauseButton" Classes="transport big" ToolTip.Tip="Play / pause"
+                        AutomationProperties.Name="Play"/>
+                <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"
+                        AutomationProperties.Name="Next track"/>
             </StackPanel>
 
             <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
@@ -877,6 +885,7 @@
                            FontSize="11" VerticalAlignment="Center" Width="46"
                            TextAlignment="Right"/>
                 <Slider Grid.Column="1" x:Name="PositionSlider" Classes="onlight"
+                        AutomationProperties.Name="Position in the track"
                         Minimum="0" Maximum="1"
                         VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="2" x:Name="RemainingText" Classes="mono dim"

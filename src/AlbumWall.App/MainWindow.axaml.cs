@@ -17,6 +17,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Animation;
+using Avalonia.Automation;
 using Avalonia.Platform.Storage;
 using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
@@ -1689,6 +1690,7 @@ public partial class MainWindow : Window
             ? "M 6 1 L 6 6 L 1 6 M 12 1 L 12 6 L 17 6 M 12 17 L 12 12 L 17 12 M 6 17 L 6 12 L 1 12"
             : "M 1 6 L 1 1 L 6 1 M 12 1 L 17 1 L 17 6 M 17 12 L 17 17 L 12 17 M 6 17 L 1 17 L 1 12");
         ToolTip.SetTip(FullScreenButton, on ? "Exit full screen (F11)" : "Full screen (F11)");
+        AutomationProperties.SetName(FullScreenButton, on ? "Exit full screen" : "Full screen");
 
         foreach (var bar in new Control[] { TopBar, BottomBar, TransportSlot })
         {
@@ -2186,6 +2188,7 @@ public partial class MainWindow : Window
         var current = _settings.Current();
         LibraryText.Text = current.Name;
         ToolTip.SetTip(LibraryLink, $"{current.Root}\nChoose a library");
+        AutomationProperties.SetName(LibraryLink, $"Library: {current.Name}. Choose a library");
         LibraryLink.IsVisible = !current.IsNone;      // nothing to pick from on the welcome
     }
 
@@ -2378,6 +2381,7 @@ public partial class MainWindow : Window
         Resources["ScanInk"] = SolidColorBrush.Parse(_ramp.Lightness < 55 ? "#B8FFFFFF" : "#B8000000");
 
         CountsText.Text = _counts;
+        AutomationProperties.SetName(CountsLink, $"{_counts}. Library statistics");
         CountsDot.IsVisible = _counts.Length > 0;
         Console.WriteLine($"[wall] ground {_ramp.GroundHex} L{_ramp.Lightness}% "
                         + $"hue {_ramp.Hue:0.#} \u00b7 chrome {_ramp.Chrome.Name} "
@@ -2727,6 +2731,33 @@ public partial class MainWindow : Window
                             + $"back={a.BackWidth}x{a.BackHeight} "
                             + $"aspect={(a.BackHeight > 0 ? (a.BackWidth / (double)a.BackHeight).ToString("0.00") : "-")} "
                             + $"path={a.BackPath ?? "none"}");
+            return;
+        }
+
+        // What a screen reader hears for each control a person can operate: the
+        // name Avalonia's automation peer reports, as VoiceOver, Narrator and
+        // Orca would ask for it. "names" for this window, "names prefs" for
+        // Preferences. Covers and tracks are counted, not listed: there are
+        // hundreds, and they share one binding each.
+        if (text.StartsWith("names", StringComparison.OrdinalIgnoreCase))
+        {
+            Control root = text.EndsWith("prefs", StringComparison.OrdinalIgnoreCase) && _prefs is not null ? _prefs : this;
+            var seen = new Dictionary<string, int>();
+            foreach (var c in root.GetVisualDescendants().OfType<Control>()
+                         .Where(c => c.IsEffectivelyVisible && (c is Button or Slider or TextBox or ToggleButton or CheckBox or ComboBox or TabItem or RadioButton)))
+            {
+                string name;
+                try { name = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(c).GetName(); }
+                catch (Exception ex) { name = $"(peer failed: {ex.Message})"; }
+                var kind = c.GetType().Name + (c.Classes.Count > 0 ? "." + string.Join(".", c.Classes.Where(x => !x.StartsWith(':'))) : "");
+                if (c.Classes.Contains("tile") || c.Classes.Contains("track"))
+                {
+                    seen[kind] = seen.GetValueOrDefault(kind) + 1;
+                    if (seen[kind] > 2) continue;
+                }
+                Console.WriteLine($"[names] {kind,-34} {(c.Name is { Length: > 0 } n ? "#" + n : ""),-20} \"{name}\"");
+            }
+            foreach (var (kind, n) in seen) Console.WriteLine($"[names] {kind}: {n} in all");
             return;
         }
 
@@ -3759,6 +3790,7 @@ public partial class MainWindow : Window
         PlayPauseButton.Content = playing
             ? Glyph("M 2 0 L 2 14 M 9 0 L 9 14")           // pause
             : Glyph("M 2 0 L 12 7 L 2 14 Z");              // play
+        AutomationProperties.SetName(PlayPauseButton, playing ? "Pause" : "Play");
 
         if (_playingAlbum is not null)
             Recolor(Palette.For(_playingAlbum.Album).OnLight);
@@ -4016,6 +4048,12 @@ public partial class MainWindow : Window
             Playback.GainMode.Track => "RG TRACK",
             _ => "RG OFF"
         };
+        AutomationProperties.SetName(GainButton, _player.Gain switch
+        {
+            Playback.GainMode.Album => "ReplayGain: by album. Press to change",
+            Playback.GainMode.Track => "ReplayGain: by track. Press to change",
+            _ => "ReplayGain: off. Press to change"
+        });
 
         // The transport takes a LIGHT tone from the playing album's art. It both
         // ties the bar to what is playing and breaks the window out of being one

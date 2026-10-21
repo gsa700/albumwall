@@ -241,8 +241,13 @@ public sealed class TrackLine : System.ComponentModel.INotifyPropertyChanged
             _playing = value;
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsPlaying)));
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(NotPlaying)));
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Spoken)));
         }
     }
+
+    /// What a screen reader says for the row: "2. Money, 6:22, playing".
+    public string Spoken => (Number.Length > 0 ? $"{Number}. " : "") + Text
+                          + (Duration.Length > 0 ? $", {Duration}" : "") + (_playing ? ", playing" : "");
 
     /// The track list shows a number OR a playing marker, never both.
     public bool NotPlaying => !_playing && !IsHeader;

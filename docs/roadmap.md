@@ -126,11 +126,16 @@ is ahead, the history is for what is behind.
     2026-10-21 (MainWindow.Keyboard.cs). The arrows move, Shift+← → seeks
     (his call), Enter opens or plays, ↓ goes into the open album's tracks,
     Esc comes back; covers and tracks are no longer Tab stops. What is left
-    below, in this order: the names, contrast;
-  - an audit of what each control is CALLED. The Preferences tabs all said
-    "Avalonia.Controls.StackPanel" until the updater's test tripped on it, and
-    the covers had no name until they were given "Title, by Artist, year".
-    Track rows, the play controls and the sliders have not been looked at;
+    below: contrast;
+  - ~~an audit of what each control is CALLED~~: DONE 2026-10-21. A debug
+    command, "names" (and "names prefs"), lists what Avalonia's automation
+    peer reports for every control a person can operate. It found the
+    sliders, the search box, the play controls, the chrome buttons, the
+    library and count links, both sleeves and every track row reporting
+    nothing or a class name ("Avalonia.Controls.Shapes.Path"); all are named
+    now, the track rows as "2. Money, 6:22, playing" and Play/Pause for what
+    a press will do. Not yet heard through a real screen reader: VoiceOver,
+    Narrator, Orca;
   - ~~"reduce motion"~~: DONE 2026-10-21 (Motion.cs): the Mac's, Windows' and
     GNOME's setting, read at start; slides, unfolds, scrolls and flips take no
     time and the playing marker holds still. ALBUMWALL_REDUCE_MOTION=1/0
