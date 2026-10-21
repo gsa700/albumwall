@@ -118,8 +118,11 @@ is ahead, the history is for what is behind.
 
 - **Keyboard and screen readers: hear it for real.** The arrow keys, reduce
   motion, the names and the contrast floor are built (2026-10-21; see the
-  commits, MainWindow.Keyboard.cs, Motion.cs, Contrast.cs). Nobody has yet
-  listened to the app through VoiceOver (⌘F5 on the Mac), Narrator or Orca;
+  commits, MainWindow.Keyboard.cs, Motion.cs, Contrast.cs). VoiceOver on the
+  Mac WORKS (his check, 0.6.22, 2026-10-21: "confirm voiceover works, it's
+  REALLY verbose" - the verbosity is VoiceOver's own, name plus role plus
+  any tooltip, and its users set it to taste). Not yet tried: Narrator, Orca,
+  and someone who uses a screen reader every day;
   the "names" debug command shows what they are told, not how it sounds in
   use. Avalonia's Linux screen-reader support is the weakest of the three.
   `--help` and `--version` exist (CommandLine.cs); a man page for Linux can
