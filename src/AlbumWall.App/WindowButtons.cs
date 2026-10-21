@@ -129,6 +129,13 @@ public static class WindowButtons
         if (btn.Content is Shapes.Path path)
             path.Bind(Shapes.Shape.StrokeProperty, btn.GetObservable(TemplatedControl.ForegroundProperty));
 
+        // A glyph is no name: Orca read these as "Avalonia.Controls.Shapes.Path".
+        Avalonia.Automation.AutomationProperties.SetName(btn, kind switch
+        {
+            Kind.Minimize => "Minimize",
+            Kind.Maximize => "Maximize",
+            _ => "Close"
+        });
         btn.Click += (_, _) => onClick();
         return btn;
     }

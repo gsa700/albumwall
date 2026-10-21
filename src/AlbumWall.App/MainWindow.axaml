@@ -31,7 +31,7 @@
         <!-- One row of covers. The row is exactly as wide as its albums, so the
              arrow offsets computed for the panel below it stay correct. -->
         <DataTemplate x:Key="AlbumRowTemplate" DataType="app:AlbumRow">
-            <ItemsControl ItemsSource="{Binding Albums}">
+            <ItemsControl ItemsSource="{Binding Albums}" AutomationProperties.Name="Albums">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal" Spacing="15"/>
@@ -175,9 +175,9 @@
                                  the 46-track box set is only about 26 rows per
                                  column, which the wall carries without complaint. -->
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="26" Margin="0,16,0,0">
-                                <ItemsControl Grid.Column="0" ItemsSource="{Binding LeftColumn}"
+                                <ItemsControl Grid.Column="0" ItemsSource="{Binding LeftColumn}" AutomationProperties.Name="Tracks"
                                               ItemTemplate="{StaticResource TrackLineTemplate}"/>
-                                <ItemsControl Grid.Column="1" ItemsSource="{Binding RightColumn}"
+                                <ItemsControl Grid.Column="1" ItemsSource="{Binding RightColumn}" AutomationProperties.Name="More tracks"
                                               ItemTemplate="{StaticResource TrackLineTemplate}"/>
                             </Grid>
                         </DockPanel>

@@ -145,7 +145,49 @@ class Program
         OperatingSystem.IsLinux()
         && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
         && Environment.GetEnvironmentVariable("ALBUMWALL_X11") != "1"
-        && !(OnGnome && SettingsAskX11);
+        && !(OnGnome && SettingsAskX11)
+        && !ScreenReaderRunning;
+
+    /// A screen reader (Orca) is running as the app starts. Avalonia 12 speaks to
+    /// Linux screen readers (AT-SPI) only from its X11 backend: on native
+    /// Wayland Orca could not see AlbumWall at all (found 2026-10-21, over SSH
+    /// on Techbench). So with one running the app goes through XWayland, where
+    /// it is fully named, and everyone else keeps native Wayland. The XWayland
+    /// click trouble that made Wayland the default (see above) matters least to
+    /// someone working by keyboard. A second at most (AskScreenReader).
+    /// A property, asked once: NativeWayland, a static field written ABOVE this,
+    /// is initialized first, and a field here would still read false for it.
+    private static bool ScreenReaderRunning => _screenReader ??= OperatingSystem.IsLinux() && AskScreenReader();
+    private static bool? _screenReader;
+
+    /// Three ways to know, any one enough: Orca's own process; GNOME's
+    /// "screen reader" switch; the accessibility bus's IsEnabled, which an
+    /// assistive tool sets when it starts. at-spi2-core 2.62 (Fedora 45) has no
+    /// ScreenReaderEnabled any more, which the first version asked for and so
+    /// never saw Orca (2026-10-21).
+    private static bool AskScreenReader()
+    {
+        if (System.Diagnostics.Process.GetProcessesByName("orca").Length > 0) return true;
+        return Ask("gsettings", "get org.gnome.desktop.a11y.applications screen-reader-enabled") == "true"
+            || Ask("busctl", "--user get-property org.a11y.Bus /org/a11y/bus org.a11y.Status IsEnabled") == "b true";
+
+        static string Ask(string tool, string args)
+        {
+            try
+            {
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(tool, args)
+                {
+                    RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
+                });
+                if (p is null || !p.WaitForExit(1000)) { try { p?.Kill(); } catch { } return ""; }
+                return p.StandardOutput.ReadToEnd().Trim();
+            }
+            catch
+            {
+                return "";      // no such tool here: nothing it could tell us
+            }
+        }
+    }
 
     private static bool SettingsAskX11 =>
         string.Equals(Settings.Load().Backend, "x11", StringComparison.OrdinalIgnoreCase);
@@ -186,8 +228,9 @@ class Program
         {
             if (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
                 Console.WriteLine("[wall] backend: X11 through XWayland ("
-                                + (Environment.GetEnvironmentVariable("ALBUMWALL_X11") == "1"
-                                    ? "ALBUMWALL_X11=1" : "settings \"Backend\": \"x11\"") + ")");
+                                + (Environment.GetEnvironmentVariable("ALBUMWALL_X11") == "1" ? "ALBUMWALL_X11=1"
+                                   : ScreenReaderRunning ? "a screen reader is running"
+                                   : "settings \"Backend\": \"x11\"") + ")");
             return builder;
         }
         Console.WriteLine("[wall] backend: native Wayland"

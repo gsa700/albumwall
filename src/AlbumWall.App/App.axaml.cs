@@ -133,12 +133,13 @@ public partial class App : Application
     {
         AvaloniaXamlLoader.Load(this);
         Resources["MonoFont"] = Mono;
-        // The application menu's title in the macOS menu bar, beside the Apple
-        // menu. Avalonia takes it from here, not from the bundle's Info.plist, and
-        // left unset it is Avalonia's own default (2026-10-14, first .app build).
-        // macOS only: elsewhere the name can reach the window's identity on the
-        // desktop, which already matches its launcher.
-        if (OperatingSystem.IsMacOS()) Name = DisplayName;
+        // The application's name. On the Mac it titles the application menu
+        // (Avalonia takes it from here, not from Info.plist; 2026-10-14). On Linux
+        // it is what a screen reader announces: unset, Orca heard "Avalonia
+        // Application" (2026-10-21). It was Mac-only for fear of the window's
+        // desktop identity, but that is WM_CLASS "AlbumWall", the assembly name,
+        // which this is too (DesktopEntry.WindowClass).
+        Name = DisplayName;
 
         // The application menu must EXIST before Avalonia looks for one, or it
         // makes its own, starting "About Avalonia", and a menu set later does not

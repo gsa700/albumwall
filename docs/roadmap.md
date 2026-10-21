@@ -109,8 +109,16 @@ is ahead, the history is for what is behind.
   commits, MainWindow.Keyboard.cs, Motion.cs, Contrast.cs). VoiceOver on the
   Mac WORKS (his check, 0.6.22, 2026-10-21: "confirm voiceover works, it's
   REALLY verbose" - the verbosity is VoiceOver's own, name plus role plus
-  any tooltip, and its users set it to taste). Not yet tried: Narrator, Orca,
-  and someone who uses a screen reader every day;
+  any tooltip, and its users set it to taste). LINUX, checked over SSH on
+  Techbench through the accessibility bus Orca reads (2026-10-21): Avalonia 12
+  speaks AT-SPI from its X11 backend only, so on native Wayland Orca saw
+  nothing; AlbumWall now goes through XWayland when assistive tech is on
+  (Program.ScreenReaderRunning), and there everything is named. The parts
+  inside sliders and scroll bars ("Thumb", "RepeatButton", "Line up") still
+  show in the raw tree: Avalonia's AT-SPI bridge ignores AccessibilityView,
+  and they take no focus, so keyboard use never lands on them. Not yet tried:
+  Narrator, Orca's speech itself, and someone who uses a screen reader every
+  day;
   the "names" debug command shows what they are told, not how it sounds in
   use. Avalonia's Linux screen-reader support is the weakest of the three.
   `--help` and `--version` exist (CommandLine.cs); a man page for Linux can
