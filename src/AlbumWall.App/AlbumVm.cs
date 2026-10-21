@@ -331,6 +331,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
         // what gets shown at either size; the GPU scaling it down costs nothing.
         if (_loadedBucket >= bucket) return;
         _loadedBucket = bucket;
+        var generation = _coverGeneration;
 
         var bmp = await ArtCache.GetAsync(Album, displayPx).ConfigureAwait(false);
         if (bmp is null)
@@ -343,7 +344,25 @@ public sealed class AlbumVm : INotifyPropertyChanged
                 });
             return;
         }
-        await Dispatcher.UIThread.InvokeAsync(() => Cover = bmp);
+        // Not if the cover was let go while it was being decoded: the tile has
+        // scrolled away, and setting it now would hold it again for good.
+        await Dispatcher.UIThread.InvokeAsync(() => { if (generation == _coverGeneration) Cover = bmp; });
+    }
+
+    private int _coverGeneration;
+
+    /// Lets the decoded cover go, for a tile the wall has scrolled well past
+    /// (MainWindow.OnRowScrolledAway). The album held it for as long as the
+    /// library was on the wall, whatever ArtCache evicted, so a desktop that
+    /// had scrolled the whole wall held every cover in it (Techbench: 480 MB to
+    /// 1.1 GB after one pass, 2026-10-21). It comes back from ArtCache, which
+    /// keeps the most recent 160 MB, or from the file, when the tile does.
+    public void ReleaseCover()
+    {
+        if (_cover is null && _loadedBucket < 0) return;
+        _coverGeneration++;
+        _loadedBucket = -1;
+        Cover = null;
     }
 
     private static Avalonia.Media.IBrush PlaceholderBrushFor(Domain.Album a)

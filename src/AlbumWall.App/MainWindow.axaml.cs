@@ -108,6 +108,7 @@ public partial class MainWindow : Window
         Wall.RowHeight = CoverPx + LabelHeight;
         Wall.ItemsSource = _rows;
         Wall.ElementPrepared += OnElementPrepared;
+        Wall.ElementScrolledAway += OnRowScrolledAway;
         WallScroller.SizeChanged += OnWallResized;
         SearchBox.PropertyChanged += OnSearchChanged;
 
@@ -2749,6 +2750,17 @@ public partial class MainWindow : Window
         // hundreds, and they share one binding each.
         // The contrast floor, checked where it applies: this ground and bar, and
         // every album's palette in the library on the wall. Lowest ratios.
+        // A full garbage collection, finalizers included: decoded covers are native
+        // memory freed only when their wrappers are collected, so "held" and "not
+        // yet collected" look the same until this runs.
+        if (text.Equals("gc", StringComparison.OrdinalIgnoreCase))
+        {
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            Console.WriteLine($"[gc] done; managed {GC.GetTotalMemory(false) >> 20} MB, cache {ArtCache.HeldBytes >> 20} MB in {ArtCache.Decoded} covers, "
+                            + $"albums holding a cover {_all.Count(a => a.Cover is not null)}");
+            return;
+        }
+
         if (text.Equals("contrast", StringComparison.OrdinalIgnoreCase))
         {
             static Color C(IBrush b) => ((ISolidColorBrush)b).Color;
@@ -4614,6 +4626,18 @@ public partial class MainWindow : Window
                 el.Height = double.NaN;
             }, TimeSpan.FromMilliseconds(ms + 40));
         }, DispatcherPriority.Loaded);
+    }
+
+    /// A row the wall has scrolled well past: its covers go (AlbumVm.ReleaseCover),
+    /// except the open album's and the playing one's, which the panel and the
+    /// play controls are still showing. A kiosk keeps every cover on purpose
+    /// (MainWindow.Kiosk.cs).
+    private void OnRowScrolledAway(object? sender, WallElementEventArgs e)
+    {
+        if (Program.Kiosk || e.Element.DataContext is not AlbumRow row) return;
+        foreach (var vm in row.Albums)
+            if (!ReferenceEquals(vm, _open) && !ReferenceEquals(vm, _playingAlbum))
+                vm.ReleaseCover();
     }
 
     /// Fired as the layout realizes a container. This — not item creation — is

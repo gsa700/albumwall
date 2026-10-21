@@ -56,6 +56,12 @@ public sealed class WallView : Panel
     /// Raised when a row becomes real — the moment to ask for its covers.
     public event EventHandler<WallElementEventArgs>? ElementPrepared;
 
+    /// Raised when a row is put away because the wall has SCROLLED well past it
+    /// (it is outside the screen of overscan either side) — the moment its covers
+    /// may be let go. Not when the rows are rebuilt (Reset): opening an album
+    /// does that, and the covers it would release are the ones on screen.
+    public event EventHandler<WallElementEventArgs>? ElementScrolledAway;
+
     private double _rowHeight = 227;
     private IList<WallItem>? _items;
     private ScrollViewer? _scroller;
@@ -198,6 +204,7 @@ public sealed class WallView : Panel
 
         foreach (var i in _realized.Keys.Where(i => !wanted.Contains(i)).ToList())
         {
+            ElementScrolledAway?.Invoke(this, new WallElementEventArgs(_realized[i]));
             Retire(_realized[i]);
             _realized.Remove(i);
         }
