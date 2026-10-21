@@ -104,9 +104,21 @@ public static class Ground
     /// meant to come back in Preferences rather than be deleted.
     public const int DefaultChrome = 2;
 
+    /// The body text every dark window uses.
+    public static readonly Avalonia.Media.Color BodyText = Avalonia.Media.Color.Parse("#F3EEE6");
+
+    /// The dim text, as designed. MainWindow.ApplyGround holds it to the floor.
+    public static readonly Avalonia.Media.Color DimText = Avalonia.Media.Color.Parse("#A2978A");
+
     public sealed record Ramp(double Hue, double Concentration, int Lightness, Chrome Chrome)
     {
-        private double BarL  => Math.Clamp((Lightness + Chrome.BarDelta) / 100.0, 0.03, 0.95);
+        /// No lighter than light text can be read on: the search field, the
+        /// lightest thing the bars carry, sits five points above the bar, so
+        /// the bar stops five points short of where #F3EEE6 drops under 4.5:1.
+        /// Without it the Lift and Warm bars at the light end of the slider
+        /// went to 2.6:1 (2026-10-21).
+        private double BarL  => Math.Min(Math.Clamp((Lightness + Chrome.BarDelta) / 100.0, 0.03, 0.95),
+                                         Contrast.MaxGroundLightness(BodyText, Hue, Chrome.BarSat) - 0.05);
         private double EdgeL => Math.Clamp((Lightness + Chrome.EdgeDelta) / 100.0, 0.03, 0.95);
 
         public string GroundHex => Hex(Hue, Saturation, Lightness / 100.0);

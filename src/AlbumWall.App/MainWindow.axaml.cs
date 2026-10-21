@@ -2370,6 +2370,14 @@ public partial class MainWindow : Window
         // The sheet is furniture too, and has to move with the rest of it.
         // On the APPLICATION, not this window: Preferences is a window of its
         // own and a DynamicResource only looks up its own tree and then here.
+        // The dim text (artists under the covers, the bars' small print) is held to
+        // the contrast floor against the lighter of the wall and the bars: at
+        // Light 21 it was 4.21:1, and at the light end of the slider 1.7.
+        var ground = Color.Parse(_ramp.GroundHex);
+        var bar = Color.Parse(_ramp.BarHex);
+        var lighter = Contrast.Luminance(ground) > Contrast.Luminance(bar) ? ground : bar;
+        Resources["DimText"] = Contrast.Brush(Contrast.Floor(Ground.DimText, lighter));
+
         var shared = Application.Current!.Resources;
         shared["SheetBg"] = SolidColorBrush.Parse(_ramp.BarHex);
         shared["SheetEdge"] = SolidColorBrush.Parse(_ramp.FieldEdgeHex);
@@ -2739,6 +2747,27 @@ public partial class MainWindow : Window
         // Orca would ask for it. "names" for this window, "names prefs" for
         // Preferences. Covers and tracks are counted, not listed: there are
         // hundreds, and they share one binding each.
+        // The contrast floor, checked where it applies: this ground and bar, and
+        // every album's palette in the library on the wall. Lowest ratios.
+        if (text.Equals("contrast", StringComparison.OrdinalIgnoreCase))
+        {
+            static Color C(IBrush b) => ((ISolidColorBrush)b).Color;
+            var g = Color.Parse(_ramp.GroundHex); var bar = Color.Parse(_ramp.BarHex); var field = Color.Parse(_ramp.FieldHex);
+            var dim = C((IBrush)Resources["DimText"]!);
+            Console.WriteLine($"[contrast] L{_ramp.Lightness} tint {ColorTint} chrome {_ramp.Chrome.Name}: dim/ground {Contrast.Ratio(dim, g):0.00} "
+                            + $"dim/bar {Contrast.Ratio(dim, bar):0.00} body/bar {Contrast.Ratio(Ground.BodyText, bar):0.00} body/field {Contrast.Ratio(Ground.BodyText, field):0.00}");
+            double tMin = 99, dMin = 99, aMin = 99, oMin = 99, odMin = 99;
+            foreach (var p in _all.Select(a => Palette.For(a.Album)))
+            {
+                var pg = C(p.Panel); var lt = C(p.Light);
+                tMin = Math.Min(tMin, Contrast.Ratio(C(p.Text), pg)); dMin = Math.Min(dMin, Contrast.Ratio(C(p.TextDim), pg));
+                aMin = Math.Min(aMin, Contrast.Ratio(C(p.Accent), pg));
+                oMin = Math.Min(oMin, Contrast.Ratio(C(p.OnLight), lt)); odMin = Math.Min(odMin, Contrast.Ratio(C(p.OnLightDim), lt));
+            }
+            Console.WriteLine($"[contrast] {_all.Count} palettes, lowest: text {tMin:0.00} dim {dMin:0.00} accent {aMin:0.00} onlight {oMin:0.00} onlightdim {odMin:0.00}");
+            return;
+        }
+
         if (text.StartsWith("names", StringComparison.OrdinalIgnoreCase))
         {
             Control root = text.EndsWith("prefs", StringComparison.OrdinalIgnoreCase) && _prefs is not null ? _prefs : this;

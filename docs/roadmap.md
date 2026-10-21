@@ -116,33 +116,14 @@ is ahead, the history is for what is behind.
   music server) and our own AAC decoder (large, a paid standard, iTunes gapless
   trims).
 
-- **Arrow-key navigation of the wall**, and the rest of keyboard and screen-reader
-  access. The shortcuts and the Help page are DONE (2026-09-20: Space, Ctrl+arrows,
-  arrows to seek, Ctrl+Up/Down, Ctrl+F or `/`, Esc, Ctrl+L, Ctrl+`,`, F1; the Help
-  tab lists them and the `art:` searches, and must be kept in step with
-  `MainWindow.OnShortcutKey`). Asked whether that helps accessibility, the honest
-  answer was "partly": what a keyboard-only or screen-reader user lacked was
-  - ~~moving about the wall with the ARROW keys, with a focus ring~~: DONE
-    2026-10-21 (MainWindow.Keyboard.cs). The arrows move, Shift+← → seeks
-    (his call), Enter opens or plays, ↓ goes into the open album's tracks,
-    Esc comes back; covers and tracks are no longer Tab stops. What is left
-    below: contrast;
-  - ~~an audit of what each control is CALLED~~: DONE 2026-10-21. A debug
-    command, "names" (and "names prefs"), lists what Avalonia's automation
-    peer reports for every control a person can operate. It found the
-    sliders, the search box, the play controls, the chrome buttons, the
-    library and count links, both sleeves and every track row reporting
-    nothing or a class name ("Avalonia.Controls.Shapes.Path"); all are named
-    now, the track rows as "2. Money, 6:22, playing" and Play/Pause for what
-    a press will do. Not yet heard through a real screen reader: VoiceOver,
-    Narrator, Orca;
-  - ~~"reduce motion"~~: DONE 2026-10-21 (Motion.cs): the Mac's, Windows' and
-    GNOME's setting, read at start; slides, unfolds, scrolls and flips take no
-    time and the playing marker holds still. ALBUMWALL_REDUCE_MOTION=1/0
-    overrides it;
-  - contrast, which depends on his Light and Tint.
-  `--help` and `--version` exist (CommandLine.cs); a man page for Linux can be
-  generated from the Help tab's text, later.
+- **Keyboard and screen readers: hear it for real.** The arrow keys, reduce
+  motion, the names and the contrast floor are built (2026-10-21; see the
+  commits, MainWindow.Keyboard.cs, Motion.cs, Contrast.cs). Nobody has yet
+  listened to the app through VoiceOver (⌘F5 on the Mac), Narrator or Orca;
+  the "names" debug command shows what they are told, not how it sounds in
+  use. Avalonia's Linux screen-reader support is the weakest of the three.
+  `--help` and `--version` exist (CommandLine.cs); a man page for Linux can
+  be generated from the Help tab's text, later.
 
 - **Rescanning a library that is not on the wall** (2026-09-28: "could I
   rescan Music while listening to NAS Music?"). Safe to build, since e7ad028 a

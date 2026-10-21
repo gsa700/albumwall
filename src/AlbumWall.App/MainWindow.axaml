@@ -299,6 +299,8 @@
         <!-- The single source of truth for tile geometry. Updating this at
              runtime re-sizes every realized tile without touching bindings. -->
         <sys:Double x:Key="CoverPx">185</sys:Double>
+        <!-- Replaced by ApplyGround as soon as the wall has a ground. -->
+        <SolidColorBrush x:Key="DimText" Color="#A2978A"/>
     </Window.Resources>
 
     <Window.Styles>
@@ -389,6 +391,11 @@
                     <DoubleTransition Property="Opacity" Duration="0:0:0.22" Delay="0:0:0.22"/>
                 </Transitions>
             </Setter>
+        </Style>
+        <!-- The dim text, held to the contrast floor against this window's own
+             wall and bars (ApplyGround). Other windows keep App.axaml's. -->
+        <Style Selector="TextBlock.dim">
+            <Setter Property="Foreground" Value="{DynamicResource DimText}"/>
         </Style>
         <Style Selector="Button.tile">
             <Setter Property="Background" Value="Transparent"/>

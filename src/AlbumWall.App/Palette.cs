@@ -100,6 +100,14 @@ public static class Palette
         var s = Math.Clamp(sat, 0.18, 0.45);
 
         var ground = FromHsl(hue, s, Lit(0.15));
+        var light = FromHsl(hue, Math.Clamp(s * 0.55, 0.10, 0.26), Math.Clamp(highlight, 0.62, 0.80));
+
+        // Every text color is held to the contrast floor against what it sits on
+        // (Contrast.cs): as designed where that already reads, moved just far
+        // enough where it does not. Measured 2026-10-21: TextDim fell to 2.5 on
+        // the lightest panels, the Accent of disc headers to 2.4 on blue albums,
+        // OnLightDim to 2.3 on yellow ones.
+        IBrush On(Color bg, double h, double sat, double l) => Contrast.Brush(Contrast.Floor(FromHsl(h, sat, l), bg));
 
         return new AlbumPalette(
             Hue: hue,
@@ -111,11 +119,11 @@ public static class Palette
             // The accent carries the album's color at full strength. It is used
             // on small elements only, where saturation is legible rather than
             // overwhelming.
-            Accent:  Solid(hue, Math.Clamp(s * 1.9, 0.40, 0.70), 0.62),
+            Accent:  On(ground, hue, Math.Clamp(s * 1.9, 0.40, 0.70), 0.62),
             // Text is tinted a few points toward the album hue rather than pure
             // white: on a colored panel, neutral white reads as a foreign layer.
-            Text:    Solid(hue, 0.08, 0.95),
-            TextDim: Solid(hue, 0.10, 0.68),
+            Text:    On(ground, hue, 0.08, 0.95),
+            TextDim: On(ground, hue, 0.10, 0.68),
 
             // The LIGHT tone comes from the bright end of the cover, not from
             // lightening the dark one — an album's highlights are a different
@@ -126,13 +134,12 @@ public static class Palette
             // here: the bar has to stay legible for every album, including the
             // ones that are nearly white and the ones that have no highlights at
             // all.
-            Light: Solid(hue, Math.Clamp(s * 0.55, 0.10, 0.26),
-                              Math.Clamp(highlight, 0.62, 0.80)),
+            Light: Contrast.Brush(light),
 
             // Dark text on a light bar. Clears 4.5:1 against the whole clamped
             // lightness range above.
-            OnLight:      Solid(hue, 0.30, 0.13),
-            OnLightDim:   Solid(hue, 0.22, 0.34),
+            OnLight:      On(light, hue, 0.30, 0.13),
+            OnLightDim:   On(light, hue, 0.22, 0.34),
             OnLightHover: Solid(hue, 0.20, 0.52));
     }
 
