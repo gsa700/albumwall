@@ -90,6 +90,13 @@ only the kiosk passes. It has no controls and never takes the keyboard; the wall
 keeps it. It shows the playing screen in the album's color and a clock after two
 minutes paused.
 
+**Every cover, decoded up front.** The kiosk passes `--kiosk` (and
+`ALBUMWALL_SUPERVISED=1` says the same to an older copy). With it, AlbumWall
+decodes the whole wall in the background once it is up, nearest the screen
+first, so a scroll never waits on a cover, and its cover cache may use a
+quarter of the machine's memory (at most 2 GB). The log says when it is done:
+`[art] kiosk: 1034 covers ready in ... s`.
+
 **Supervised updates.** The loop restarts AlbumWall whenever it exits — after a
 crash, or after an update. It sets `ALBUMWALL_SUPERVISED=1`, and with that set an
 update puts the new program in place before AlbumWall exits and leaves the
@@ -119,7 +126,8 @@ panel, switch it off there (on Pi OS, in `~/.config/kanshi/config`:
   file, so a change there does nothing until then. To check what a running
   AlbumWall was really started with:
   `tr '\0' '\n' < /proc/$(pgrep -x AlbumWall)/environ | grep ALBUMWALL`.
-- **Two AlbumWalls:** `pgrep -a -x AlbumWall`. One is expected, with
-  `--front-panel` if there is a panel.
+- **Two AlbumWalls:** `pgrep -a -x AlbumWall`. One is expected, with `--kiosk`,
+  and `--front-panel` if there is a panel. Since 0.6.19 a second copy cannot
+  start: it hands over to the first.
 - **No sound after a boot with the screen off:** WirePlumber can leave HDMI audio
   on its "off" profile; `systemctl --user restart wireplumber` with the screen on.

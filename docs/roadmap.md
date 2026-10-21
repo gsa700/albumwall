@@ -38,23 +38,17 @@ is ahead, the history is for what is behind.
   player did ("lets not for now at least"). The "Next ..." line is gone and not
   coming back.
 
-- **Kiosk mode: a bigger, look-ahead cover cache.** His ask, 2026-09-26, after
-  the first 4K scroll test on the Pi 5 (Pi5-POE, full FLAC library, 294 albums):
-  "pretty good ... a little stutter is expected but really not bad at all. as
-  good or better than other apps on there at 4k." The stutter lines up with CPU
-  bursts of 100-190% (of 400%) while scrolling, dropping to 5-20% between: covers
-  being decoded as they come into view. Memory sat at 415-500 MB of 8 GB, never
-  throttled. Two levers, both for kiosk mode only (a desktop shares its RAM):
-  1. **Budget.** `ArtCache.Budget` is 160 MB. At the Pi's 2x scale a tile is
-     roughly 536 px square, ~1.1 MB decoded, so 294 albums is ~340 MB: the
-     wall does not fit and scrolling back re-decodes what was evicted. A kiosk
-     budget sized to the machine (say a quarter of RAM) holds the whole
-     library after one pass.
-  2. **Decode ahead.** Request art for a screen or two beyond the viewport in the
-     scroll direction, at low priority, so tiles arrive already decoded.
-  Measure before and after with the same fling on the same library; the status
-  bar already reports decoded count and art MB. Rides the kiosk runtime switch
-  (see Decided: audio), not a preference.
+- **Kiosk covers: measure on the Pi.** Built 2026-10-21 (MainWindow.Kiosk.cs):
+  with `--kiosk` the whole wall is decoded in the background once it is up,
+  nearest the screen first, two at a time, and the cover cache gets a quarter
+  of RAM (at most 2 GB). What was found on the way: an album keeps its decoded
+  cover for as long as the library is on the wall, so scrolling BACK was never
+  re-decoding; the stutter was the first pass. On the Mac (1,034 albums) the
+  warm-up takes 1.4 s and holds about 385 MB more than a desktop start. Still
+  to do: the same fling on Pi5-POE, before and after, by eye and with `top`
+  (the 2026-09-26 baseline: CPU bursts of 100-190% of 400% while scrolling),
+  and the warm-up time from its log line. The kiosk files must be reinstalled
+  there for `--kiosk`, though ALBUMWALL_SUPERVISED already turns it on.
 
 - **Our own audio engine: mpv out, in steps** (agreed 2026-10-20, on Control,
   the night Deadwax 0.6.0 shipped its own FLAC encoder and decoder): "I'd like

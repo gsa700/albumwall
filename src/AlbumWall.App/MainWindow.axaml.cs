@@ -851,6 +851,7 @@ public partial class MainWindow : Window
                 _counts = $"{Count(albums.Count, "album")} · {Count(tracks, "track")} · {Count(artists, "artist")}";
                 _scanMs = sw.ElapsedMilliseconds;
                 Adopt(vms);
+                if (Program.Kiosk) WarmCovers();
                 ApplyGround();
                 ShowEmptyState(albums.Count == 0, root);
                 _prefs?.Fill();

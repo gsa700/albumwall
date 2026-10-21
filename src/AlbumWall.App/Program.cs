@@ -16,6 +16,14 @@ class Program
     /// launcher passes it; the desktop app never opens that window.
     public static bool FrontPanel { get; private set; }
 
+    /// A dedicated player rather than a desktop: <c>--kiosk</c>, which the kiosk's
+    /// launcher passes, or ALBUMWALL_SUPERVISED=1, which it has always set (so a
+    /// kiosk installed before the flag existed counts too). The app may then use
+    /// the machine as its own: see MainWindow.WarmCovers.
+    public static bool Kiosk { get; } =
+        Environment.GetCommandLineArgs().Any(a => a.Equals("--kiosk", StringComparison.OrdinalIgnoreCase))
+        || Environment.GetEnvironmentVariable("ALBUMWALL_SUPERVISED") == "1";
+
     [STAThread]
     public static void Main(string[] args)
     {

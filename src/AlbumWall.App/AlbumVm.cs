@@ -316,7 +316,11 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
     /// Called when the tile is realized by the virtualizing layout, so art is
     /// only fetched for albums actually on screen.
-    public async void EnsureCover(int displayPx)
+    public async void EnsureCover(int displayPx) => await LoadCoverAsync(displayPx);
+
+    /// The same, for a caller that wants to know when it is done: a kiosk's
+    /// warm-up, which decodes the wall a few covers at a time (WarmCovers).
+    public async Task LoadCoverAsync(int displayPx)
     {
         var bucket = ArtCache.BucketFor(displayPx);
 

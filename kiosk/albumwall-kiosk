@@ -19,11 +19,14 @@ if [ "$1" = "--inside" ]; then
     if [ -n "$MAIN_OUTPUT" ]; then
         wlr-randr --output "$MAIN_OUTPUT" ${MAIN_MODE:+--mode "$MAIN_MODE"} --scale "${MAIN_SCALE:-1}" || true
     fi
-    ARGS=""
+    # --kiosk: the app is the only thing running and may use the machine as its own
+    # (it decodes every cover up front). ALBUMWALL_SUPERVISED below says the same to
+    # a copy older than the flag.
+    ARGS="--kiosk"
     if [ -n "$PANEL_OUTPUT" ]; then
         # --on: a desktop session may keep the panel switched off; the kiosk wants it.
         wlr-randr --output "$PANEL_OUTPUT" --on --transform "${PANEL_TRANSFORM:-normal}" 2>/dev/null || true
-        ARGS="--front-panel"
+        ARGS="$ARGS --front-panel"
     fi
 
     # SUPERVISED: this loop restarts AlbumWall whenever it exits, so its updater must not

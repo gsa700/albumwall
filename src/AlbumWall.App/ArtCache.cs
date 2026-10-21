@@ -29,7 +29,14 @@ public static class ArtCache
     /// Roughly how much decoded art to keep. Chosen to hold a comfortable working
     /// set — a few screens of tiles plus the open album — without tracking the
     /// library's size, which is the property that made the old cache unbounded.
-    private const long Budget = 160L * 1024 * 1024;
+    ///
+    /// A KIOSK gets a quarter of the machine's memory instead (at least the
+    /// desktop's, at most 2 GB): it is the only thing running, and its whole
+    /// library should stay decoded. On the Pi 5 (8 GB) that is 2 GB, against
+    /// about 1.1 MB a cover at its 2x scale.
+    private static readonly long Budget = Program.Kiosk
+        ? Math.Clamp(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 4, 160L << 20, 2048L << 20)
+        : 160L << 20;
 
     private sealed class Entry
     {
