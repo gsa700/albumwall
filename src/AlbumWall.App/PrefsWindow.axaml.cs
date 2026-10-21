@@ -98,10 +98,10 @@ public partial class PrefsWindow : Window
         // Applies as it moves, like the rest of this tab: the point of the option
         // is to see which way round you prefer, and that cannot be done from a
         // checkbox that only takes effect next launch.
-        TransportTop.IsCheckedChanged += (_, _) =>
+        TransportBottom.IsCheckedChanged += (_, _) =>
         {
             if (_filling) return;
-            host.TransportAtTop = TransportTop.IsChecked == true;
+            host.TransportAtTop = TransportBottom.IsChecked != true;
         };
 
         Light.Minimum = Ground.MinLightness;
@@ -135,7 +135,7 @@ public partial class PrefsWindow : Window
             host.ColorLightness = Ground.DefaultLightness;
             host.ColorTint = Ground.DefaultTint;
             host.ColorChrome = Ground.DefaultChrome;
-            host.TransportAtTop = false;
+            host.TransportAtTop = true;
             Fill();
         };
 
@@ -575,7 +575,7 @@ public partial class PrefsWindow : Window
         GainOff.IsChecked = gain == Playback.GainMode.Off;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;
-        TransportTop.IsChecked = _host.TransportAtTop;
+        TransportBottom.IsChecked = !_host.TransportAtTop;
         Light.Value = _host.ColorLightness;
         Tint.Value = _host.ColorTint;
         Bars.SelectedIndex = _host.ColorChrome;

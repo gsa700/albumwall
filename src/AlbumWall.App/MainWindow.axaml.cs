@@ -1547,7 +1547,11 @@ public partial class MainWindow : Window
         BeginMoveDrag(e);
     }
 
-    /// Whether the play controls sit above the wall or below it.
+    /// Whether the play controls sit above the wall or below it, as chosen.
+    /// ABOVE by default since 2026-10-21 (his call: "make the controls position
+    /// at the top by default. Make it the option to place them at the bottom");
+    /// unset reads as above, and a "false" saved by choosing the bottom stays.
+    /// Full screen puts them at the bottom whatever is chosen: ControlsOnTop.
     ///
     /// The DockPanel does the work: docking the transport Top while it still sits
     /// AFTER the bottom bar in child order puts it directly under the title bar,
@@ -1559,7 +1563,7 @@ public partial class MainWindow : Window
     /// transport ends up with a line on the side facing nothing.
     public bool TransportAtTop
     {
-        get => _settings.TransportAtTop == true;
+        get => _settings.TransportAtTop != false;
         set
         {
             if (TransportAtTop == value) return;
@@ -1569,9 +1573,14 @@ public partial class MainWindow : Window
         }
     }
 
+    /// Where they are now: as chosen in a window, and always at the bottom in
+    /// full screen, where the floating pill sits better low ("an exception maybe
+    /// for full screen", 2026-10-21).
+    private bool ControlsOnTop => TransportAtTop && !_fullScreenChrome;
+
     private void ApplyTransportPosition()
     {
-        var top = TransportAtTop;
+        var top = ControlsOnTop;
 
         // The slot parks against the inside edge of whichever bar it comes out
         // from under, and the bar slides out of it AWAY from that edge: up from
@@ -1710,7 +1719,7 @@ public partial class MainWindow : Window
         // His correction to "wall only", 2026-09-26: "we should have the play
         // controls stay on the screen all the time under the same terms and the
         // normal app".
-        if (TransportAtTop == top)
+        if (ControlsOnTop == top)
             TransportSlot.RenderTransform = Shifted(show ? 0 : away);
 
         if (show) ArmBarHide();
@@ -3584,7 +3593,7 @@ public partial class MainWindow : Window
     /// it back. Idempotent, and safe to call when the bar changes sides.
     private void SetWallInset(bool on)
     {
-        var want = on ? (TransportAtTop ? Dock.Top : Dock.Bottom) : (Dock?)null;
+        var want = on ? (ControlsOnTop ? Dock.Top : Dock.Bottom) : (Dock?)null;
         if (want == _wallInset) return;
 
         // Undo whatever is there, then apply what is wanted, keeping the content
@@ -3615,7 +3624,7 @@ public partial class MainWindow : Window
     /// available for showing an album in: TargetOffset centers in what is left.
     private double CoveredByTransport => _transportShown ? TransportHeight : 0;
 
-    private double TransportHiddenY => TransportAtTop ? -TransportHeight : TransportHeight;
+    private double TransportHiddenY => ControlsOnTop ? -TransportHeight : TransportHeight;
 
     private static Avalonia.Media.Transformation.TransformOperations Shifted(double y) =>
         Avalonia.Media.Transformation.TransformOperations.Parse(

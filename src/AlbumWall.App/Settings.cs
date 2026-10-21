@@ -61,9 +61,10 @@ public sealed class Settings
     /// unset, is Stable: only builds promoted after running on Edge (2026-10-10).
     public bool? EdgeChannel { get; set; }
 
-    /// Whether the play controls sit above the wall instead of below it. Off is
-    /// the layout everything else was designed around, and stays the default:
-    /// "default to bottom as now but make it an option in settings."
+    /// Whether the play controls sit above the wall instead of below it. Unset is
+    /// above, the default since 2026-10-21 ("make the controls position at the top
+    /// by default"); false is the bottom, chosen in Preferences. It had been the
+    /// other way round: "default to bottom as now but make it an option".
     public bool? TransportAtTop { get; set; }
 
     /// Where the music lives. Null means the platform's own Music folder, which
