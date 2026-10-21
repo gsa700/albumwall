@@ -123,7 +123,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
         var mine = ++_flipGeneration;
 
-        if (!animate)
+        if (!animate || Motion.Reduced)
         {
             if (toBack && _back is null)
             {

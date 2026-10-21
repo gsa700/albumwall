@@ -526,8 +526,9 @@
             <Setter Property="BorderBrush" Value="#55FFFFFF"/>
         </Style>
         <!-- A slow breath on the playing marker. Long and shallow deliberately:
-             it should read as "this one is live", not compete with the music. -->
-        <Style Selector="Path.pulse">
+             it should read as "this one is live", not compete with the music.
+             Not with reduced motion (Motion.cs), where the window is ".still". -->
+        <Style Selector=":is(Window):not(.still) Path.pulse">
             <Style.Animations>
                 <Animation Duration="0:0:2.2" IterationCount="INFINITE" Easing="SineEaseInOut">
                     <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>

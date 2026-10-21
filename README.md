@@ -76,6 +76,8 @@ the sleeve over to show.
   next and previous track, Shift+arrows to seek, Ctrl+F to search, Esc to back out, Ctrl+M for
   compact, F11 for full screen, and F1 for the list — Preferences › Help has
   every key and every search the box understands.
+- **Reduce motion is followed**: with the system's setting on (macOS,
+  Windows, GNOME), nothing slides, unfolds or flips; it just appears.
 - **One copy at a time, and a command line to it**: starting it again brings
   the window forward, and `--play-pause`, `--next`, `--previous`, `--stop` or
   `--play "dark side"` drive the copy that is running, for scripts and

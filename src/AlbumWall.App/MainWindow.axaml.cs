@@ -542,6 +542,8 @@ public partial class MainWindow : Window
                 e.Handled = true;
             _spaceToggled = false;
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        // Reduced motion: the playing marker holds still (Path.pulse in the markup).
+        if (Motion.Reduced) Classes.Add("still");
         ScanLibrary();
         ListenForSecondLaunches();
         StartNetworkRecheck();
@@ -1702,7 +1704,7 @@ public partial class MainWindow : Window
             [
                 new TransformOperationsTransition
                 {
-                    Property = RenderTransformProperty, Duration = BarSlide, Easing = new CubicEaseOut()
+                    Property = RenderTransformProperty, Duration = Motion.Of(BarSlide), Easing = new CubicEaseOut()
                 }
             ];
 
@@ -3554,7 +3556,7 @@ public partial class MainWindow : Window
                 new TransformOperationsTransition
                 {
                     Property = RenderTransformProperty,
-                    Duration = TransportSlide,
+                    Duration = Motion.Of(TransportSlide),
                     Easing = new CubicEaseOut()
                 }
             ];
@@ -4164,10 +4166,10 @@ public partial class MainWindow : Window
 
         el.Transitions =
         [
-            new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(SwapFadeMs), Easing = new CubicEaseOut() }
+            new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(Motion.Ms(SwapFadeMs)), Easing = new CubicEaseOut() }
         ];
         el.Opacity = 0;
-        await Task.Delay(SwapFadeMs);
+        await Task.Delay(Motion.Ms(SwapFadeMs));
 
         // Something rebuilt the wall during the fade (a filter, a resize): the
         // panel is not where it was, so open the ordinary way instead.
@@ -4205,7 +4207,7 @@ public partial class MainWindow : Window
         el.Transitions = Unfolding();
         el.Height = 0;
         el.Opacity = 0;
-        await Task.Delay(UnfoldMs);
+        await Task.Delay(Motion.Ms(UnfoldMs));
     }
 
     // ---- Motion. Gathered here because these are feel, not logic, and get
@@ -4374,7 +4376,7 @@ public partial class MainWindow : Window
 
         _anchor?.Stop();
         FreezeWall(true);
-        var until = DateTime.UtcNow.AddMilliseconds(ms);
+        var until = DateTime.UtcNow.AddMilliseconds(Motion.Ms(ms));
 
         _anchor = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _anchor.Tick += (_, _) =>
@@ -4432,13 +4434,13 @@ public partial class MainWindow : Window
         new DoubleTransition
         {
             Property = HeightProperty,
-            Duration = TimeSpan.FromMilliseconds(UnfoldMs),
+            Duration = TimeSpan.FromMilliseconds(Motion.Ms(UnfoldMs)),
             Easing = new CubicEaseOut()
         },
         new DoubleTransition
         {
             Property = OpacityProperty,
-            Duration = TimeSpan.FromMilliseconds(UnfoldMs),
+            Duration = TimeSpan.FromMilliseconds(Motion.Ms(UnfoldMs)),
             Easing = new CubicEaseOut()
         }
     ];
@@ -4514,7 +4516,7 @@ public partial class MainWindow : Window
             if (target <= 0) { el.Height = double.NaN; el.Opacity = 1; return; }
 
             el.Height = from;
-            var ms = SwapDuration(from, target);
+            var ms = Motion.Ms(SwapDuration(from, target));
             el.Transitions =
             [
                 // Eased at both ends: a long resize that starts at full speed is

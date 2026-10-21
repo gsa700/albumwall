@@ -126,13 +126,15 @@ is ahead, the history is for what is behind.
     2026-10-21 (MainWindow.Keyboard.cs). The arrows move, Shift+← → seeks
     (his call), Enter opens or plays, ↓ goes into the open album's tracks,
     Esc comes back; covers and tracks are no longer Tab stops. What is left
-    below, in this order: reduce motion, the names, contrast;
+    below, in this order: the names, contrast;
   - an audit of what each control is CALLED. The Preferences tabs all said
     "Avalonia.Controls.StackPanel" until the updater's test tripped on it, and
     the covers had no name until they were given "Title, by Artist, year".
     Track rows, the play controls and the sliders have not been looked at;
-  - "reduce motion": the sliding play controls and the unfolding album ignore
-    the system setting;
+  - ~~"reduce motion"~~: DONE 2026-10-21 (Motion.cs): the Mac's, Windows' and
+    GNOME's setting, read at start; slides, unfolds, scrolls and flips take no
+    time and the playing marker holds still. ALBUMWALL_REDUCE_MOTION=1/0
+    overrides it;
   - contrast, which depends on his Light and Tint.
   `--help` and `--version` exist (CommandLine.cs); a man page for Linux can be
   generated from the Help tab's text, later.
