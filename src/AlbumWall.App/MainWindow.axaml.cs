@@ -529,6 +529,18 @@ public partial class MainWindow : Window
             if (e.Key != Key.Space) return;
             _spaceHeld = false;
             _spaceUpAt = Environment.TickCount64;
+
+            // Space is play or pause and nothing else (his call, 2026-10-21). A
+            // Button "clicks" on Space's RELEASE, so with the keyboard on a cover
+            // or a track one press paused the music and then opened that album
+            // or played that track. Enter is the key that chooses. The release
+            // is swallowed wherever the press was play/pause, and always on a
+            // cover or a track, so Space there never chooses even with nothing
+            // loaded.
+            var focused = FocusManager?.GetFocusedElement();
+            if (_spaceToggled || focused is Button { Classes: var c } && (c.Contains("tile") || c.Contains("track")))
+                e.Handled = true;
+            _spaceToggled = false;
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
         ScanLibrary();
         ListenForSecondLaunches();
@@ -3893,6 +3905,7 @@ public partial class MainWindow : Window
                 if (repeat) { e.Handled = true; return; }
                 if (_player is null || !_mprisState.HasTrack) return;
                 _player.TogglePause();
+                _spaceToggled = true;
                 break;
 
             case Key.Right when ctrl:
@@ -3937,6 +3950,9 @@ public partial class MainWindow : Window
 
     /// Space: held down, and when it last came up. See the Space case above.
     private bool _spaceHeld;
+    /// This press of Space was play/pause, so its release must not click whatever
+    /// button has the focus as well. See the KeyUp handler.
+    private bool _spaceToggled;
     private long _spaceUpAt;
     private const long SpaceRepeatMs = 50;
     private const int VolumeStep = 5;       // of 100
