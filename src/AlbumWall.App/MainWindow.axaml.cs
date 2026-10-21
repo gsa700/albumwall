@@ -3145,6 +3145,7 @@ public partial class MainWindow : Window
             _sessionOver = false;
             _player.Play(paths.Select(Playable).ToList(), from);
             MarkPlayingTrack();
+            CoverForTransport(album);
 
             Console.WriteLine($"[wall] requested track {from + 1}: "
                             + $"{(from < album.Album.Tracks.Count ? album.Album.Tracks[from].Title : "?")}");
@@ -3328,13 +3329,20 @@ public partial class MainWindow : Window
                         + $"track {index + 1}/{queue.Count} at {(int)at.TotalMinutes}:{at.Seconds:00}"
                         + (_settings.AutoPlay == true ? ", playing" : ", paused"));
 
-        // The transport shows the album's cover, and nothing has asked for it
-        // yet: normally the tile was on screen long before anything played.
+        CoverForTransport(album);
+    }
+
+    /// The transport shows the playing album's cover, and nothing may have asked
+    /// for it yet: a resumed session, or --play from the command line, starts an
+    /// album whose tile has never been on screen. Clicking one never needed this.
+    private void CoverForTransport(AlbumVm album)
+    {
+        if (album.Cover is not null) return;
         void OnCover(object? s, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName != nameof(AlbumVm.Cover)) return;
             album.PropertyChanged -= OnCover;
-            UpdateNowPlaying();
+            if (_playingAlbum == album) UpdateNowPlaying();
         }
         album.PropertyChanged += OnCover;
         album.EnsureCover(260);
