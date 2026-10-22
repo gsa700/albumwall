@@ -45,15 +45,18 @@ is ahead, the history is for what is behind.
      exact off the server, heard there by him, 1984 into Jump with no gap
      the record does not have. Local files are read the same way now.
   2. The other outputs; only `AudioQueueOutput.cs` is the Mac's, the rest of
-     FlacEngine is plain .NET. NEXT, his call 2026-10-21 ("put that at the
-     top of the list, we'll get into it next session"), in this order:
+     FlacEngine is plain .NET. His call 2026-10-21 ("put that at the top of
+     the list, we'll get into it next session"), in this order; (a) and (c)
+     done, (b) NEXT, when Pi5-POE has a screen and audio again:
      a. Linux, through PulseAudio's simple API (libpulse-simple, which
         PipeWire serves too): the smallest of the three, and shared like mpv
-        on a desktop. Checked muted on Techbench with `tools/engine-check.cs`,
-        heard there by him. BUILT 2026-10-22 (PulseOutput; the commit says
-        how), checked muted and through a null sink, bit-exact; not yet heard.
-        The simple API has no pause or volume of its own: a pause is a flush,
-        and the slider is heard 0.2 s late. The full API, if that grates.
+        on a desktop. BUILT 2026-10-22 (PulseOutput; the commit says how),
+        checked muted and through a null sink, bit-exact; heard by him on
+        Techbench the same afternoon, High 'n' Dry's Bringin' On the
+        Heartbreak into Switch 625: "nice gapless transition", pause and
+        seeks fine. The simple API has no pause or volume of its own: a
+        pause is a flush, and the slider is heard 0.2 s late, which he found
+        "barely perceptible" and fine. The full API is not needed.
      b. Linux, ALSA direct, for the kiosk only: the device taken for itself,
         S/PDIF bit-perfect. Builds on (a).
      c. Windows, WASAPI shared mode: COM from .NET without a library, the
@@ -67,7 +70,9 @@ is ahead, the history is for what is behind.
         IAudioClient::Initialize (360 ms on Mobilenode whatever the format,
         so the driver's). FIXED the same day: the stream is kept, stopped,
         reset and refilled (IOutput.Restart), 10-26 ms; "seeking is instant
-        now". The Mac and Pulse outputs still open anew.
+        now". The Mac and Pulse outputs still open anew, and need not: a
+        seek on the Mac measured 34-44 ms to sound again (an AudioQueue is
+        quick to make), and on Techbench he heard seeks as instant.
      The kiosk is the bit-perfect test, `tools/gapless-check.cs` the measure.
   3. MP3 and AAC by decoders of our own in C#, as FLAC is: CHANGED from a
      small FFmpeg of decoders only, his call 2026-10-22 ("replace the top 3
