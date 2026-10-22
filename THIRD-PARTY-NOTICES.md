@@ -64,6 +64,18 @@ this one; the versions below are the ones a release carries.
   License: MIT ("Old MIT").
   Source: https://github.com/harfbuzz/harfbuzz (tag `14.4.0`)
 
+## AlbumWall's own audio engine
+
+Beside libmpv, AlbumWall has an engine of its own (Preferences > Playback),
+with its own decoders written in C#. One of them is ported from someone else's
+work, and so is the exception to "nothing here has been modified": it is the
+same decoder, rewritten line for line in another language.
+
+- **minimp3** (commit `ea99364`), by lieff — the MP3 decoder's core: Layer III,
+  ported to C# with its tables copied value for value.
+  License: CC0 1.0 Universal (dedicated to the public domain).
+  Source: https://github.com/lieff/minimp3
+
 ## The application
 
 - **.NET 10 runtime** — a release is self-contained, so the runtime is inside

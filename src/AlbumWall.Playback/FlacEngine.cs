@@ -174,7 +174,7 @@ internal sealed class FlacEngine : IEngine
         }
         Console.WriteLine($"[engine] queued {paths.Count}, from {index}{(frame > 0 ? $" at {at!.Value:m\\:ss}" : "")}"
                         + $"{(paused ? ", held" : "")}: {System.IO.Path.GetFileName(track.Name)} "
-                        + $"({track.SampleRate} Hz, {track.BitsPerSample}-bit, {track.Channels} ch, "
+                        + $"({track.SampleRate} Hz, {(track.BitsPerSample > 0 ? $"{track.BitsPerSample}-bit" : "lossy")}, {track.Channels} ch, "
                         + $"gain x{track.Gain.Multiplier(_gain):0.###})");
         Begin(index, track, frame, play: !paused);
         SetState(!paused);

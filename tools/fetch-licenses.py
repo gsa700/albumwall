@@ -74,6 +74,10 @@ WANTED = [
     ("sqlitepclraw-LICENSE.TXT", "SQLitePCLRaw (Apache 2.0)", "ericsink/SQLitePCL.raw", [None], ["LICENSE.TXT", "LICENSE.txt", "LICENSE"]),
     ("tmds-dbus-COPYING.txt", "Tmds.DBus.Protocol (MIT)", "tmds/Tmds.DBus", [None], ["COPYING", "LICENSE"]),
     ("inter-LICENSE.txt", "Inter, the typeface (SIL OFL 1.1)", "rsms/inter", [None], ["LICENSE.txt", "LICENSE"]),
+
+    # ---- the own engine's decoders: ported, at the commit the port was made from
+    ("minimp3-LICENSE.txt", "minimp3 (CC0 1.0), ported into the MP3 decoder", "lieff/minimp3",
+     ["ea99364f61c14656440e8d77e9c233ccf3124633"], ["LICENSE"]),
 ]
 
 # Something every real license in the list above contains at least one of.

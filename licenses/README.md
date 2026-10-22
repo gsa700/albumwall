@@ -38,3 +38,4 @@ https://sqlite.org/copyright.html.
 | [sqlitepclraw-LICENSE.TXT](sqlitepclraw-LICENSE.TXT) | SQLitePCLRaw (Apache 2.0) | https://github.com/ericsink/SQLitePCL.raw | `default branch` | `LICENSE.TXT` | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
 | [tmds-dbus-COPYING.txt](tmds-dbus-COPYING.txt) | Tmds.DBus.Protocol (MIT) | https://github.com/tmds/Tmds.DBus | `default branch` | `COPYING` | `aca3b49277abcc7886ccb2f115603a9f5b15fc3f96019a10c00f2974098b210c` |
 | [inter-LICENSE.txt](inter-LICENSE.txt) | Inter, the typeface (SIL OFL 1.1) | https://github.com/rsms/inter | `default branch` | `LICENSE.txt` | `262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a` |
+| [minimp3-LICENSE.txt](minimp3-LICENSE.txt) | minimp3 (CC0 1.0), ported into the MP3 decoder | https://github.com/lieff/minimp3 | `ea99364f61c14656440e8d77e9c233ccf3124633` | `LICENSE` | `6a1ee543e5282cd9061881edf462e6fdab181f328da71fc2c9a6950a80e94d01` |

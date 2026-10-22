@@ -69,16 +69,27 @@ is ahead, the history is for what is behind.
         reset and refilled (IOutput.Restart), 10-26 ms; "seeking is instant
         now". The Mac and Pulse outputs still open anew.
      The kiosk is the bit-perfect test, `tools/gapless-check.cs` the measure.
-  3. Every other format through a small FFmpeg of decoders only (libavcodec
-     and libavformat for the containers, the same decoder list as
-     `scripts/build-libmpv/inner.sh`, so Vorbis, Opus, ALAC and PCM still play
-     for other people's libraries). mpv out of the path, still bundled. One
-     LGPL dependency instead of seven projects; "AAC stays in the build"
-     (Decided) carries over unchanged.
+  3. MP3 and AAC by decoders of our own in C#, as FLAC is: CHANGED from a
+     small FFmpeg of decoders only, his call 2026-10-22 ("replace the top 3
+     decoders with native C# versions, FLAC is done, next should be mp3 and
+     aac. Others later as needed"; the goal "a clean replacement decoder to
+     eventually lead to total removal of mpv"). The decoders are one project,
+     `src/AlbumWall.Codecs`: each format a small codec core on shared parts
+     (the bytes as they arrive, ReplayGain, exact seeks, one `IAudioTrack`).
+     Measured against ffmpeg by `tools/engine-check.cs compare`, since lossy
+     formats carry no MD5: the same number of samples proves the gapless
+     trimming is mpv's, and ISO 11172-4's full accuracy bounds the rest.
+     a. MP3: BUILT 2026-10-22 on Mobilenode (Mp3Track, Mp3.cs ported line for
+        line from minimp3, CC0; the commit says how). 13 tracks of four albums
+        the same length as ffmpeg's, 1e-7 RMS from it; seeks exact; heard by
+        him, from Navidrome, in a noisy room: "it sounds good". Worth a quiet
+        listen to Abbey Road's side two.
+     b. AAC (AAC-LC in MP4, his iTunes library): next, and the larger job.
+     Vorbis, Opus, ALAC and PCM stay with mpv until they are wanted.
   4. The default, once gapless passes on all four builds.
   5. mpv and its companions removed, with their notices and source archives.
-  6. Later, if wanted: the OS's own MP3/AAC decoders on the Mac and Windows
-     (AudioToolbox, Media Foundation; nothing bundled), or our own MP3 decoder.
+  6. Later, if wanted: the OS's own decoders on the Mac and Windows
+     (AudioToolbox, Media Foundation; nothing bundled) for the rarer formats.
   **What it must play** (his scope, 2026-10-20): "FLAC, mp3, and aac will
   cover all my needs and most others. There are likely a few more we can
   support cheaply." While FFmpeg's decoders are bundled (step 3 on), the

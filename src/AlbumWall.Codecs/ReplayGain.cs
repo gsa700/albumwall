@@ -13,12 +13,23 @@ namespace AlbumWall.Codecs;
 /// neither there is no ReplayGain at all.
 public readonly record struct ReplayGain(bool Present, float TrackGain, float TrackPeak, float AlbumGain, float AlbumPeak)
 {
-    public static ReplayGain From(IReadOnlyDictionary<string, string> tags)
+    public static ReplayGain From(IReadOnlyDictionary<string, string> tags) => FromRaw(Raw(tags));
+
+    /// The four values FFmpeg keeps (ff_replaygain_export), in hundred-
+    /// thousandths, a missing gain as int.MinValue and a missing peak as 0.
+    public static (int TrackGain, int TrackPeak, int AlbumGain, int AlbumPeak) Raw(IReadOnlyDictionary<string, string> tags) =>
+        (Parse(tags, "REPLAYGAIN_TRACK_GAIN", int.MinValue), Parse(tags, "REPLAYGAIN_TRACK_PEAK", 0),
+         Parse(tags, "REPLAYGAIN_ALBUM_GAIN", int.MinValue), Parse(tags, "REPLAYGAIN_ALBUM_PEAK", 0));
+
+    /// Whether FFmpeg would keep these at all: a gain of either kind.
+    public static bool Any((int TrackGain, int TrackPeak, int AlbumGain, int AlbumPeak) raw) =>
+        raw.TrackGain != int.MinValue || raw.AlbumGain != int.MinValue;
+
+    /// From the four values as FFmpeg keeps them, wherever they came from
+    /// (tags, or the LAME tag of an MP3), by mpv's rule.
+    public static ReplayGain FromRaw((int TrackGain, int TrackPeak, int AlbumGain, int AlbumPeak) raw)
     {
-        var tg = Parse(tags, "REPLAYGAIN_TRACK_GAIN", int.MinValue);
-        var tp = Parse(tags, "REPLAYGAIN_TRACK_PEAK", 0);
-        var ag = Parse(tags, "REPLAYGAIN_ALBUM_GAIN", int.MinValue);
-        var ap = Parse(tags, "REPLAYGAIN_ALBUM_PEAK", 0);
+        var (tg, tp, ag, ap) = raw;
         var track = tg != int.MinValue && tp != 0;
         var album = ag != int.MinValue && ap != 0;
         if (!track && !album) return default;
