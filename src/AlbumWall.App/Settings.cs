@@ -123,6 +123,10 @@ public sealed class Settings
     /// The app's own playback volume, 0-100.
     public int? Volume { get; set; }
 
+    /// Local FLAC played by AlbumWall's own engine instead of mpv (the Mac
+    /// only; Preferences > Playback). Off unless turned on.
+    public bool? OwnEngine { get; set; }
+
     /// Ground lightness in percent. How light the room is.
     public int? Lightness { get; set; }
 

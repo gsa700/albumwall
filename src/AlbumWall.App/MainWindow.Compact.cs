@@ -78,10 +78,6 @@ public partial class MainWindow
     /// The compact window's title size, in the view's own 1480 x 320 units.
     private const double CompactTitleSize = 54;
 
-    /// The meters' levels are read where mpv decodes, which is ahead of the
-    /// speakers by its output buffer. Holding them back this long puts the
-    /// needles with the sound rather than a beat ahead of it.
-    private static readonly TimeSpan MeterDelay = TimeSpan.FromMilliseconds(200);
     private readonly Queue<(long At, double L, double R)> _levels = new();
     private DispatcherTimer? _meterTimer;
     private DispatcherTimer? _aspectSnap;
@@ -328,7 +324,9 @@ public partial class MainWindow
     }
 
     /// Reads the levels about thirty times a second while compact and playing,
-    /// and hands the view the reading from MeterDelay ago.
+    /// and hands the view the reading from Player.LevelsLead ago: holding the
+    /// levels back by how far the engine reads them ahead of the speakers puts
+    /// the needles with the sound rather than a beat ahead of it.
     ///
     /// Whether there are meters at all is decided HERE, on every tick, not once
     /// on entering: a window that opens straight into compact gets there before
@@ -350,10 +348,11 @@ public partial class MainWindow
             var (l, r) = _player.IsPlaying ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
             if (!_player.IsPlaying) _levels.Clear();         // a pause drops the needles now, not in 200 ms
             _levels.Enqueue((now, l, r));
+            var delay = _player.LevelsLead.TotalMilliseconds;
             var due = (At: now, L: l, R: r);
-            while (_levels.Count > 0 && now - _levels.Peek().At >= MeterDelay.TotalMilliseconds)
+            while (_levels.Count > 0 && now - _levels.Peek().At >= delay)
                 due = _levels.Dequeue();
-            if (_player.IsPlaying && _levels.Count > 0 && now - due.At < MeterDelay.TotalMilliseconds) return;
+            if (_player.IsPlaying && _levels.Count > 0 && now - due.At < delay) return;
             foreach (var v in views) v.SetLevels(due.L, due.R);
         };
         _meterTimer.Start();

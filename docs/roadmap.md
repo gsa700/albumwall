@@ -78,7 +78,10 @@ is ahead, the history is for what is behind.
   **The steps, mpv the fallback until the last; each one ships on its own and
   a pause between any two is fine:**
   1. Our engine, FLAC only, on the Mac (CoreAudio), behind a switch; mpv
-     still plays everything else and stays the default.
+     still plays everything else and stays the default. BUILT 2026-10-21
+     (FlacEngine, Preferences > Playback > Engine; the commit says how), and
+     heard on Control the same night: identical to his ear, no gap or click
+     at a boundary. Not yet: a stream from a server, which stays with mpv.
   2. Windows output (WASAPI), then Linux (ALSA/PipeWire); the kiosk is the
      bit-perfect test, `tools/gapless-check.cs` the measure.
   3. Every other format through a small FFmpeg of decoders only (libavcodec

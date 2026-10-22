@@ -87,6 +87,14 @@ public partial class PrefsWindow : Window
         GainTrack.IsCheckedChanged += (_, _) => { if (GainTrack.IsChecked == true) ChooseGain(Playback.GainMode.Track); };
         GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Playback.GainMode.Off); };
 
+        // AlbumWall's own engine: only where it can run.
+        EngineSection.IsVisible = Playback.Player.OwnEngineAvailable;
+        OwnEngine.IsCheckedChanged += (_, _) =>
+        {
+            if (_filling) return;
+            host.OwnEngine = OwnEngine.IsChecked == true;
+        };
+
         UpdateButton.Click += async (_, _) => await OnUpdateButton();
         UpdateNotes.Click += async (_, _) =>
         {
@@ -576,6 +584,7 @@ public partial class PrefsWindow : Window
         GainAlbum.IsChecked = gain == Playback.GainMode.Album;
         GainTrack.IsChecked = gain == Playback.GainMode.Track;
         GainOff.IsChecked = gain == Playback.GainMode.Off;
+        OwnEngine.IsChecked = _host.OwnEngine;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;
         TransportBottom.IsChecked = !_host.TransportAtTop;

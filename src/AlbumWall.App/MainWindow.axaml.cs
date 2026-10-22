@@ -2027,6 +2027,20 @@ public partial class MainWindow : Window
         }
     }
 
+    /// AlbumWall's own engine for local FLAC (the Mac only), for Preferences >
+    /// Playback. Heard from the next album started: the one playing finishes
+    /// on the engine it began on.
+    internal bool OwnEngine
+    {
+        get => _settings.OwnEngine == true;
+        set
+        {
+            _settings.OwnEngine = value;
+            _settings.Save();
+            if (_player is not null) _player.UseOwnEngine = value;
+        }
+    }
+
     internal bool RescanRunning => _honestRunning;
     internal void Rescan() => ScanLibrary(honest: true);
 
@@ -3303,6 +3317,7 @@ public partial class MainWindow : Window
 
         // A player built now starts at whatever the slider already says.
         _player.Volume = _volume;
+        _player.UseOwnEngine = _settings.OwnEngine == true;
 
         _player.TrackChanged += OnTrackChanged;
         _player.StateChanged += OnPlaybackState;

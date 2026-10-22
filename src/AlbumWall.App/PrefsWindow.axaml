@@ -168,6 +168,17 @@
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
                                Text="Everything plays at exactly the level it was encoded at."/>
                 </StackPanel>
+
+                <!-- AlbumWall's own engine (roadmap, "Our own audio engine",
+                     step 1, 2026-10-21): local FLAC on the Mac, behind this
+                     switch, off unless turned on. mpv plays everything else
+                     either way. Hidden where it cannot run. -->
+                <StackPanel x:Name="EngineSection" Spacing="4" Margin="0,6,0,0">
+                    <TextBlock Text="Engine" FontSize="14" FontWeight="SemiBold"/>
+                    <CheckBox x:Name="OwnEngine" Content="Play FLAC with AlbumWall's own engine (experimental)"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                               Text="Albums of FLAC files on this computer play through AlbumWall itself instead of mpv. Everything else, and anything from a server, still plays through mpv. Takes effect from the next album you start."/>
+                </StackPanel>
             </StackPanel>
         </TabItem>
 
