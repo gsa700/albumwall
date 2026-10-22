@@ -182,8 +182,8 @@ public static class InstallService
     /// <summary>
     /// Copy this executable into the install directory and register it. Returns the path of the
     /// installed copy, which the caller should launch before exiting. Copying only the executable
-    /// is sufficient BECAUSE the published build is a self-contained single file with libmpv
-    /// inside it; settings and the session live in <see cref="DataDir"/> either way.
+    /// is sufficient BECAUSE the published build is a self-contained single file with its native
+    /// libraries inside it; settings and the session live in <see cref="DataDir"/> either way.
     /// </summary>
     public static InstallResult Install()
     {
@@ -496,7 +496,7 @@ public static class InstallService
         : File.Exists(DesktopFilePath);
 
     /// <summary>
-    /// Where the .NET single-file host unpacks this app's native libraries — libmpv, here. It is
+    /// Where the .NET single-file host unpacks this app's native libraries — Skia, HarfBuzz and SQLite, here. It is
     /// the host's choice, not ours, and it differs by platform: <c>%TEMP%\.net\AlbumWall</c> on
     /// Windows, <c>~/.net/AlbumWall</c> on Linux, or under <c>DOTNET_BUNDLE_EXTRACT_BASE_DIR</c> if
     /// that is set. This used to be the Linux path on both, so on Windows the uninstall looked in
@@ -543,8 +543,9 @@ public static class InstallService
     ///
     /// Only when this is the ONLY copy running. A folder is unsafe to touch while a copy runs
     /// from it, and the guard is deliberately blunter than asking which folder each copy uses:
-    /// libmpv is loaded on first play, so a copy that has not played yet has nothing of it mapped,
-    /// Windows would let it go, Linux always would, and that copy breaks the first time it plays.
+    /// a native library loaded only when first needed (libmpv was, on first play, until
+    /// 2026-10-22) is not mapped by a copy that has not needed it yet, Windows would let it go,
+    /// Linux always would, and that copy breaks the first time it does.
     /// A lone copy can only be running from its own folder; the next lone start sweeps what a
     /// second copy kept alive. Nothing for a development build, which unpacks nothing.
     /// </summary>

@@ -46,13 +46,13 @@ it at release time; the rules above are for every push.
   once it has run on Edge without trouble: `scripts/promote.sh X.Y.Z`, which
   also marks it latest and changes the first line of its notes to "Promoted to
   Stable." His call, every time. A security fix may go straight to Stable. The
-  libmpv-* engine releases stay pre-releases and are never offered (ReleaseFeed).
+  old libmpv-* engine releases (the engine until 0.7.0) stay pre-releases and
+  are never offered (ReleaseFeed).
 - The app: `scripts/release.sh X.Y.Z` without `--publish` makes a draft
   (`--dry-run` to build only). Bump `<Version>` in its own commit first.
-- The audio engine: `scripts/release-libmpv.sh libmpv-X.Y.Z-N`, then point
-  `scripts/LIBMPV_RELEASE` at it. Gapless must pass on all four builds first
-  (`tools/gapless-check.cs`, with `GAPLESS_AF` for the player's filter chain),
-  on Windows ON WINDOWS, on macOS on a Mac.
+- The audio engine, Hymie, is C# in the app since 0.7.0 (libmpv before):
+  nothing to release separately. Check decoders with `tools/engine-check.cs`
+  (decode, compare against ffmpeg, seek, muted play).
 - Publishing an app release offers it to every installed copy. It is his call,
   every time.
 

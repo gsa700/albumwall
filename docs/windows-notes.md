@@ -1,5 +1,8 @@
 # Windows notes — what happened on Hambench
 
+> Since 0.7.0 (2026-10-22) AlbumWall plays through its own engine, Hymie, and
+> libmpv is gone. What these notes say about libmpv is history.
+
 Answers to `windows-bringup.md`, written from the machine it could not see.
 Hambench is Windows 11 Pro, two 3840x2160 displays at 150% scaling, .NET SDK
 10.0.302, Windows PowerShell 5.1 only (no PowerShell 7).

@@ -1,7 +1,7 @@
 // AlbumWall — a copy of the console in a file.
 //
 // Everything this app has to say, it says with Console.WriteLine: what the
-// window manager granted, what mpv did, why a scan ran. On Linux that is enough,
+// window manager granted, what the engine did, why a scan ran. On Linux that is enough,
 // because it is started from a terminal and the terminal shows it. On Windows a
 // GUI program started from a terminal DETACHES — the prompt comes straight back
 // and stdout goes nowhere — so the one run that misbehaves is always the one

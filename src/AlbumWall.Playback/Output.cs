@@ -1,5 +1,6 @@
-// AlbumWall — where the own engine's samples go: one output per platform
-// (roadmap, "Our own audio engine", step 2). OwnEngine asks only this of it.
+// AlbumWall — where Hymie's samples go: one output per platform
+// (roadmap, "Hymie, our own audio engine", step 2). HymieEngine asks only
+// this of it.
 
 namespace AlbumWall.Playback;
 
@@ -38,7 +39,7 @@ internal interface IOutput : IDisposable
 
 internal static class Output
 {
-    /// Whether the own engine has an output on this machine.
+    /// Whether Hymie has an output on this machine.
     public static bool IsAvailable => OperatingSystem.IsMacOS() || OperatingSystem.IsWindows()
                                       || (OperatingSystem.IsLinux() && PulseOutput.IsAvailable);
 

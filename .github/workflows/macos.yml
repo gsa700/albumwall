@@ -5,16 +5,15 @@
 # single file there, checks it is a Mach-O arm64 executable, starts it for ten
 # seconds as a smoke test (Avalonia up, no crash at startup), and keeps the
 # binary and its log as an artifact for a Mac to download. It is NOT a release
-# (scripts/release.sh makes those, and not yet for macOS), but since
-# libmpv-0.41.0-6 it carries the same engine one would: the osx-arm64 build
-# from the libmpv-* release that scripts/LIBMPV_RELEASE names, checked against
-# that release's SHA256SUMS. Homebrew is not used.
+# (scripts/release.sh makes those, and not yet for macOS). The audio engine,
+# Hymie, is C# inside it; until 0.7.0 this fetched a libmpv-* release here and
+# played two streams through it.
 name: macOS build
 
 on:
   push:
     branches: [master]
-    paths: ["src/**", "scripts/LIBMPV_RELEASE", ".github/workflows/macos.yml"]
+    paths: ["src/**", ".github/workflows/macos.yml"]
   workflow_dispatch:
 
 permissions:
@@ -31,38 +30,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Audio engine, the pinned libmpv-* release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag=$(tr -d '[:space:]' < scripts/LIBMPV_RELEASE)
-          mkdir -p eng native/osx-arm64
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -D eng -p "$tag-osx-arm64.zip" -p SHA256SUMS
-          (cd eng && grep " $tag-osx-arm64.zip\$" SHA256SUMS | shasum -a 256 -c -)
-          unzip -q "eng/$tag-osx-arm64.zip" -d native/osx-arm64
-          echo "$tag" > native/osx-arm64/libmpv-source.txt
-          head -1 native/osx-arm64/libmpv-build-info.txt
-          file native/osx-arm64/libmpv.2.dylib | grep -q "Mach-O 64-bit dynamically linked shared library arm64"
-
-      - name: Engine plays, certificate checked (https, the count every platform gives)
-        run: |
-          # The app opens libmpv only when something plays, so the smoke test
-          # below never touches it. This does: two https streams through the
-          # fetched dylib, 538,382 samples on Linux, Windows and the Studio.
-          u=https://upload.wikimedia.org/wikipedia/commons/c/c8/Example.ogg
-          dotnet run tools/gapless-check.cs -- "$PWD/native/osx-arm64/libmpv.2.dylib" "$u" "$u" | tee engine.log
-          grep -q "decoded 538382 samples from 2 of 2 tracks" engine.log
-
       - name: Publish osx-arm64 single file
         run: |
           dotnet publish src/AlbumWall.App -c Release -r osx-arm64 -o out -nologo -v quiet
           ls -la out
           file out/AlbumWall
           file out/AlbumWall | grep -q "Mach-O 64-bit executable arm64"
-          test "$(stat -f %z out/AlbumWall)" -gt 50000000
-          # The engine went in: a string only libmpv has (its astats filter's
-          # description; the file name alone is also in AlbumWall's own code).
-          grep -aq "Show time domain statistics about audio frames" out/AlbumWall
+          test "$(stat -f %z out/AlbumWall)" -gt 40000000
 
       - name: Smoke test, ten seconds alive
         run: |
@@ -89,5 +63,4 @@ jobs:
             AlbumWall-osx-arm64.zip
             SHA256SUMS
             smoke.log
-            engine.log
           retention-days: 30

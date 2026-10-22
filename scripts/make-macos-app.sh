@@ -5,8 +5,8 @@
 #   scripts/make-macos-app.sh --install  and copy it to /Applications (replacing one there)
 #
 # WHAT IS IN IT: the same single-file program every platform publishes (the
-# engine, our own libmpv.2.dylib from native/osx-<arch>/, is inside it, as on
-# Linux and Windows), in the folder layout macOS expects of an application:
+# audio engine, Hymie, is C# inside it, as on Linux and Windows), in the folder
+# layout macOS expects of an application:
 #
 #   AlbumWall.app/Contents/Info.plist          name, version, identity, icon
 #   AlbumWall.app/Contents/MacOS/AlbumWall     the program
@@ -52,17 +52,12 @@ PROJECT="$ROOT/src/AlbumWall.App"
 case "$(uname -m)" in arm64) RID=osx-arm64 ;; x86_64) RID=osx-x64 ;; *) echo "unknown arch" >&2; exit 1 ;; esac
 VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT/AlbumWall.App.csproj" | head -1)"
 BUNDLE_ID=io.github.gsa700.AlbumWall
-MIN_MACOS=13.0      # the engine's own floor (build-libmpv: MACOSX_DEPLOYMENT_TARGET)
+MIN_MACOS=13.0      # libmpv's floor while it was bundled (until 0.7.0); unchanged since
 
 OUT="$ROOT/dist"
 APP="$OUT/AlbumWall.app"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-
-# Without our engine the app would fall back to Homebrew's, which most Macs do
-# not have (the HARD RULE in the roadmap). A bundle without it is not worth making.
-[ -f "$ROOT/native/$RID/libmpv.2.dylib" ] || {
-    echo "no native/$RID/libmpv.2.dylib: build it first (scripts/build-libmpv/build.sh)" >&2; exit 1; }
 
 echo "== publish $RID $VERSION"
 dotnet publish "$PROJECT" -c Release -r "$RID" -o "$WORK/pub" -nologo -v quiet

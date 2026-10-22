@@ -11,7 +11,7 @@
 // open Music.app, which is what Dave found on 2026-10-14.
 //
 // MediaPlayer is an Objective-C framework, reached through the Objective-C
-// runtime from C# the way MacWindow and Mpv's dladdr are: nothing to bundle.
+// runtime from C# the way MacWindow is: nothing to bundle.
 // Two things the runtime makes awkward:
 // - The command center calls a TARGET and ACTION. So a small class is made at
 //   run time, AlbumWallRemoteTarget, whose methods are C# functions.
@@ -185,7 +185,7 @@ public sealed class MacNowPlaying
     /// couple of seconds, as Smtc's is.
     ///
     /// The LENGTH is taken from here too. A track's State is made the moment it
-    /// starts, usually before mpv knows how long it is, so its length is 0, and
+    /// starts, when mpv did not yet know how long it was, so its length is 0, and
     /// with no length Now Playing draws no bar at all (2026-10-14, first try:
     /// "no progress bar in control center").
     public void UpdateTimeline(TimeSpan position, TimeSpan duration)

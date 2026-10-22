@@ -87,14 +87,6 @@ public partial class PrefsWindow : Window
         GainTrack.IsCheckedChanged += (_, _) => { if (GainTrack.IsChecked == true) ChooseGain(Playback.GainMode.Track); };
         GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Playback.GainMode.Off); };
 
-        // AlbumWall's own engine: only where it can run.
-        EngineSection.IsVisible = Playback.Player.OwnEngineAvailable;
-        OwnEngine.IsCheckedChanged += (_, _) =>
-        {
-            if (_filling) return;
-            host.OwnEngine = OwnEngine.IsChecked == true;
-        };
-
         UpdateButton.Click += async (_, _) => await OnUpdateButton();
         UpdateNotes.Click += async (_, _) =>
         {
@@ -333,8 +325,8 @@ public partial class PrefsWindow : Window
              "Every library built into this program: what it does here, its license, where its source is.",
              null),
             ("The audio engine",
-             "The libmpv this plays through, built by this project: its releases, and the source they were built from.",
-             App.ProjectUrl + "/releases?q=libmpv"),
+             "Hymie, AlbumWall's own: the decoders and the sound output, written for it in C#, and where some of them came from.",
+             App.ProjectUrl + "/blob/master/THIRD-PARTY-NOTICES.md#hymie-albumwalls-own-audio-engine"),
             ("Report a problem",
              "Something wrong, or something missing. Opens the project's issue list.",
              App.ProjectUrl + "/issues")
@@ -584,7 +576,6 @@ public partial class PrefsWindow : Window
         GainAlbum.IsChecked = gain == Playback.GainMode.Album;
         GainTrack.IsChecked = gain == Playback.GainMode.Track;
         GainOff.IsChecked = gain == Playback.GainMode.Off;
-        OwnEngine.IsChecked = _host.OwnEngine;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;
         TransportBottom.IsChecked = !_host.TransportAtTop;

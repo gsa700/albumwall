@@ -7,7 +7,7 @@ is ahead, the history is for what is behind.
 
 ## Wanted
 
-- **Our own audio engine: mpv out, in steps** (agreed 2026-10-20, on Control,
+- **Hymie, our own audio engine: mpv out, in steps** (agreed 2026-10-20, on Control,
   the night Deadwax 0.6.0 shipped its own FLAC encoder and decoder): "I'd like
   to do it. It simplifies the code, may increase performance / lower memory
   footprint etc. Plus, it will be fun." And: "we don't have to do it all in one
@@ -18,6 +18,11 @@ is ahead, the history is for what is behind.
   CVE patches. What the app actually asks of it (`Player.cs`, `Mpv.cs`): a
   playlist, play/pause/seek/next, volume, ReplayGain, gapless, exclusive output
   and one filter.
+  **The name:** Hymie, his pick on 2026-10-22, after Get Smart's robot, who
+  does exactly what he is told and nothing more, as a bit-perfect engine
+  should; and it answers to Control, as Hymie did. HymieEngine in the code,
+  and Hymie in settings.json (OwnEngine before, not carried over: nobody else
+  ran it yet).
   **The libraries it plays** (counted 2026-10-20 on Navidrome's mounts): FLAC
   4,136 files; the lossy library 8,672 MP3 and 6,857 M4A, every M4A AAC (ffprobe
   over all of them on Control's `~/MusicFolder`). So FLAC alone is a fifth of
@@ -93,20 +98,32 @@ is ahead, the history is for what is behind.
         listen to Abbey Road's side two.
      b. AAC: BUILT 2026-10-22 on Mobilenode (Mp4Track, Aac.cs ported from
         FAAD2's LC path, GPL v2 or later; the commit says how). AAC-LC in MP4,
-        mono or stereo, which is all of his iTunes library; HE-AAC (SBR),
-        multichannel and ALAC are refused when opened. 9 tracks (Dark Side,
+        mono or stereo, which is all of his iTunes library; HE-AAC (SBR) and
+        multichannel AAC are refused when opened (ALAC since (c)). 9 tracks (Dark Side,
         Wish You Were Here, Live After Death) the same length as ffmpeg's,
         2e-8 RMS from it; seeks exact; heard by him from Navidrome, Dark
         Side's joins included: "its good". A track the decoders do not play
         (ALAC or HE-AAC in an .m4a, multichannel, MP2 named .mp3) was skipped,
         the engine being chosen by the name; since the same day it is handed
-        to mpv instead (UnsupportedAudioException, OwnEngine.HandOff): at once
+        to mpv instead (UnsupportedAudioException, HymieEngine.HandOff): at once
         if it is the first, after the track before it if not, mpv playing
         the rest of the queue. Not probed ahead, which for a server's tracks
-        would be a request each before the first sample.
-     Vorbis, Opus, ALAC and PCM stay with mpv until they are wanted.
-  4. The default, once gapless passes on all four builds.
-  5. mpv and its companions removed, with their notices and source archives.
+        would be a request each before the first sample. With mpv gone (5),
+        such a track is passed over, and the log says why.
+     c. WAV and ALAC, his pick 2026-10-22 when mpv went (Vorbis, Opus and
+        HE-AAC not: none in his libraries; .ogg and .opus are no longer
+        scanned). WAV: WavTrack, plain samples in RIFF chunks. ALAC: ported
+        from Apple's decoder into Mp4Track beside AAC.
+  4. The default: DONE 2026-10-22, 0.6.25 on Edge ("we're on the edge,
+     enable it by default").
+  5. mpv and its companions removed, with their notices and source archives:
+     DONE 2026-10-22 for 0.7.0, his call ("I think it's worth doing now ...
+     the sooner the better IMO. Less reworking later?"). MpvEngine, Mpv.cs,
+     the Preferences switch, the hand-off, the bundled libmpv and its build
+     recipe, fetch script, release script and pin, gapless-check, the mpv and
+     FFmpeg notices; the meters' 200 ms hold-back too, Hymie measuring where
+     the output plays. The libmpv-* releases stay on GitHub as history, never
+     offered (ReleaseFeed).
   6. Later, if wanted: the OS's own decoders on the Mac and Windows
      (AudioToolbox, Media Foundation; nothing bundled) for the rarer formats.
   **What it must play** (his scope, 2026-10-20): "FLAC, mp3, and aac will
@@ -193,8 +210,8 @@ is ahead, the history is for what is behind.
   libraries fresh in the background".
 
 - **macOS: what is left.** The Mac build runs on Control from
-  `scripts/make-macos-app.sh --install` with our own engine (libmpv-0.41.0-6
-  carries the dylib, gapless proven), Now Playing, media keys, Cmd shortcuts and
+  `scripts/make-macos-app.sh --install` with Hymie (CoreAudio through an
+  AudioQueue; libmpv-0.41.0-6's dylib until 0.7.0), Now Playing, media keys, Cmd shortcuts and
   a menu bar. Not done:
   1. SIGNING with a Developer ID and notarization, the real gate for anyone
      else: Gatekeeper stops an unsigned download. His call: the Apple Developer
@@ -206,7 +223,7 @@ is ahead, the history is for what is behind.
      makes the .app).
   3. A macOS zip in `release.sh`, once (1) and (2) exist.
   HARD RULE (2026-10-10): a release carries its own engine; Homebrew's libmpv
-  was a bridge for his Mac only.
+  was a bridge for his Mac only. (Moot since 0.7.0: the engine is the app's C#.)
   Decided 2026-10-18, the media keys after a launch: the first press of Play
   goes to whichever app played last until AlbumWall has played once (macOS
   makes an app Now Playing only once it plays). "ok leave it as is."
@@ -257,19 +274,21 @@ is ahead, the history is for what is behind.
 - **Any companion tool is called Deadwax.** "If this thing ever gets a companion
   app for any reason: we name it deadwax no question."
 
-- **AAC stays in the build.** It is the one codec we ship with a live patent
-  question: the base AAC-LC patents (1997-2000) have largely aged out, but the
-  HE-AAC extensions (SBR and Parametric Stereo, 2003-2006) may still be live in
-  places for a few more years, and FFmpeg's decoder handles all of it. Fedora's
-  answer is a decoder stripped to LC only. Ours is to ship it, as VLC and mpv
-  have for two decades: decode-only, free, non-commercial, from an individual
-  is not a profile patent pools pursue, and his Windows library is 6,876 M4A
-  files. Everything else in the build — FLAC, Vorbis, Opus, ALAC, PCM, and MP3
-  since its patents expired in 2017 — is clean. The conservative lever exists
-  and is one line: drop `aac,aac_latm` from the decoder list in
-  `scripts/build-libmpv/inner.sh`. **Revisit with an actual attorney if the app
-  ever becomes commercial.** None of this is legal advice; it is the reasoning,
-  written down so it does not have to be reconstructed.
+- **AAC stays in the build.** (Written for FFmpeg's decoder, 2026-10; since
+  0.7.0 the decoder is our FAAD2 port, AAC-LC only, which is the conservative
+  lever below already pulled: no SBR, no Parametric Stereo.) It is the one codec
+  we ship with a live patent question: the base AAC-LC patents (1997-2000) have
+  largely aged out, but the HE-AAC extensions (SBR and Parametric Stereo,
+  2003-2006) may still be live in places for a few more years, and FFmpeg's
+  decoder handles all of it. Fedora's answer is a decoder stripped to LC only.
+  Ours is to ship it, as VLC and mpv have for two decades: decode-only, free,
+  non-commercial, from an individual is not a profile patent pools pursue, and
+  his Windows library is 6,876 M4A files. Everything else in the build — FLAC,
+  Vorbis, Opus, ALAC, PCM, and MP3 since its patents expired in 2017 — is clean.
+  The conservative lever exists and is one line: drop `aac,aac_latm` from the
+  decoder list in `scripts/build-libmpv/inner.sh`. **Revisit with an actual
+  attorney if the app ever becomes commercial.** None of this is legal advice;
+  it is the reasoning, written down so it does not have to be reconstructed.
 
 - **The right-click menu and Properties** (built 2026-10-03/04). One menu on
   every library; what a library cannot do is greyed out with the reason on it,
@@ -331,7 +350,8 @@ is ahead, the history is for what is behind.
 - One library at a time. Do not merge libraries.
 - No touch-sized controls yet; the design should flow toward touch, not become
   a touch app.
-- libmpv is never committed: FETCHED on Windows (`scripts/get-libmpv.ps1`),
+- UNTIL 0.7.0 (2026-10-22), when libmpv went; kept as the record of how it was
+  done. libmpv is never committed: FETCHED on Windows (`scripts/get-libmpv.ps1`),
   BUILT on Linux (`scripts/build-libmpv/` — our own audio-only build, because
   the distribution's drags in 338 shared libraries). "That is the best match to
   windows and we should keep them the same when we can." Both land in the
@@ -342,7 +362,7 @@ is ahead, the history is for what is behind.
   without mpv's version changing. `scripts/LIBMPV_RELEASE` names the current one.
 - Paperwork goes with every release: run `tools/fetch-licenses.py` again WHEN A
   PIN MOVES (`THIRD-PARTY-NOTICES.md` and `licenses/`, carried in the exe), and
-  every new `libmpv-*` release carries its own source archives
+  (until 0.7.0) every new `libmpv-*` release carried its own source archives
   (`scripts/build-libmpv/source-archives.sh`, with `SHA256SUMS-sources`).
   Never add `--enable-gpl` or `--enable-nonfree` to FFmpeg without revisiting
   the licenses.

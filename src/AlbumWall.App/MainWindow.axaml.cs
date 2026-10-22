@@ -57,8 +57,9 @@ public partial class MainWindow : Window
     /// wall's scroll position.
     private string _chunkKey = "";
 
-    /// Created lazily and only if libmpv is present. A machine without it gets a
-    /// wall that works and a transport that explains itself, not a crash.
+    /// Created lazily and only if the machine has a sound output Hymie can use.
+    /// A machine without one gets a wall that works and a transport that
+    /// explains itself, not a crash.
     private readonly Settings _settings = Settings.Load();
 
     /// Set once the ReplayGain button is used. After that the app stops choosing
@@ -1271,8 +1272,8 @@ public partial class MainWindow : Window
         _beforeSearchOpen = Carry(_beforeSearchOpen);
         _beforeSearchTop = Carry(_beforeSearchTop);
 
-        // What is playing keeps playing whatever the scan says — mpv has its
-        // own list of paths — so if the album has gone, the old object stays and
+        // What is playing keeps playing whatever the scan says — the player has
+        // its own list of paths — so if the album has gone, the old object stays and
         // the transport goes on describing it. The transport keeps the bitmap it
         // already has; the new object only needs its cover by the next track.
         if (Carry(_playingAlbum) is { } playing)
@@ -2024,20 +2025,6 @@ public partial class MainWindow : Window
             if (_player is null || _player.Gain == value) return;
             _player.Gain = value;
             if (_playingAlbum is not null) UpdateNowPlaying();
-        }
-    }
-
-    /// AlbumWall's own engine for FLAC, MP3 and AAC (the Mac, Linux and
-    /// Windows), for Preferences > Playback; on unless turned off. Heard from
-    /// the next album started: the one playing finishes on the engine it began on.
-    internal bool OwnEngine
-    {
-        get => _settings.OwnEngine != false;
-        set
-        {
-            _settings.OwnEngine = value;
-            _settings.Save();
-            if (_player is not null) _player.UseOwnEngine = value;
         }
     }
 
@@ -3303,8 +3290,8 @@ public partial class MainWindow : Window
 
     /// The player, built on first use and wired once.
     ///
-    /// Throws if libmpv cannot be loaded; both callers turn that into a
-    /// transport that explains itself rather than a crash.
+    /// Throws if the sound output cannot be opened; both callers turn that into
+    /// a transport that explains itself rather than a crash.
     [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_player))]
     private void EnsurePlayer()
     {
@@ -3317,27 +3304,28 @@ public partial class MainWindow : Window
 
         // A player built now starts at whatever the slider already says.
         _player.Volume = _volume;
-        _player.UseOwnEngine = OwnEngine;
 
         _player.TrackChanged += OnTrackChanged;
         _player.StateChanged += OnPlaybackState;
         // The desktop's media controls were told the length when the track
-        // changed, which is before mpv knows it: they showed 0 and no progress
+        // changed, which was before mpv knew it: they showed 0 and no progress
         // until a pause happened to tell them again. Found on KDE, 2026-09-22.
+        // Hymie knows it at once, and says so here all the same.
         _player.DurationChanged += (_, _) => Dispatcher.UIThread.Post(RefreshMprisState);
         _player.Seeked += (_, at) => _mpris?.NotifySeeked(at);
 
         // The record ran out: there is nothing left to pick up next time.
         //
-        // BUT "FINISHED" IS NOT ONLY THE END OF A RECORD. It is mpv going idle,
-        // and mpv is idle when it is first created and again for an instant on
-        // the `stop` that opens every Play(). Taken at face value that marked
-        // the session over the moment anything started, and nothing was ever
-        // saved. A real ending is going idle FROM a track, so the test is
-        // whether the player was on one — and it is made here, on mpv's own
-        // thread at the moment of the event, not inside the posted lambda: by
-        // the time that runs, the track that Play() asked for has usually
-        // arrived and the index says "playing" again.
+        // BUT "FINISHED" WAS NOT ONLY THE END OF A RECORD. Under mpv it was mpv
+        // going idle, and mpv was idle when it was first created and again for
+        // an instant on the `stop` that opened every Play(). Taken at face value
+        // that marked the session over the moment anything started, and nothing
+        // was ever saved. A real ending is stopping FROM a track, so the test is
+        // whether the player was on one — and it is made here, on the engine's
+        // own thread at the moment of the event, not inside the posted lambda:
+        // by the time that runs, the track that Play() asked for has usually
+        // arrived and the index says "playing" again. Hymie raises Finished
+        // only from a track, but the test costs nothing and stays.
         _player.Finished += (_, _) =>
         {
             if (_player is not { Index: >= 0 }) return;
@@ -3385,7 +3373,7 @@ public partial class MainWindow : Window
 
         if (_player is not null && _playingAlbum is not null && !_sessionOver)
         {
-            // Index is -1 until mpv has actually arrived on a track. Saving then
+            // Index is -1 until the engine has actually arrived on a track. Saving then
             // would replace a good record with "track -1 at zero" — and the
             // moment that happens is just after launch, mid-restore, which is
             // exactly when the record matters. So: leave the file alone.
@@ -3421,7 +3409,7 @@ public partial class MainWindow : Window
         if (Session.Load() is not { } last) return;
 
         // What he was looking at, first, and whatever becomes of the playback:
-        // a machine without libmpv still has a wall to put back. Not animated,
+        // a machine with no sound output still has a wall to put back. Not animated,
         // and after layout, for the reasons RestoreViewAfterSearch gives — a
         // restore is not an action and should not look like one.
         if (_all.FirstOrDefault(v => v.Artist == last.OpenAlbumArtist && v.Title == last.OpenAlbum)
@@ -3511,7 +3499,7 @@ public partial class MainWindow : Window
     /// A snapshot rather than a live read: D-Bus calls arrive on their own
     /// thread, and reaching into view models from there to assemble an answer is
     /// how a music player earns an intermittent crash. Position is the one field
-    /// read live, because it moves continuously and mpv is happy to be asked.
+    /// read live, because it moves continuously and the engine is happy to be asked.
     private Mpris? _mpris;
 #if WINDOWS
     private Smtc? _smtc;

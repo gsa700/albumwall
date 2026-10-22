@@ -1,23 +1,28 @@
 #:project ../src/AlbumWall.Playback/AlbumWall.Playback.csproj
 #:property AllowUnsafeBlocks=true
 
-// AlbumWall - the own audio engine (OwnEngine) and its decoders, checked
+// AlbumWall - Hymie, the own audio engine (HymieEngine) and its decoders, checked
 // without the app.
 //
 //   dotnet run tools/engine-check.cs -- decode <file.flac>...   every sample, against the file's own MD5
 //   dotnet run tools/engine-check.cs -- compare <file>...       every sample, against ffmpeg's decode of the file
 //   dotnet run tools/engine-check.cs -- seek <file>             seeks land on the exact sample
+//   dotnet run tools/engine-check.cs -- same <file.m4a> <file.flac>   an ALAC file plays its FLAC source's samples
 //   dotnet run tools/engine-check.cs -- play <file>...          plays MUTED, and says what the engine reports
 //
 // decode: FLAC stores an MD5 of its audio. Every sample is decoded the way
 // the engine decodes it, to floats, turned back into integers and hashed, so
 // a match proves both the decoder and that the float conversion loses nothing.
 // compare: for formats with no MD5 (MP3), ffmpeg (on the PATH) is the
-// reference: it is what mpv plays through, so the same number of samples
-// proves the gapless trimming is the same, and the differences show the
+// reference: it is what mpv played through until 0.7.0, and the decoders
+// were made to match it, so the same number of samples proves the gapless
+// trimming is the same, and the differences show the
 // decoding is. Lossy decoders differ in their last bits, so the measure is
 // ISO 11172-4's for full accuracy: RMS under 2^-15/sqrt(12), every sample
-// within 2^-14.
+// within 2^-14. A lossless one (ALAC, FLAC) differs in none: every sample
+// the same.
+// same: ALAC has no MD5 either, so the FLAC it was made from stands in:
+// both decoded here, every float the same, and as many.
 // seek: twenty places in the file, each read after a seek and compared with
 // the same samples from a straight decode.
 // play: the engine at volume 0 (the output still runs, so its timeline and
@@ -36,8 +41,9 @@ switch (mode)
     case "decode": return Decode(files);
     case "compare": return Compare(files);
     case "seek": return SeekCheck(files[0]);
+    case "same": return Same(files[0], files[1]);
     case "play": return PlayCheck(files);
-    default: Console.WriteLine("usage: engine-check.cs decode|compare|seek|play <file>..."); return 2;
+    default: Console.WriteLine("usage: engine-check.cs decode|compare|seek|same|play <file>..."); return 2;
 }
 
 /// Everything the track plays, straight through.
@@ -100,7 +106,7 @@ static int Compare(List<string> files)
         }
         var rms = Math.Sqrt(sum / Math.Max(1, frames * ch));
         var sameLength = ours.Length == reference.Length;
-        var ok = sameLength && rms < rmsLimit && max <= maxLimit;
+        var ok = sameLength && (t.BitsPerSample > 0 ? max == 0 : rms < rmsLimit && max <= maxLimit);
         if (!ok) bad++;
         var secs = (double)ours.Length / ch / t.SampleRate;
         Console.WriteLine($"{(ok ? "ok " : "BAD")}  {ours.Length / ch,9} frames{(sameLength ? "" : $" (ffmpeg {reference.Length / ch}, {ours.Length / ch - reference.Length / ch:+0;-0})")}  "
@@ -150,6 +156,25 @@ static int Offset(float[] ours, float[] reference, int ch)
     return best;
 }
 
+static int Same(string file, string source)
+{
+    var sw = Stopwatch.StartNew();
+    var t = AudioTracks.Open(file, file);
+    var ours = All(t);
+    var ms = sw.ElapsedMilliseconds;
+    var s = FlacTrack.Open(source);
+    var reference = All(s);
+    var format = t.SampleRate == s.SampleRate && t.Channels == s.Channels && t.BitsPerSample == s.BitsPerSample;
+    var differ = 0;
+    for (var i = 0; i < Math.Min(ours.Length, reference.Length); i++) if (ours[i] != reference[i]) differ++;
+    var ok = format && differ == 0 && ours.Length == reference.Length;
+    var secs = (double)ours.Length / t.Channels / t.SampleRate;
+    Console.WriteLine($"{(ok ? "ok " : "BAD")}  {t.SampleRate} Hz {t.BitsPerSample}-bit {t.Channels} ch (FLAC {s.SampleRate} Hz {s.BitsPerSample}-bit {s.Channels} ch)  "
+                    + $"{ours.Length / t.Channels} frames (FLAC {reference.Length / s.Channels})  {differ} samples differ  "
+                    + $"{secs:0.0} s in {ms} ms  {Path.GetFileName(file)}");
+    return ok ? 0 : 1;
+}
+
 static int SeekCheck(string file)
 {
     var t = AudioTracks.Open(file, file);
@@ -176,7 +201,7 @@ static int SeekCheck(string file)
 
 static int PlayCheck(List<string> files)
 {
-    using var e = new OwnEngine(GainMode.Album) { Volume = 0 };
+    using var e = new HymieEngine(GainMode.Album) { Volume = 0 };
     var sw = Stopwatch.StartNew();
     string T() => $"{sw.Elapsed.TotalSeconds,6:0.00}";
     var finished = false;

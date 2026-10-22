@@ -1,10 +1,12 @@
-// AlbumWall — one track open for playing, whatever its format: what the own
-// engine (OwnEngine) asks of a decoder, and nothing more.
+// AlbumWall — one track open for playing, whatever its format: what Hymie,
+// the engine (HymieEngine), asks of a decoder, and nothing more.
 //
 // Each format is a small codec core on the shared parts of this project: the
 // bytes as they arrive (TrackBytes), the tags (ReplayGain), seeking to an
 // exact sample. FLAC first; MP3 and AAC next, his call 2026-10-22 ("replace
-// the top 3 decoders with native C# versions"), so that mpv can go.
+// the top 3 decoders with native C# versions"), so that mpv can go; then WAV
+// and ALAC, the same day, and mpv went. What these do not decode, nothing in
+// AlbumWall plays.
 
 namespace AlbumWall.Codecs;
 
@@ -42,9 +44,9 @@ public interface IAudioTrack
     bool Interrupted { get; }
 }
 
-/// A file these decoders do not play, though nothing is wrong with it (ALAC or
-/// HE-AAC in an .m4a, multichannel AAC, MP2 named .mp3): another engine can.
-/// Unlike a damaged file, which is passed over, it is handed on.
+/// A file these decoders do not play, though nothing is wrong with it (HE-AAC
+/// in an .m4a, MP2 named .mp3, a WAV of compressed samples). Passed over like
+/// a damaged one, but said so in words that do not call it damaged.
 public sealed class UnsupportedAudioException(string message) : IOException(message);
 
 public static class AudioTracks
@@ -54,7 +56,8 @@ public static class AudioTracks
     public static bool CanDecode(string name) =>
         name.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)
         || name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
-        || name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase);
+        || name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
 
     /// A track by name, from where it is: a file, or a server's address
     /// (http or https), which is fetched and not kept. The decoder is chosen
@@ -62,6 +65,7 @@ public static class AudioTracks
     public static IAudioTrack Open(string name, string source) =>
         name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ? Mp3Track.Open(name, source)
         : name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) ? Mp4Track.Open(name, source)
+        : name.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ? WavTrack.Open(name, source)
         : FlacTrack.Open(name, source);
 
     public static bool IsAddress(string source) =>

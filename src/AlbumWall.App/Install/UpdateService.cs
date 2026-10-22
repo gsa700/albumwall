@@ -42,7 +42,7 @@ public sealed class UpdateInfo
 ///
 /// - THE DOWNLOAD IS VERIFIED. Every AlbumWall release carries SHA256SUMS, and the zip must be listed
 ///   in it and match before anything is unpacked. This is a program fetching a program and running
-///   it; get-libmpv.ps1 checks a DLL the same way. A release with no SHA256SUMS is not installed.
+///   it; get-libmpv.ps1 checked a DLL the same way while there was one. A release with no SHA256SUMS is not installed.
 /// - The helper retries the swap and clears the extraction cache; see <see cref="UpdateApplyScript"/>.
 /// - The helper runs with the temp folder as its working directory, not ours - the second of the
 ///   three rules the uninstall learned (c7b545f).

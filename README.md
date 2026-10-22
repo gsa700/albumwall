@@ -126,7 +126,7 @@ drive (on Linux, `~/Music` and mounted drives) and offers what it finds; it
 counts files from the folder listings and opens none of them. More folders and
 servers can be added later under Preferences › Library.
 
-Reads FLAC, MP3, M4A, Ogg, Opus and WAV.
+Plays FLAC, MP3, AAC and ALAC (in .m4a) and WAV.
 
 **Cover art** is taken from the tags — any track of the album will do — and
 from a `cover.jpg`, `cover.png`, `folder.jpg` or `front.jpg` beside the tracks
@@ -197,8 +197,9 @@ Download the zip for your machine from the
 | a Linux PC | `AlbumWall-linux-x64.zip` |
 | a Raspberry Pi 4 or 5, 64-bit OS | `AlbumWall-linux-arm64.zip` |
 
-Unzip it and run `AlbumWall` (`AlbumWall.exe` on Windows). The releases named
-`libmpv-*` are the audio engine the app is built with, not something to download.
+Unzip it and run `AlbumWall` (`AlbumWall.exe` on Windows). The older releases
+named `libmpv-*` are the audio engine the app was built with until 0.7.0, not
+something to download.
 
 A release is one file. Run it from wherever you unzipped it and it offers to
 install itself — per user, no administrator rights: into
@@ -242,38 +243,20 @@ a Raspberry Pi is in [docs/kiosk.md](docs/kiosk.md); the files are in `kiosk/`.
 
 ## Building it
 
-Needs the **.NET 10 SDK** and **libmpv**. Everything else comes from NuGet.
-
-**Linux**
+Needs the **.NET 10 SDK**. Everything else comes from NuGet; the audio engine,
+Hymie, is AlbumWall's own C#, with nothing to install.
 
 ```sh
-sudo dnf install mpv-libs          # Fedora
-sudo apt install libmpv2           # Debian/Ubuntu
-
 dotnet run --project src/AlbumWall.App
 ```
 
-A development build uses the distribution's libmpv. A release carries its own,
-built by `scripts/build-libmpv/` — audio only, the same on every platform — and
-published on this repository as `libmpv-*` releases, with its source.
+On Linux, sound goes through PulseAudio's client library, `libpulse-simple.so.0`,
+which every desktop with PulseAudio or PipeWire already has (`pulseaudio-libs` on
+Fedora, `libpulse0` on Debian and Ubuntu). On the Mac it is CoreAudio, on
+Windows WASAPI, both part of the system.
 
-`scripts/release.sh` cuts a release: it fetches that engine by the tag in
-`scripts/LIBMPV_RELEASE`, builds all three platforms, and makes a draft
-(`--dry-run` to only build the zips).
-
-**Windows**
-
-```powershell
-.\scripts\get-libmpv.ps1           # once: fetches libmpv-2.dll
-dotnet run --project src\AlbumWall.App
-```
-
-libmpv is not committed to this repository: it is a binary of other people's
-GPL and LGPL projects. The script fetches this project's own audio-only build
-from the pinned `libmpv-*` release here and checks it against the release's
-SHA-256 list, so a development build plays through the same library a release
-carries. `-Upstream` fetches the official full build from SourceForge instead.
-The project copies the DLL next to the executable when you build.
+`scripts/release.sh` cuts a release: it builds all three platforms and makes a
+draft (`--dry-run` to only build the zips).
 
 If something goes wrong, the app keeps a log of its last two runs beside its
 settings: `%AppData%\albumwall\albumwall.log`, or `~/.config/albumwall/`.
@@ -284,11 +267,12 @@ Notes from bringing it up on Windows are in
 
 GPL v3 or later — see [LICENSE](LICENSE).
 
-A release carries other people's work inside it: the audio engine is
-[libmpv](https://mpv.io) (GPL v2 or later) over [FFmpeg](https://ffmpeg.org)
-(LGPL), the tags are read by [TagLib#](https://github.com/mono/taglib-sharp)
-(LGPL), the interface is [Avalonia](https://avaloniaui.net) (MIT), and the
-typeface is [Inter](https://rsms.me/inter/) (OFL). None of it is modified.
+A release carries other people's work inside it: the MP3 and AAC decoders are
+ported from [minimp3](https://github.com/lieff/minimp3) (CC0) and
+[FAAD2](https://github.com/knik0/faad2) (GPL v2 or later), the tags are read by
+[TagLib#](https://github.com/mono/taglib-sharp) (LGPL), the interface is
+[Avalonia](https://avaloniaui.net) (MIT), and the typeface is
+[Inter](https://rsms.me/inter/) (OFL).
 Every component, what it does here, its license and where its source is:
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) — the same page the app shows
 under Preferences › About › What's inside.

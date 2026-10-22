@@ -10,9 +10,8 @@
 #   PROMOTE to Stable, once it has run on Edge without trouble (his call, every time):
 #                                                scripts/promote.sh X.Y.Z   (flag cleared, latest, notes say so)
 #   scripts/release.sh 0.2.0 --dry-run           build and zip only: no tag, no release,
-#                                                version/tree checks only warn, and the
-#                                                engine comes from native/ if its release
-#                                                is not out yet. Leaves the zips in ./dist.
+#                                                version/tree checks only warn. Leaves the
+#                                                zips in ./dist.
 #
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
@@ -25,12 +24,8 @@
 # publishing an --edge build offers it to Edge copies only; promoting it
 # (clearing the pre-release flag) offers the same binary to everyone.
 #
-# THE AUDIO ENGINE IS FETCHED, NOT TAKEN FROM WHATEVER IS IN native/. The release
-# named in scripts/LIBMPV_RELEASE is downloaded, checked against its SHA256SUMS
-# and put in native/<rid> before anything is built, so what ships is what was
-# measured and published, whatever a developer's native/ folder happens to hold.
-# (It does replace that folder's contents; they are the same files a release
-# carries, which is the point.)
+# THE AUDIO ENGINE IS IN THE CODE. Until 0.7.0 a libmpv-* release was fetched
+# into native/<rid> and built in; Hymie is C#, so there is nothing to fetch.
 #
 # REFUSES TO RUN unless: the tree is clean, HEAD is what origin/master has (a
 # release is built from pushed code), <Version> in the csproj equals the version
@@ -108,31 +103,8 @@ if git grep -qE "$PRIVATE" -- .; then
     die "a tracked file holds a private network address (above); use the machine's name instead"
 fi
 
-LIBMPV=$(tr -d '[:space:]' < "$HERE/LIBMPV_RELEASE")
-[ -n "$LIBMPV" ] || die "scripts/LIBMPV_RELEASE is empty"
-
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-
-# ---- the audio engine, by tag -----------------------------------------------
-say "audio engine: $LIBMPV"
-mkdir -p "$WORK/libmpv"
-if ! gh release download "$LIBMPV" -R "$REPO" -D "$WORK/libmpv" -p "$LIBMPV-*.zip" -p SHA256SUMS 2>/dev/null; then
-    must "could not download $LIBMPV from $REPO"
-    echo "   (dry run: using native/ as it is)"
-    for rid in "${RIDS[@]}"; do echo "   native/$rid = $(head -1 "$ROOT/native/$rid/libmpv-build-info.txt" 2>/dev/null || echo MISSING)"; done
-else
-(cd "$WORK/libmpv" && sha256sum -c --quiet SHA256SUMS) || die "$LIBMPV does not match its SHA256SUMS"
-for rid in "${RIDS[@]}"; do
-    zip="$WORK/libmpv/$LIBMPV-$rid.zip"
-    [ -f "$zip" ] || die "$LIBMPV has no $rid build"
-    rm -rf "$ROOT/native/$rid"; mkdir -p "$ROOT/native/$rid"
-    "$PY" -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$zip" "$ROOT/native/$rid"
-    chmod 755 "$ROOT"/native/"$rid"/libmpv* 2>/dev/null || true
-    printf '%s\n' "$LIBMPV" > "$ROOT/native/$rid/libmpv-source.txt"     # the stamp the build checks
-    echo "   native/$rid <- $(head -1 "$ROOT/native/$rid/libmpv-build-info.txt")"
-done
-fi
 
 # ---- build ------------------------------------------------------------------
 for rid in "${RIDS[@]}"; do
@@ -174,7 +146,7 @@ if [ -z "$NOTES" ]; then
     NOTES="$WORK/notes.md"
     prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$TAG^" 2>/dev/null || true)
     {
-        echo "AlbumWall $VERSION. Audio engine: $LIBMPV.$([ $EDGE -eq 1 ] && echo " An Edge build: offered to copies set to Edge until it is promoted to Stable.")"
+        echo "AlbumWall $VERSION.$([ $EDGE -eq 1 ] && echo " An Edge build: offered to copies set to Edge until it is promoted to Stable.")"
         echo
         echo "Download the zip for your system, unpack it and run the program: it offers to install itself."
         echo "An installed copy updates itself from the Updates tab in Preferences."

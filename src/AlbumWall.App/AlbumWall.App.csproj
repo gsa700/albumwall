@@ -36,7 +36,7 @@
     <Version>0.6.25</Version>
     <!-- A release is a TRUE single file, the family's standard (see Shack Power):
          the in-app updater replaces only the exe, so everything native — Skia,
-         HarfBuzz, and our own libmpv — MUST be inside it, not shipped loose
+         HarfBuzz, SQLite — MUST be inside it, not shipped loose
          beside it. Applies on publish with a RID; ignored by build and run. -->
     <PublishSingleFile>true</PublishSingleFile>
     <!-- PublishSelfContained, NOT SelfContained. The plain property applies to
@@ -95,48 +95,4 @@
     <ProjectReference Include="..\AlbumWall.Playback\AlbumWall.Playback.csproj" />
   </ItemGroup>
 
-  <!-- The app's own libmpv, per platform: fetched on Windows
-       (scripts/get-libmpv.ps1), built on Linux (scripts/build-libmpv/). Never
-       committed either way — native/ is git-ignored. macOS (osx-arm64): built
-       on a Mac by the recipe's `macos` target, libmpv.2.dylib, published on the
-       libmpv-* releases since libmpv-0.41.0-6 (.github/workflows/macos.yml
-       fetches it from there).
-
-       The folder follows what is being built FOR, same rule as the target
-       framework above, so a win-x64 publish made on Fedora picks up the Windows
-       DLL and not this machine's .so. With no RID, the host decides.
-
-       The whole group is conditional on the folder existing: a development
-       checkout without it builds fine and uses the distribution's libmpv. -->
-  <PropertyGroup>
-    <NativeRid>$(RuntimeIdentifier)</NativeRid>
-    <HostArch>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArch>
-    <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-$(HostArch)</NativeRid>
-    <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-$(HostArch)</NativeRid>
-    <NativeRid Condition="'$(NativeRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">osx-$(HostArch)</NativeRid>
-    <NativeDir>$(MSBuildProjectDirectory)/../../native/$(NativeRid)</NativeDir>
-  </PropertyGroup>
-  <ItemGroup Condition="'$(NativeRid)' != '' and Exists('$(NativeDir)')">
-    <None Include="$(NativeDir)/*.dll;$(NativeDir)/*.so*;$(NativeDir)/*.dylib" Link="%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <!-- A STALE ENGINE WARNS. native/<rid>/libmpv-source.txt names the libmpv-*
-       release the library came from (get-libmpv.ps1 and scripts/release.sh write
-       it; build-libmpv/build.sh writes "local build"). When it names a different
-       release than scripts/LIBMPV_RELEASE, the build says so. Found on Hambench,
-       2026-09-28: the pin had moved to libmpv-0.41.0-4 while native/win-x64 still
-       held -3, which has no astats, and the app did what it should without it -
-       hid the meters - so nothing said anything was wrong. A warning, not an
-       error: an old engine still plays. Releases are not affected; release.sh
-       fetches the engine by the pin. -->
-  <Target Name="CheckLibmpvPin" BeforeTargets="Build"
-          Condition="Exists('$(NativeDir)/libmpv-source.txt') and Exists('$(MSBuildProjectDirectory)/../../scripts/LIBMPV_RELEASE')">
-    <PropertyGroup>
-      <_LibmpvPin>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/../../scripts/LIBMPV_RELEASE').Trim())</_LibmpvPin>
-      <_LibmpvHave>$([System.IO.File]::ReadAllText('$(NativeDir)/libmpv-source.txt').Trim())</_LibmpvHave>
-    </PropertyGroup>
-    <Warning Condition="$(_LibmpvHave.StartsWith('libmpv-')) and '$(_LibmpvHave)' != '$(_LibmpvPin)'"
-             Text="native/$(NativeRid) holds $(_LibmpvHave) but scripts/LIBMPV_RELEASE says $(_LibmpvPin). Fetch the pinned engine (Windows: scripts/get-libmpv.ps1 -Force) or the build plays through the old one." />
-  </Target>
 </Project>

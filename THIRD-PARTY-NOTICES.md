@@ -2,75 +2,22 @@
 
 AlbumWall is free software under the GNU General Public License, version 3 or
 later. A release is a single file, and that file carries other people's work
-inside it: the audio engine, the toolkit the window is drawn with, the tag
-reader, a font. This page says what each one is, what it does here, the license
+inside it: parts of the audio engine's decoders, the toolkit the window is
+drawn with, the tag reader, a font. This page says what each one is, what it does here, the license
 it comes under, and where its source is.
 
-Nothing listed here has been modified. Each is the upstream project's own code
-at the version given, built with the options this app needs.
+Nothing listed here has been modified, but for the decoders under Hymie, which
+are ported. Each is the upstream project's own code at the version given.
 
-## The audio engine
+## Hymie, AlbumWall's own audio engine
 
-Everything you hear goes through one library, **libmpv**, which AlbumWall builds
-itself from the seven projects below so that the same engine ships on every
-platform. It is an audio-only build: no video decoders, no command-line player.
-The recipe is `scripts/build-libmpv/` in AlbumWall's source, and it is part of
-the source of the library in the sense the licenses mean. The exact source
-archives belong beside each `libmpv-*` release; see the end of this page for
-where that stands.
-
-A development build on Linux may be using your distribution's libmpv instead of
-this one; the versions below are the ones a release carries.
-
-- **mpv 0.41.0** — the player library itself: the queue, gapless playback,
-  ReplayGain, the audio outputs.
-  License: GNU GPL, version 2 or later.
-  Source: https://github.com/mpv-player/mpv (tag `v0.41.0`)
-
-- **FFmpeg 9.0.2** — reads the files and decodes them: FLAC, MP3, AAC, ALAC,
-  Vorbis, Opus and PCM, and nothing else, and streams them over http or https.
-  Built without `--enable-gpl` and without `--enable-nonfree`. One local change:
-  the MP4 demuxer's `pssh` (DRM key) parsing is removed, for CVE-2026-107678.
-  License: GNU LGPL, version 2.1 or later on Windows; on Linux, where it includes
-  Mbed TLS, version 3 or later (`--enable-version3`).
-  Source: https://github.com/FFmpeg/FFmpeg (tag `n9.0.2`), with the change in
-  `scripts/build-libmpv/inner.sh`
-
-- **libplacebo 7.360.1** — a rendering library mpv will not build without. No
-  picture is ever drawn with it here. It carries small third-party components
-  of its own, listed in its repository.
-  License: GNU LGPL, version 2.1 or later.
-  Source: https://github.com/haasn/libplacebo (tag `v7.360.1`)
-
-- **libass 0.17.5** — subtitle rendering, likewise required by mpv and unused.
-  License: ISC.
-  Source: https://github.com/libass/libass (tag `0.17.5`)
-
-- **FreeType 2.14.3** — font rendering, required by libass.
-  License: the FreeType License (FTL). Portions of this software are copyright
-  © The FreeType Project (www.freetype.org). All rights reserved.
-  Source: https://github.com/freetype/freetype (tag `VER-2-14-3`)
-
-- **FriBidi 1.0.16** — right-to-left text layout, required by libass.
-  License: GNU LGPL, version 2.1 or later.
-  Source: https://github.com/fribidi/fribidi (tag `v1.0.16`)
-
-- **Mbed TLS 3.6.7** — TLS for https streams, in the Linux builds only (Windows
-  uses its own Schannel).
-  License: Apache License 2.0, or GNU GPL version 2 or later, at your choice.
-  Source: https://github.com/Mbed-TLS/mbedtls (tag `v3.6.7`)
-
-- **HarfBuzz 14.4.0** — text shaping, required by libass.
-  License: MIT ("Old MIT").
-  Source: https://github.com/harfbuzz/harfbuzz (tag `14.4.0`)
-
-## AlbumWall's own audio engine
-
-Beside libmpv, AlbumWall has an engine of its own (Preferences > Playback),
-with its own decoders written in C#. Two of them are ported from someone
-else's work, and so are the exception to "nothing here has been modified":
-each is the same decoder, rewritten function for function in another
-language.
+Everything you hear goes through AlbumWall's own engine, Hymie, with its own
+decoders written in C#: FLAC, MP3, AAC, ALAC and WAV, and an output for each
+platform (CoreAudio on the Mac, WASAPI on Windows, PulseAudio or PipeWire on
+Linux, through the system's own libraries). Until 0.7.0 it was libmpv, with
+FFmpeg inside. Some decoders are ported from someone else's work, and so are
+the exception to "nothing here has been modified": each is the same decoder,
+rewritten function for function in another language.
 
 - **minimp3** (commit `ea99364`), by lieff — the MP3 decoder's core: Layer III,
   ported to C# with its tables copied value for value.
@@ -82,6 +29,13 @@ language.
   (c) Nero AG, www.nero.com.
   License: GNU GPL, version 2 or later.
   Source: https://github.com/knik0/faad2
+
+- **Apple Lossless (ALAC)** (commit `c38887c`), by Apple — the ALAC decoder's
+  core: its adaptive Golomb decoder, dynamic predictor, stereo unmix and
+  channel elements, ported to C# (src/AlbumWall.Codecs/Alac.cs, which says
+  what was changed). Copyright (c) 2011 Apple Inc.
+  License: Apache License 2.0.
+  Source: https://github.com/macosforge/alac
 
 ## The application
 
@@ -98,6 +52,11 @@ language.
 - **SkiaSharp 3.119.4 and Skia** — what Avalonia draws with.
   License: MIT (SkiaSharp); BSD 3-Clause (Skia).
   Source: https://github.com/mono/SkiaSharp and https://skia.googlesource.com/skia
+
+- **FreeType** — font rendering, inside Skia's Linux build.
+  License: the FreeType License (FTL). Portions of this software are copyright
+  © The FreeType Project (www.freetype.org). All rights reserved.
+  Source: https://github.com/freetype/freetype
 
 - **HarfBuzzSharp 8.3.1.3** — text shaping for the interface, with its own copy
   of HarfBuzz.
@@ -129,13 +88,6 @@ language.
 - **Inter** — the typeface the whole interface is set in, by Rasmus Andersson.
   License: SIL Open Font License 1.1.
   Source: https://github.com/rsms/inter
-
-## The audio engine's source
-
-The licenses of the audio engine give you the right to the exact source it was
-built from. It is attached to the same `libmpv-*` release as the library itself:
-one archive per project, taken from the tag named above, together with the
-recipe in `scripts/build-libmpv/` that turns them into this library.
 
 ## The license texts
 

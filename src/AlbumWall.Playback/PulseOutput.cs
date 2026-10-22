@@ -1,5 +1,5 @@
 // AlbumWall — sound out on Linux, through PulseAudio's simple API (roadmap,
-// "Our own audio engine", step 2a, 2026-10-22).
+// "Hymie, our own audio engine", step 2a, 2026-10-22).
 //
 // libpulse-simple, which PipeWire serves as well as PulseAudio does, so this is
 // a stream like any other app's: the device stays shared ("Desktop audio: be a

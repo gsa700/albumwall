@@ -51,7 +51,7 @@ public sealed class PanelRow : WallItem
     /// Supplied by the wall: (album, first track index, shuffle).
     public Action<AlbumVm, int, bool>? PlayFrom { get; init; }
 
-    /// False when libmpv is missing, which is the only reason the transport is
+    /// False when there is no sound output, which is the only reason the transport is
     /// ever unavailable. The buttons say why in their tooltip rather than being
     /// quietly dead.
     public bool CanPlay => PlayFrom is not null;

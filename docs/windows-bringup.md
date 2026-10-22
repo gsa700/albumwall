@@ -1,5 +1,8 @@
 # Windows bring-up — notes for the session doing it
 
+> Since 0.7.0 (2026-10-22) AlbumWall plays through its own engine, Hymie, and
+> libmpv is gone. What these notes say about libmpv is history.
+
 Written on Techbench (Fedora), 2026-09-19, for whoever picks this up on
 Hambench. Nothing here has ever run on Windows. That is the whole job: find out
 what happens, fix what is cheap, write down what is not.

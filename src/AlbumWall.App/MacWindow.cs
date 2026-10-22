@@ -7,8 +7,8 @@
 // window's collection behavior is the system's own answer: FullScreenNone makes
 // the green button zoom, which is what Option-click on it does anyway.
 //
-// Raw Objective-C runtime calls, the same way Mpv.cs reaches dladdr: nothing to
-// bundle, and libobjc is on every Mac.
+// Raw Objective-C runtime calls, through P/Invoke: nothing to bundle, and
+// libobjc is on every Mac.
 
 using System.Runtime.InteropServices;
 

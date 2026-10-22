@@ -1,10 +1,12 @@
-// AlbumWall — one AAC track in an MP4 (.m4a) open for playing: around the
-// codec core (Aac.cs), the container and what a track needs.
+// AlbumWall — one AAC or ALAC track in an MP4 (.m4a) open for playing: around
+// the codec cores (Aac.cs, Alac.cs), the container and what a track needs.
 //
 // The MP4 is read for what playing needs and nothing else: the first audio
-// track's sample table (where each AAC frame is and how long), its decoder
-// configuration (the esds), its edit list, and the iTunes tags that carry the
-// gapless information and ReplayGain.
+// track's sample table (where each frame is and how long), its decoder
+// configuration (the esds for AAC, the 'alac' box's magic cookie for ALAC),
+// its edit list, and the iTunes tags that carry the gapless information and
+// ReplayGain. An AAC frame is 1024 samples; an ALAC frame is as long as its
+// cookie says, 4096 as a rule, the last one shorter.
 //
 // GAPLESS, AS FFMPEG DOES IT (libavformat/mov.c, n9.0.2, which is what mpv
 // plays AAC through), so a record plays the same on either engine. An encoder
@@ -18,10 +20,12 @@
 // With neither, nothing is dropped. The length is the track's own, the
 // shorter of its header's and its sample table's.
 //
-// SEEKS ARE EXACT. A frame depends on the one before it only through the
+// SEEKS ARE EXACT. An AAC frame depends on the one before it only through the
 // overlap of the transform, so decoding starts one frame before the one that
 // holds the sample, from nothing, and from there the samples are a straight
 // decode's (but for PNS noise, which no iTunes file uses: random by design).
+// An ALAC frame depends on nothing before it: decoding starts at the frame
+// that holds the sample.
 //
 // The bytes arrive as for FLAC and MP3 (TrackBytes). The sample table is in
 // the moov box, which an MP4 may keep at its end: then the whole file is
@@ -36,7 +40,7 @@ public sealed class Mp4Track : IAudioTrack
     public string Name { get; }
     public int SampleRate { get; }
     public int Channels { get; }
-    public int BitsPerSample => 0;              // lossy: no depth of its own
+    public int BitsPerSample => _alac?.BitDepth ?? 0;  // AAC is lossy: no depth of its own
     public ReplayGain Gain { get; }
     public long TotalFrames => Math.Max(0, _end - _skip);
     public TimeSpan Duration => TimeSpan.FromSeconds((double)TotalFrames / SampleRate);
@@ -48,8 +52,11 @@ public sealed class Mp4Track : IAudioTrack
 
     private readonly TrackBytes _bytes;
     private readonly byte[] _data;
-    private readonly AacDecoder _decoder;
-    private readonly long[] _offsets;           // each AAC frame's place in the file
+    private readonly AacDecoder? _aac;          // one of the two
+    private readonly AlacDecoder? _alac;
+    private readonly int _frameLength;          // samples in a whole frame
+    private readonly int _preroll;              // frames decoded before a seek's own
+    private readonly long[] _offsets;           // each frame's place in the file
     private readonly int[] _sizes;
     private readonly long _skip;                // decoded samples dropped at the start
     private readonly long _end;                 // the decoded sample the music ends before
@@ -70,12 +77,24 @@ public sealed class Mp4Track : IAudioTrack
 
         var moov = FindMoov();
         var movie = Parse(moov.Start, moov.End);
-        if (movie.Asc is null || movie.Sizes is null || movie.ChunkOffsets is null)
-            throw new UnsupportedAudioException("No AAC track in this MP4 (ALAC, or another codec).");
-        _decoder = AacDecoder.FromConfig(movie.Asc);
-        SampleRate = _decoder.SampleRate;
-        Channels = _decoder.Channels;
-        _pcm = new float[AacDecoder.FrameLength * Channels];
+        if ((movie.Asc is null && movie.AlacCookie is null) || movie.Sizes is null || movie.ChunkOffsets is null)
+            throw new UnsupportedAudioException("No AAC or ALAC track in this MP4 (another codec).");
+        if (movie.AlacCookie is not null)
+        {
+            _alac = AlacDecoder.FromCookie(movie.AlacCookie);
+            SampleRate = _alac.SampleRate;
+            Channels = _alac.Channels;
+            _frameLength = _alac.FrameLength;
+        }
+        else
+        {
+            _aac = AacDecoder.FromConfig(movie.Asc);
+            SampleRate = _aac.SampleRate;
+            Channels = _aac.Channels;
+            _frameLength = AacDecoder.FrameLength;
+            _preroll = 1;
+        }
+        _pcm = new float[_frameLength * Channels];
         (_offsets, _sizes) = SampleTable(movie);
 
         // The first frame decoded now and forgotten: what shows only inside the
@@ -84,15 +103,15 @@ public sealed class Mp4Track : IAudioTrack
         if (_offsets.Length > 0)
         {
             _bytes.WaitFor((int)Math.Min(_data.Length, _offsets[0] + _sizes[0]));
-            try { _decoder.DecodeFrame(_data, (int)_offsets[0], _sizes[0], _pcm); }
+            try { DecodeFrame((int)_offsets[0], _sizes[0]); }
             catch (FlacDecodeException) { }     // damaged, not unsupported: played as it comes
-            _decoder.Reset();
+            _aac?.Reset();
         }
 
         // The length and the cuts, in decoded samples (FFmpeg's st->duration,
         // skip_samples and first_discard_sample).
         long ToSamples(long t) => movie.TrackTimescale == SampleRate ? t : Rescale(t, SampleRate, movie.TrackTimescale);
-        long decoded = (long)_offsets.Length * AacDecoder.FrameLength;
+        long decoded = (long)_offsets.Length * _frameLength;
         long sttsTotal = movie.SttsTotal;
         long duration = movie.MdhdDuration > 0 ? Math.Min(movie.MdhdDuration, sttsTotal > 0 ? sttsTotal : long.MaxValue) : sttsTotal;
         long origin = 0, skip = 0;
@@ -167,6 +186,7 @@ public sealed class Mp4Track : IAudioTrack
         public long MovieTimescale, TrackTimescale, MdhdDuration, SttsTotal;
         public long EditMediaTime = -1, EditsDuration;
         public byte[]? Asc;
+        public byte[]? AlacCookie;
         public int[]? Sizes;
         public int FixedSize;
         public int SampleCount;
@@ -207,7 +227,7 @@ public sealed class Mp4Track : IAudioTrack
                     if (movie.HaveAudio) break;
                     var t = new Movie { MovieTimescale = movie.MovieTimescale };
                     Walk(body, bodyEnd, t, t);
-                    if (t.HaveAudio && t.Asc is not null)
+                    if (t.HaveAudio && (t.Asc is not null || t.AlacCookie is not null))
                     {
                         movie.HaveAudio = true;
                         movie.TrackTimescale = t.TrackTimescale;
@@ -216,6 +236,7 @@ public sealed class Mp4Track : IAudioTrack
                         movie.EditMediaTime = t.EditMediaTime;
                         movie.EditsDuration = t.EditsDuration;
                         movie.Asc = t.Asc;
+                        movie.AlacCookie = t.AlacCookie;
                         movie.Sizes = t.Sizes;
                         movie.FixedSize = t.FixedSize;
                         movie.SampleCount = t.SampleCount;
@@ -314,7 +335,8 @@ public sealed class Mp4Track : IAudioTrack
         }
     }
 
-    /// The first mp4a sample description's esds, for its AudioSpecificConfig.
+    /// The first audio sample description: an mp4a's esds, for its
+    /// AudioSpecificConfig, or an alac's magic cookie.
     private void SampleDescriptions(long start, long end, Movie trak)
     {
         var at = start;
@@ -322,12 +344,35 @@ public sealed class Mp4Track : IAudioTrack
         {
             var (size, type, header) = BoxHeader(at, end);
             if (size < header || at + size > end) break;
-            if (type == "mp4a")
+            if (type is "mp4a" or "alac")
             {
                 var body = at + header;
                 var version = Be16(body + 8);           // QuickTime sound description version
                 var children = body + 28 + version switch { 1 => 16, 2 => 36, _ => 0 };
-                Esds(children, at + size, trak);
+                if (type == "mp4a") Esds(children, at + size, trak);
+                else AlacCookie(children, at + size, trak);
+                return;
+            }
+            at += size;
+        }
+    }
+
+    /// The ALAC magic cookie (its ALACSpecificConfig, and a channel layout
+    /// after it when there is one): in an 'alac' full box after the sample
+    /// entry, or, as older encoders wrote it, in one inside a 'wave' box
+    /// (ALACMagicCookieDescription.txt).
+    private void AlacCookie(long start, long end, Movie trak)
+    {
+        var at = start;
+        while (at + 8 <= end)
+        {
+            var (size, type, header) = BoxHeader(at, end);
+            if (size < header || at + size > end) break;
+            if (type == "wave") { AlacCookie(at + header, at + size, trak); return; }
+            if (type == "alac")
+            {
+                var body = at + header + 4;             // version and flags
+                if (body < at + size) trak.AlacCookie = _data.AsSpan((int)body, (int)(at + size - body)).ToArray();
                 return;
             }
             at += size;
@@ -461,7 +506,7 @@ public sealed class Mp4Track : IAudioTrack
     {
         if (_seekTo >= 0) SeekNow();
         if (_bytes.Done || _frame >= _offsets.Length) return;
-        var last = Math.Min(_offsets.Length - 1, _frame + frames / AacDecoder.FrameLength + 1);
+        var last = Math.Min(_offsets.Length - 1, _frame + frames / _frameLength + 1);
         _bytes.WaitFor((int)Math.Min(_data.Length, _offsets[last] + _sizes[last]), () => _interrupted);
     }
 
@@ -503,34 +548,46 @@ public sealed class Mp4Track : IAudioTrack
         var size = _sizes[_frame];
         if (!_bytes.WaitFor((int)Math.Min(_data.Length, at + size), () => _interrupted) || _interrupted) return false;
         if (at + size > _data.Length) return false;
+        int frames;
         try
         {
-            _decoder.DecodeFrame(_data, (int)at, size, _pcm);
+            frames = DecodeFrame((int)at, size);
         }
         catch (IOException)
         {
             // A damaged frame still takes its place in time.
             Array.Clear(_pcm);
+            frames = _frameLength;
         }
-        _pcmAt = (long)_frame * AacDecoder.FrameLength;
-        _pcmFrames = AacDecoder.FrameLength;
+        _pcmAt = (long)_frame * _frameLength;
+        _pcmFrames = frames;
         _pcmOffset = 0;
         _frame++;
         return true;
     }
 
-    /// The seek asked for, done: decoding from one frame before the one that
-    /// holds the sample, the overlap from before forgotten.
+    /// One frame into _pcm, by whichever codec the track is: its length in
+    /// samples (an ALAC track's last frame is short).
+    private int DecodeFrame(int at, int size)
+    {
+        if (_alac is not null) return _alac.DecodeFrame(_data, at, size, _pcm);
+        _aac!.DecodeFrame(_data, at, size, _pcm);
+        return AacDecoder.FrameLength;
+    }
+
+    /// The seek asked for, done: for AAC, decoding from one frame before the
+    /// one that holds the sample, the overlap from before forgotten; for ALAC,
+    /// from that frame itself.
     private void SeekNow()
     {
         var to = _seekTo;
         _seekTo = -1;
         var target = to + _skip;
-        var frame = (int)Math.Min(_offsets.Length, target / AacDecoder.FrameLength);
-        var from = Math.Max(0, frame - 1);
-        _decoder.Reset();
+        var frame = (int)Math.Min(_offsets.Length, target / _frameLength);
+        var from = Math.Max(0, frame - _preroll);
+        _aac?.Reset();
         _frame = from;
-        _pcmAt = (long)from * AacDecoder.FrameLength;
+        _pcmAt = (long)from * _frameLength;
         _pcmFrames = _pcmOffset = 0;
         _from = Math.Max(_skip, target);
     }

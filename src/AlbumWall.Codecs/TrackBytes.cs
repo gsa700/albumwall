@@ -1,6 +1,6 @@
 // AlbumWall — the bytes of one FLAC file, for FlacTrack, as they arrive: from
-// the disk or from a server (roadmap, "Our own audio engine": "the stream is
-// .NET's HttpClient (format=raw, as now)", 2026-10-22).
+// the disk or from a server (roadmap, "Hymie, our own audio engine": "the
+// stream is .NET's HttpClient (format=raw, as now)", 2026-10-22).
 //
 // A track is played as mpv plays one: from the first frames, while the rest is
 // still coming. The whole file still ends up in memory, so a seek or a replay

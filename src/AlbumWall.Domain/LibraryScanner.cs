@@ -21,7 +21,10 @@ public sealed partial class LibraryScanner
     [GeneratedRegex(@"^(\d{4}) - ")]
     private static partial Regex FolderYear();
 
-    internal static readonly string[] AudioExtensions = [".flac", ".mp3", ".m4a", ".ogg", ".opus", ".wav"];
+    /// What AlbumWall plays, and so what a library holds: the formats Hymie
+    /// decodes (AlbumWall.Codecs' AudioTracks.CanDecode; keep the two the same).
+    /// Ogg and Opus went with mpv, 2026-10-22: none in his libraries.
+    internal static readonly string[] AudioExtensions = [".flac", ".mp3", ".m4a", ".wav"];
     private static readonly string[] ArtNames = ["cover.jpg", "cover.jpeg", "cover.png",
                                                  "folder.jpg", "folder.jpeg", "front.jpg"];
 

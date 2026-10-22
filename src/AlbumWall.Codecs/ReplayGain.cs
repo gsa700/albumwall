@@ -4,10 +4,10 @@
 
 namespace AlbumWall.Codecs;
 
-/// ReplayGain from a file's tags, read the way mpv reads it, so that the same
-/// record plays at the same level whichever engine plays it. mpv plays FLAC
-/// through FFmpeg's demuxer (MpvEngine's `demuxer=lavf`), where FFmpeg parses the
-/// four tags (libavformat/replaygain.c) and mpv takes them from there
+/// ReplayGain from a file's tags, read the way mpv read it, so that a record
+/// kept the level it had when mpv played it (until 2026-10-22). mpv played FLAC
+/// through FFmpeg's demuxer (`demuxer=lavf`), where FFmpeg parses the four
+/// tags (libavformat/replaygain.c) and mpv takes them from there
 /// (demux_lavf.c, export_replaygain): a gain counts only with a peak above
 /// zero beside it, an album without its own gain takes the track's, and with
 /// neither there is no ReplayGain at all.

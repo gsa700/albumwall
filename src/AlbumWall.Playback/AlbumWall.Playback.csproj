@@ -6,7 +6,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- tools/engine-check.cs, which checks the own engine's insides. -->
+    <!-- tools/engine-check.cs, which checks Hymie's insides. -->
     <InternalsVisibleTo Include="engine-check" />
   </ItemGroup>
 

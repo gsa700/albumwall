@@ -459,13 +459,12 @@ public sealed class Navidrome
                 TakeCover(album, cover);
         }
 
-        // THE SAME FILE TYPES AS A FOLDER LIBRARY: FLAC, MP3, M4A, Ogg, Opus
-        // and WAV, the scanner's list, which is also what the audio engine is
-        // built to read. A server indexes whatever it finds, and Hambench's
+        // THE SAME FILE TYPES AS A FOLDER LIBRARY: FLAC, MP3, M4A and WAV, the
+        // scanner's list, which is also what the audio engine reads. A server indexes whatever it finds, and Hambench's
         // iTunes-era library turned out to hold 24 AIFF files, every one a 0 s
         // menu click (Exit, Limit, Selection, SelectionChange) from the iTunes
         // LP booklets bundled with six albums, under "[Unknown Album]" in the
-        // Statistics as AIF (2026-10-04). Our libmpv has no AIFF demuxer, so
+        // Statistics as AIF (2026-10-04). The engine had no AIFF reader, so
         // none of them could have played; leaving them out makes the counts
         // what can be played, and makes a server's wall agree with a folder
         // scan of the same files.

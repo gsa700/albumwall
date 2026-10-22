@@ -1,5 +1,5 @@
 // AlbumWall — sound out on Windows, through WASAPI in shared mode (roadmap,
-// "Our own audio engine", step 2c, 2026-10-22).
+// "Hymie, our own audio engine", step 2c, 2026-10-22).
 //
 // Shared mode, so the device stays shared ("Desktop audio: be a good
 // neighbour", docs/roadmap.md): a stream at the file's own sample rate, which

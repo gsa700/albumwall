@@ -78,7 +78,6 @@ public partial class MainWindow
     /// The compact window's title size, in the view's own 1480 x 320 units.
     private const double CompactTitleSize = 54;
 
-    private readonly Queue<(long At, double L, double R)> _levels = new();
     private DispatcherTimer? _meterTimer;
     private DispatcherTimer? _aspectSnap;
 
@@ -324,9 +323,9 @@ public partial class MainWindow
     }
 
     /// Reads the levels about thirty times a second while compact and playing,
-    /// and hands the view the reading from Player.LevelsLead ago: holding the
-    /// levels back by how far the engine reads them ahead of the speakers puts
-    /// the needles with the sound rather than a beat ahead of it.
+    /// and hands them to the view as read: Hymie measures the block sounding
+    /// now. (mpv measured where it decoded, 200 ms ahead of the speakers, and
+    /// the readings were held back that long until mpv went, 2026-10-22.)
     ///
     /// Whether there are meters at all is decided HERE, on every tick, not once
     /// on entering: a window that opens straight into compact gets there before
@@ -335,25 +334,16 @@ public partial class MainWindow
     private void StartMeters()
     {
         if (_meterTimer is not null) return;        // one reading, every live view
-        _levels.Clear();
         _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _meterTimer.Tick += (_, _) =>
         {
             var views = LiveViews().ToList();
             if (views.Count == 0) return;
-            var metering = _player?.Metering == true;
+            var metering = _player is not null;
             foreach (var v in views) if (v.ShowMeters != metering) v.ShowMeters = metering;
-            if (!metering || _player is null) return;
-            var now = Environment.TickCount64;
+            if (_player is null) return;
             var (l, r) = _player.IsPlaying ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
-            if (!_player.IsPlaying) _levels.Clear();         // a pause drops the needles now, not in 200 ms
-            _levels.Enqueue((now, l, r));
-            var delay = _player.LevelsLead.TotalMilliseconds;
-            var due = (At: now, L: l, R: r);
-            while (_levels.Count > 0 && now - _levels.Peek().At >= delay)
-                due = _levels.Dequeue();
-            if (_player.IsPlaying && _levels.Count > 0 && now - due.At < delay) return;
-            foreach (var v in views) v.SetLevels(due.L, due.R);
+            foreach (var v in views) v.SetLevels(l, r);
         };
         _meterTimer.Start();
     }

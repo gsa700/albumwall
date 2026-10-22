@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- The decoders: plain C#, no audio, no UI, no native code. FLAC, then
-       MP3 and AAC (his call, 2026-10-22), each a small codec core on the
-       shared parts here. -->
+       MP3 and AAC (his call, 2026-10-22), then ALAC, each a small codec core
+       on the shared parts here. -->
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
