@@ -75,17 +75,6 @@ public partial class NowPlayingPanel : UserControl
         NextControl.Click += (_, _) => NextRequested?.Invoke();
         ExpandButton.Click += (_, _) => ExpandRequested?.Invoke();
 
-        // macOS keeps its traffic lights in the cover's top-left corner, where
-        // Expand sits everywhere else ("the back to wall button in compact view
-        // is RIGHT below the apple buttons", Dave 2026-10-14). The window buttons'
-        // corner is empty there, so Expand takes it.
-        if (OperatingSystem.IsMacOS() && ExpandButton.Parent is Border box)
-        {
-            box.Child = null;
-            ExpandButton.Margin = default;
-            WindowButtonsHost.Children.Add(ExpandButton);
-        }
-
         ProgressTrack.PointerPressed += (_, e) =>
         {
             if (!Interactive || ProgressTrack.Bounds.Width <= 0) return;

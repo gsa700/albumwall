@@ -1454,12 +1454,12 @@ public partial class MainWindow : Window
 
     /// Centres the traffic lights on the top bar, or, compact, puts them back
     /// where AppKit has them: the compact view has no bar for them to sit in.
-    /// Compact shows the close button alone (MacWindow.ShowCloseOnly), set again
-    /// each time in case AppKit's layout brings the others back.
+    /// Compact shows none of them (MacWindow.HideTrafficLights), set again each
+    /// time in case AppKit's layout brings them back.
     private double? CenterTrafficLights()
     {
         var h = TryGetPlatformHandle();
-        MacWindow.ShowCloseOnly(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor, IsCompact);
+        MacWindow.HideTrafficLights(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor, IsCompact);
         return MacWindow.CenterTrafficLights(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor,
                                              IsCompact ? null : TopBar.Height);
     }

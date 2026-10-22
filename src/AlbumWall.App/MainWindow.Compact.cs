@@ -128,11 +128,13 @@ public partial class MainWindow
             BeginMoveDrag(e);
         };
 
-        // The window buttons the desktop asks for, minus Maximize: a compact window
-        // has one bigger size and the expand button is it.
+        // The window buttons the desktop asks for, minus Maximize and Close: a
+        // compact window has one bigger size and the wall button is it, and no
+        // close of its own (his call, 2026-10-22: "get rid of the close button
+        // totally"); the wall closes.
         //
-        // None on macOS, whose own traffic lights are on this window already
-        // (UseMacTitleBar); drawing ours too put a second set in the other corner.
+        // None on macOS, whose own traffic lights are on this window, hidden in
+        // compact (MacWindow.HideTrafficLights).
         //
         // And there the strip's top is under the title bar that the height hint
         // asks for, so it is marked as the app's own: input on it is ours, not
@@ -148,12 +150,10 @@ public partial class MainWindow
         var (left, right) = WindowButtons.Layout();
         foreach (var kind in left.Concat(right))
         {
-            if (kind == WindowButtons.Kind.Maximize) continue;
-            Compact.WindowButtons.Children.Add(WindowButtons.Create(kind, () =>
-            {
-                if (kind == WindowButtons.Kind.Minimize) WindowState = WindowState.Minimized;
-                else Close();
-            }));
+            if (kind != WindowButtons.Kind.Minimize) continue;
+            var button = WindowButtons.Create(kind, () => WindowState = WindowState.Minimized);
+            button.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+            Compact.WindowButtons.Children.Add(button);
         }
     }
 
@@ -210,7 +210,7 @@ public partial class MainWindow
         StartMeters();
         CompactTick();
         Console.WriteLine($"[compact] on  {w}x{h}  (was {_beforeCompact})");
-        if (OperatingSystem.IsMacOS()) RecenterTrafficLights();   // and close alone
+        if (OperatingSystem.IsMacOS()) RecenterTrafficLights();   // and hidden
     }
 
     /// Asks for the compact size, and asks again for a moment if it has not

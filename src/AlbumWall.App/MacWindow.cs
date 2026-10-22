@@ -83,20 +83,22 @@ internal static class MacWindow
         return TrafficLightCenter(window, close);
     }
 
-    /// Shows the close button alone, or all three again. Compact has one bigger
-    /// size and the expand button is it, so elsewhere its window has no Maximize
-    /// button at all; on the Mac the system's green button stayed and zoomed the
-    /// compact view to fill the screen (2026-10-18). Greyed out first, then his
-    /// call: "can we just remove the button in compact and only show close?"
-    public static void ShowCloseOnly(IntPtr handle, string? descriptor, bool closeOnly)
+    /// Hides the traffic lights, or shows all three again. Compact has one
+    /// bigger size and the wall button is it, so elsewhere its window has no
+    /// Maximize button at all; on the Mac the system's green button stayed and
+    /// zoomed the compact view to fill the screen (2026-10-18). Greyed out
+    /// first, then close alone ("can we just remove the button in compact and
+    /// only show close?"), then none (2026-10-22: the red light "sticks out
+    /// like a sore thumb ... get rid of the close button totally").
+    public static void HideTrafficLights(IntPtr handle, string? descriptor, bool hidden)
     {
         if (!OperatingSystem.IsMacOS() || handle == IntPtr.Zero) return;
         var window = descriptor == "NSView" ? Send(handle, Sel("window")) : handle;
         if (window == IntPtr.Zero) return;
-        for (nint kind = 1; kind <= 2; kind++)     // minimize, zoom
+        for (nint kind = 0; kind <= 2; kind++)     // close, minimize, zoom
         {
             var button = SendNInt(window, Sel("standardWindowButton:"), kind);
-            if (button != IntPtr.Zero) SendBool(button, Sel("setHidden:"), closeOnly);
+            if (button != IntPtr.Zero) SendBool(button, Sel("setHidden:"), hidden);
         }
     }
 

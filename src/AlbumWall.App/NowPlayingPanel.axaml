@@ -136,8 +136,9 @@
              needs a mouse's way in, so these come up while the pointer is over
              the view (or for a few seconds after a touch) and are gone
              otherwise. Everything sits over the cover, the one area that is
-             pure picture, plus the window buttons in the top-right corner of
-             the text area, 24 px in, where the format line fades out for them. -->
+             pure picture, plus the way back to the wall and the desktop's
+             window buttons in the top-right corner of the text area, centred
+             on the track line, where the format line fades out for them. -->
         <Panel x:Name="HoverControls" Opacity="0" IsHitTestVisible="False">
             <Panel.Transitions>
                 <Transitions>
@@ -163,21 +164,27 @@
                     </StackPanel>
                 </Panel>
             </Border>
-            <!-- Expand lives OUTSIDE the cover overlay, in a box of the same size
-                 and place. Standby hides the overlay (nothing to play, nothing to
-                 darken), and with Expand inside it an album that ended in compact
-                 left only Esc as the way out, with nothing on screen to say so
-                 (Windows, 2026-09-29). The way back to the wall shows in every state. -->
-            <Border Width="320" Height="320" HorizontalAlignment="Left">
-                <Button x:Name="ExpandButton" Classes="np" Width="56" Height="56"
-                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="26,26,0,0"
-                        ToolTip.Tip="Back to the wall (Esc)">
-                    <Path Data="M 1 8 L 1 1 L 8 1 M 22 8 L 22 1 L 15 1 M 1 15 L 1 22 L 8 22 M 22 15 L 22 22 L 15 22"
-                          Stroke="#F3EEE6" StrokeThickness="2.6" StrokeLineCap="Round" StrokeJoin="Round"/>
-                </Button>
-            </Border>
+            <!-- The way back to the wall, OUTSIDE the cover overlay: standby hides
+                 the overlay (nothing to play, nothing to darken), and with it there
+                 an album that ended in compact left only Esc as the way out, with
+                 nothing on screen to say so (Windows, 2026-09-29). It shows in
+                 every state. Top right on every platform since 2026-10-22, his
+                 call: the cover's corner is the Mac's traffic lights' and was
+                 crowded, and a wall of tiles says where it goes better than the
+                 expand corners did. Centred on the track line (its middle is 38 px
+                 down: 26 of margin and half the line), not hung 24 px down as the
+                 window buttons were, which put it over the meters ("not centered
+                 vertically"). No close button here any more ("get rid of the close
+                 button totally"): Esc, a double-click or this button go back to the
+                 wall, and the wall closes. -->
             <StackPanel x:Name="WindowButtonsHost" Orientation="Horizontal" Spacing="10"
-                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,24,44,0"/>
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,44,0">
+                <Button x:Name="ExpandButton" Classes="np" Width="48" Height="48" VerticalAlignment="Center"
+                        ToolTip.Tip="Back to the wall (Esc, or double-click)">
+                    <Path Data="M 1 1 H 9 V 9 H 1 Z M 13 1 H 21 V 9 H 13 Z M 1 13 H 9 V 21 H 1 Z M 13 13 H 21 V 21 H 13 Z"
+                          Stroke="#F3EEE6" StrokeThickness="2.2" StrokeJoin="Round"/>
+                </Button>
+            </StackPanel>
         </Panel>
     </Panel>
 </UserControl>
