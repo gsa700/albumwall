@@ -33,9 +33,16 @@ the sleeve over to show.
   ignored), then year, then title.
 - **Albums open in place**, centered, colored from their own artwork, with the
   track list inside the wall rather than on another page.
-- **Gapless playback**, handed to the system at the file's own sample rate, with ReplayGain by album,
-  by track or off, chosen under Preferences › Playback or from the RG button on
-  the play controls. Gapless is measured, not assumed — see `tools/gapless-check.cs`.
+- **Its own audio engine, Hymie** — named for Get Smart's robot, who does
+  exactly what he is told and nothing more. FLAC, MP3, AAC, ALAC and WAV are
+  decoded by AlbumWall itself, in C#, and played as one continuous stream, so
+  playback is **gapless** by construction: the last sample of one track is
+  followed by the first of the next. Each file plays at its own sample rate,
+  with ReplayGain by album, by track or off, chosen under Preferences ›
+  Playback or from the RG button on the play controls. Every decoder is
+  checked sample for sample against ffmpeg (`tools/engine-check.cs`); FLAC,
+  ALAC and WAV come out bit-exact. Nothing to install: it plays through
+  CoreAudio on the Mac, WASAPI on Windows, and PulseAudio or PipeWire on Linux.
 - **It picks up where you left off**: the album, the track, how far in, and the
   album you had open — paused, until you press play. Both halves are options
   under Preferences › Playback.
