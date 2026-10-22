@@ -2,8 +2,9 @@
 //
 // Two engines behind one face (roadmap, "Our own audio engine: mpv out, in
 // steps"). mpv (MpvEngine) plays everything, as it always has. AlbumWall's own
-// (FlacEngine) plays local FLAC on the Mac, Linux and Windows when Preferences >
-// Playback says so, which is off unless turned on (his call, 2026-10-21: a
+// (FlacEngine) plays FLAC, local or from a server, on the Mac, Linux and
+// Windows when Preferences > Playback says so, which is off unless turned on
+// (his call, 2026-10-21: a
 // Preferences switch). The choice is made for each queue as it starts, never
 // in the middle of one, so a record plays through on one engine.
 //
@@ -105,13 +106,17 @@ public sealed class Player : IDisposable
     }
 
     /// Plays `paths` from `start`; `at` and `paused` pick up where the last run
-    /// left off (see MpvEngine.Play).
-    public void Play(IEnumerable<string> paths, int start = 0, TimeSpan? at = null, bool paused = false)
+    /// left off (see MpvEngine.Play). `names` are the tracks' own paths, one
+    /// for each, when `paths` are not: a server's tracks are played from
+    /// addresses that carry the sign-in, and named by their library paths.
+    public void Play(IEnumerable<string> paths, int start = 0, TimeSpan? at = null, bool paused = false,
+                     IReadOnlyList<string>? names = null)
     {
         var list = paths.ToList();
         if (list.Count == 0) return;
+        IReadOnlyList<string> called = names is not null && names.Count == list.Count ? names : list;
 
-        IEngine engine = UseOwnEngine && _own is not null && FlacEngine.CanPlay(list) ? _own : _mpv;
+        IEngine engine = UseOwnEngine && _own is not null && FlacEngine.CanPlay(list, called) ? _own : _mpv;
         if (engine != _active)
         {
             var old = _active;
@@ -119,7 +124,8 @@ public sealed class Player : IDisposable
             old.Stop();
             Console.WriteLine($"[player] engine: {(engine == _own ? "AlbumWall's own (FLAC)" : "mpv")}");
         }
-        engine.Play(list, start, at, paused);
+        if (engine == _own) _own.Play(list, called, start, at, paused);
+        else engine.Play(list, start, at, paused);
     }
 
     public void PlayIndex(int index) => _active.PlayIndex(index);

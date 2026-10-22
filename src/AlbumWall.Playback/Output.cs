@@ -24,6 +24,16 @@ internal interface IOutput : IDisposable
 
     /// True once the source has ended and everything handed over has played.
     bool Drained { get; }
+
+    /// Throws away what has been handed over and not played, keeping the
+    /// device open, for a seek or a jump: cheaper than a new output where
+    /// opening one is slow (WASAPI, 360 ms on Mobilenode). `onReset` is called
+    /// on the output's own thread once nothing old is left to play, with the
+    /// frame of the timeline the next samples will be, before the source is
+    /// asked for them; it may not come, if the output is disposed first.
+    /// Playing or paused stays as it was. False when this output cannot,
+    /// and then it is made anew.
+    bool Restart(Action<long> onReset) => false;
 }
 
 internal static class Output

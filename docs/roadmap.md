@@ -38,10 +38,12 @@ is ahead, the history is for what is behind.
      still plays everything else and stays the default. BUILT 2026-10-21
      (FlacEngine, Preferences > Playback > Engine; the commit says how), and
      heard on Control the same night: identical to his ear, no gap or click
-     at a boundary. Not yet: a stream from a server, which stays with mpv
-     (seen on Mobilenode 2026-10-22: a Navidrome album plays on mpv with the
-     switch on; only a local library reaches our engine). No step of its
-     own yet.
+     at a boundary. A stream from a server too, since 2026-10-22 (seen on
+     Mobilenode that morning: a Navidrome album still went to mpv with the
+     switch on). DONE the same day (TrackBytes; the commit says how): played
+     as mpv plays one, from the first frames while the rest arrives, MD5
+     exact off the server, heard there by him, 1984 into Jump with no gap
+     the record does not have. Local files are read the same way now.
   2. The other outputs; only `AudioQueueOutput.cs` is the Mac's, the rest of
      FlacEngine is plain .NET. NEXT, his call 2026-10-21 ("put that at the
      top of the list, we'll get into it next session"), in this order:
@@ -60,9 +62,12 @@ is ahead, the history is for what is behind.
         `tools/engine-check.cs` and heard there by him on five albums:
         gapless, pause and volume fine. Simpler than (a): Stop keeps what is
         buffered, so a pause loses nothing, and the stream's own volume is
-        heard within 10 ms. Noted, not acted on: a seek or a jump to another
-        track opens the device again, about 0.1 s, "nothing major". Keeping
-        the stream across a seek is the fix, if it comes up again.
+        heard within 10 ms. A seek or a jump opened the device again, which
+        he heard as sluggish: measured, 420 ms, nearly all of it
+        IAudioClient::Initialize (360 ms on Mobilenode whatever the format,
+        so the driver's). FIXED the same day: the stream is kept, stopped,
+        reset and refilled (IOutput.Restart), 10-26 ms; "seeking is instant
+        now". The Mac and Pulse outputs still open anew.
      The kiosk is the bit-perfect test, `tools/gapless-check.cs` the measure.
   3. Every other format through a small FFmpeg of decoders only (libavcodec
      and libavformat for the containers, the same decoder list as

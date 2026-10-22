@@ -3284,7 +3284,7 @@ public partial class MainWindow : Window
             _playingAlbum = album;
             _playingPaths = paths;
             _sessionOver = false;
-            _player.Play(paths.Select(Playable).ToList(), from);
+            _player.Play(paths.Select(Playable).ToList(), from, names: paths);
             MarkPlayingTrack();
             CoverForTransport(album);
 
@@ -3458,7 +3458,7 @@ public partial class MainWindow : Window
             _playingAlbum = album;
             _playingPaths = queue;
             _sessionOver = false;
-            _player.Play(queue.Select(Playable).ToList(), index, at, paused: _settings.AutoPlay != true);
+            _player.Play(queue.Select(Playable).ToList(), index, at, paused: _settings.AutoPlay != true, names: queue);
         }
         catch (Exception ex)
         {

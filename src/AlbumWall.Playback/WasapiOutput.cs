@@ -51,8 +51,13 @@ internal sealed unsafe class WasapiOutput : IOutput
 
     // On the writer thread only.
     private long _written;                      // frames handed to the device
+    private long _offset;                       // the frame of the timeline the device's position 0 is, since a Restart
     private bool _started;                      // the client is running
     private float _volumeSet = -1f;             // what the stream was last told
+
+    // Under _gate.
+    private bool _open;                         // the writer has a stream and is serving it
+    private Action<long>? _restart;             // a Restart asked for and not yet done
 
     // The timeline, under _gate: Played was _base at _baseAt, and runs on
     // from there while _running, never past _limit.
@@ -120,6 +125,24 @@ internal sealed unsafe class WasapiOutput : IOutput
 
     public bool Drained => _drained;
 
+    /// Keeps the stream: Initialize is the slow part of opening one (360 ms
+    /// on Mobilenode, whatever the format, so the driver's own), and a seek
+    /// paid it every time. The clock stops here, at what has played; the
+    /// writer stops the client, resets it, and plays on from there.
+    public bool Restart(Action<long> onReset)
+    {
+        lock (_gate)
+        {
+            if (_stopping || !_open) return false;
+            _restart = onReset;                 // a second before the first is done: the second wins
+            _base = Played;
+            _running = false;
+            Monitor.PulseAll(_gate);
+        }
+        SetEvent(_wake);
+        return true;
+    }
+
     private void Run()
     {
         var com = CoInitializeEx(IntPtr.Zero, 0 /* COINIT_MULTITHREADED */);
@@ -164,14 +187,36 @@ internal sealed unsafe class WasapiOutput : IOutput
             Check(((delegate* unmanaged<IntPtr, ulong*, int>)Slot(clock, 3))(clock, &frequency), "GetFrequency");
 
             var handles = stackalloc IntPtr[] { ready, _wake };
+            lock (_gate) _open = true;
             while (!_stopping)
             {
+                Action<long>? restart;
+                long at;
+                lock (_gate)
+                {
+                    restart = _restart;
+                    _restart = null;
+                    at = _base;
+                }
+                if (restart is not null)
+                {
+                    // Whatever the source gave meanwhile is thrown away with
+                    // the rest: it was for the old place.
+                    if (_started) { ClientCall(client, 11, "Stop"); _started = false; }
+                    ClientCall(client, 12, "Reset");
+                    _written = _offset = at;
+                    _ended = _drained = false;
+                    restart(at);
+                    lock (_gate) { _base = _limit = at; _running = false; }
+                    continue;
+                }
+
                 if (!_wantPlaying || _drained)
                 {
                     // What is buffered stays, to play on from.
                     if (_started) { ClientCall(client, 11, "Stop"); _started = false; }
                     lock (_gate)
-                        while ((!_wantPlaying || _drained) && !_stopping) Monitor.Wait(_gate);
+                        while ((!_wantPlaying || _drained) && _restart is null && !_stopping) Monitor.Wait(_gate);
                     continue;
                 }
 
@@ -208,6 +253,7 @@ internal sealed unsafe class WasapiOutput : IOutput
         }
         finally
         {
+            lock (_gate) _open = false;
             if (_started) ((delegate* unmanaged<IntPtr, int>)Slot(client, 11))(client);
             Release(volume);
             Release(clock);
@@ -244,7 +290,7 @@ internal sealed unsafe class WasapiOutput : IOutput
     {
         ulong position, qpc;
         if (((delegate* unmanaged<IntPtr, ulong*, ulong*, int>)Slot(clock, 4))(clock, &position, &qpc) < 0 || frequency == 0) return;
-        var at = (long)((double)position * SampleRate / frequency);
+        var at = _offset + (long)((double)position * SampleRate / frequency);
         lock (_gate)
         {
             if (!_wantPlaying) return;      // a pause has stopped the clock
