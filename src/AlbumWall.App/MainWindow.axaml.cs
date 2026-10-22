@@ -167,7 +167,7 @@ public partial class MainWindow : Window
             await _placed.Task;
             EnterCompact();
         };
-        Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); };
+        Closing += (_, _) => { SaveSession(); SaveSettings(); _watcher?.Dispose(); _awake.Release(); };
         Opened += (_, _) => StartIntegrityChecks();
 
         // The position is only worth as much as its last write, and a crash, a
@@ -1927,6 +1927,7 @@ public partial class MainWindow : Window
         ApplyCorners();
         ApplyFullScreenChrome(state == WindowState.FullScreen);
         if (state == WindowState.Normal) PutBackNormalGeometry();
+        UpdateAwake();
 
         // Logged because the other half of the 2026-09-20 report — "it maximized
         // but wouldn't return to the normal window size", and then the window
@@ -2707,6 +2708,8 @@ public partial class MainWindow : Window
         if (text.Equals("compact", StringComparison.OrdinalIgnoreCase)) { EnterCompact(); return; }
         if (text.StartsWith("compact ", StringComparison.OrdinalIgnoreCase)) { CompactDebug(text[8..].Trim().ToLowerInvariant()); return; }
         if (text.Equals("expand", StringComparison.OrdinalIgnoreCase)) { ExitCompact(); return; }
+        if (text.Equals("fullscreen", StringComparison.OrdinalIgnoreCase)) { ToggleFullScreen(); return; }
+        if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
         if (text.Equals("maximize", StringComparison.OrdinalIgnoreCase)
             || text.Equals("restore", StringComparison.OrdinalIgnoreCase))
         {
@@ -3625,7 +3628,18 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
-        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); CompactTick(); SaveSession(); });
+        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); CompactTick(); SaveSession(); UpdateAwake(); });
+
+    private readonly KeepAwake _awake = new();
+
+    /// The display held on while playing full screen, and (on Linux) the
+    /// machine while playing at all; free again on a pause, a stop, the end of
+    /// the record or leaving full screen. See KeepAwake.
+    private void UpdateAwake()
+    {
+        var playing = _player?.IsPlaying == true;
+        _awake.Set(display: playing && WindowState == WindowState.FullScreen, system: playing);
+    }
 
     /// Shows or hides the play controls, which SLIDE and which FLOAT.
     ///
