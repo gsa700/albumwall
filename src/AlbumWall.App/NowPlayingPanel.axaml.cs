@@ -48,10 +48,6 @@ public partial class NowPlayingPanel : UserControl
         set => Title.FontSize = value;
     }
 
-    /// The window buttons, supplied by the window: which ones and in what order
-    /// is the desktop's decision (see WindowButtons.Layout), not this view's.
-    public Panel WindowButtons => WindowButtonsHost;
-
     // Standby is black whatever is paused: it is a clock to be read from across
     // a room, and the dark is what lets it be. The playing screen is near-black
     // unless it is given the album's own ground (NowPlaying.Ground).

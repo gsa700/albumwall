@@ -136,9 +136,9 @@
              needs a mouse's way in, so these come up while the pointer is over
              the view (or for a few seconds after a touch) and are gone
              otherwise. Everything sits over the cover, the one area that is
-             pure picture, plus the way back to the wall and the desktop's
-             window buttons in the top-right corner of the text area, centred
-             on the track line, where the format line fades out for them. -->
+             pure picture, plus the way back to the wall in the top-right corner
+             of the text area, centred on the track line, where the format line
+             fades out for it. -->
         <Panel x:Name="HoverControls" Opacity="0" IsHitTestVisible="False">
             <Panel.Transitions>
                 <Transitions>
@@ -174,9 +174,9 @@
                  expand corners did. Centred on the track line (its middle is 38 px
                  down: 26 of margin and half the line), not hung 24 px down as the
                  window buttons were, which put it over the meters ("not centered
-                 vertically"). No close button here any more ("get rid of the close
-                 button totally"): Esc, a double-click or this button go back to the
-                 wall, and the wall closes. -->
+                 vertically"). No window buttons here any more ("get rid of the close
+                 button totally", "take the minimize out too"): Esc, a double-click
+                 or this button go back to the wall, and the wall closes. -->
             <StackPanel x:Name="WindowButtonsHost" Orientation="Horizontal" Spacing="10"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,44,0">
                 <Button x:Name="ExpandButton" Classes="np" Width="48" Height="48" VerticalAlignment="Center"

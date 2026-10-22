@@ -128,13 +128,11 @@ public partial class MainWindow
             BeginMoveDrag(e);
         };
 
-        // The window buttons the desktop asks for, minus Maximize and Close: a
-        // compact window has one bigger size and the wall button is it, and no
-        // close of its own (his call, 2026-10-22: "get rid of the close button
-        // totally"); the wall closes.
-        //
-        // None on macOS, whose own traffic lights are on this window, hidden in
-        // compact (MacWindow.HideTrafficLights).
+        // No window buttons of the desktop's in compact, on any platform: the
+        // wall button is the only one (his call, 2026-10-22: "get rid of the
+        // close button totally", then "take the minimize out too"). The wall
+        // closes; the taskbar and the desktop's keys still minimize. On macOS
+        // the traffic lights are hidden in compact (MacWindow.HideTrafficLights).
         //
         // And there the strip's top is under the title bar that the height hint
         // asks for, so it is marked as the app's own: input on it is ours, not
@@ -142,19 +140,8 @@ public partial class MainWindow
         // the wall back maximized (2026-10-18); leaving compact after the click
         // rather than inside it did (BackgroundPressed above).
         if (OperatingSystem.IsMacOS())
-        {
             Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole(
                 CompactHost, WindowDecorationsElementRole.User);
-            return;
-        }
-        var (left, right) = WindowButtons.Layout();
-        foreach (var kind in left.Concat(right))
-        {
-            if (kind != WindowButtons.Kind.Minimize) continue;
-            var button = WindowButtons.Create(kind, () => WindowState = WindowState.Minimized);
-            button.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
-            Compact.WindowButtons.Children.Add(button);
-        }
     }
 
 #if DEBUG
