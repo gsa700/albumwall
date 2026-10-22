@@ -38,7 +38,10 @@ is ahead, the history is for what is behind.
      still plays everything else and stays the default. BUILT 2026-10-21
      (FlacEngine, Preferences > Playback > Engine; the commit says how), and
      heard on Control the same night: identical to his ear, no gap or click
-     at a boundary. Not yet: a stream from a server, which stays with mpv.
+     at a boundary. Not yet: a stream from a server, which stays with mpv
+     (seen on Mobilenode 2026-10-22: a Navidrome album plays on mpv with the
+     switch on; only a local library reaches our engine). No step of its
+     own yet.
   2. The other outputs; only `AudioQueueOutput.cs` is the Mac's, the rest of
      FlacEngine is plain .NET. NEXT, his call 2026-10-21 ("put that at the
      top of the list, we'll get into it next session"), in this order:
@@ -52,7 +55,14 @@ is ahead, the history is for what is behind.
      b. Linux, ALSA direct, for the kiosk only: the device taken for itself,
         S/PDIF bit-perfect. Builds on (a).
      c. Windows, WASAPI shared mode: COM from .NET without a library, the
-        most work. Hambench.
+        most work. BUILT 2026-10-22 on Mobilenode, not Hambench, his call
+        (WasapiOutput; the commit says how). Checked muted with
+        `tools/engine-check.cs` and heard there by him on five albums:
+        gapless, pause and volume fine. Simpler than (a): Stop keeps what is
+        buffered, so a pause loses nothing, and the stream's own volume is
+        heard within 10 ms. Noted, not acted on: a seek or a jump to another
+        track opens the device again, about 0.1 s, "nothing major". Keeping
+        the stream across a seek is the fix, if it comes up again.
      The kiosk is the bit-perfect test, `tools/gapless-check.cs` the measure.
   3. Every other format through a small FFmpeg of decoders only (libavcodec
      and libavformat for the containers, the same decoder list as
