@@ -39,3 +39,4 @@ https://sqlite.org/copyright.html.
 | [tmds-dbus-COPYING.txt](tmds-dbus-COPYING.txt) | Tmds.DBus.Protocol (MIT) | https://github.com/tmds/Tmds.DBus | `default branch` | `COPYING` | `aca3b49277abcc7886ccb2f115603a9f5b15fc3f96019a10c00f2974098b210c` |
 | [inter-LICENSE.txt](inter-LICENSE.txt) | Inter, the typeface (SIL OFL 1.1) | https://github.com/rsms/inter | `default branch` | `LICENSE.txt` | `262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a` |
 | [minimp3-LICENSE.txt](minimp3-LICENSE.txt) | minimp3 (CC0 1.0), ported into the MP3 decoder | https://github.com/lieff/minimp3 | `ea99364f61c14656440e8d77e9c233ccf3124633` | `LICENSE` | `6a1ee543e5282cd9061881edf462e6fdab181f328da71fc2c9a6950a80e94d01` |
+| [faad2-COPYING.txt](faad2-COPYING.txt) | FAAD2 (GPL v2 or later), ported into the AAC decoder | https://github.com/knik0/faad2 | `521d105979795b887ea11e1f36565e97a8fbfc53` | `COPYING` | `d3baf3a54943cf12a994c85867a18dec84f810901b2f2878ddfd77efcc3c150f` |

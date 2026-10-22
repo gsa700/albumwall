@@ -105,7 +105,7 @@ static int Compare(List<string> files)
         var secs = (double)ours.Length / ch / t.SampleRate;
         Console.WriteLine($"{(ok ? "ok " : "BAD")}  {ours.Length / ch,9} frames{(sameLength ? "" : $" (ffmpeg {reference.Length / ch}, {ours.Length / ch - reference.Length / ch:+0;-0})")}  "
                         + $"rms {rms:0.0e0} max {max:0.0e0}  {secs,6:0.0} s in {ms,4} ms ({secs * 1000 / Math.Max(1, ms),4:0}x)  "
-                        + $"{(t is Mp3Track m ? $"pad {m.StartPad}/{m.EndPad} " : "")}gain x{t.Gain.Multiplier(GainMode.Album):0.###}/{t.Gain.Multiplier(GainMode.Track):0.###}  {Path.GetFileName(f)}");
+                        + $"{(t is Mp3Track m ? $"pad {m.StartPad}/{m.EndPad} " : t is Mp4Track a ? $"skip {a.Skip} end {a.End} " : "")}gain x{t.Gain.Multiplier(GainMode.Album):0.###}/{t.Gain.Multiplier(GainMode.Track):0.###}  {Path.GetFileName(f)}");
         if (!sameLength) Console.WriteLine($"       best alignment: ours is {Offset(ours, reference, ch):+0;-0} frames from ffmpeg's");
     }
     Console.WriteLine(bad == 0 ? $"all {files.Count} within ISO full accuracy of ffmpeg" : $"{bad} of {files.Count} NOT");

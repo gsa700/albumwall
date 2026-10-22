@@ -84,7 +84,16 @@ is ahead, the history is for what is behind.
         the same length as ffmpeg's, 1e-7 RMS from it; seeks exact; heard by
         him, from Navidrome, in a noisy room: "it sounds good". Worth a quiet
         listen to Abbey Road's side two.
-     b. AAC (AAC-LC in MP4, his iTunes library): next, and the larger job.
+     b. AAC: BUILT 2026-10-22 on Mobilenode (Mp4Track, Aac.cs ported from
+        FAAD2's LC path, GPL v2 or later; the commit says how). AAC-LC in MP4,
+        mono or stereo, which is all of his iTunes library; HE-AAC (SBR),
+        multichannel and ALAC are refused when opened. 9 tracks (Dark Side,
+        Wish You Were Here, Live After Death) the same length as ffmpeg's,
+        2e-8 RMS from it; seeks exact; heard by him from Navidrome, Dark
+        Side's joins included: "its good". NOT YET: an .m4a the decoder
+        refuses is skipped, not handed to mpv, because the engine is chosen by
+        the name; look inside an M4A before choosing, before this is anyone's
+        default.
      Vorbis, Opus, ALAC and PCM stay with mpv until they are wanted.
   4. The default, once gapless passes on all four builds.
   5. mpv and its companions removed, with their notices and source archives.

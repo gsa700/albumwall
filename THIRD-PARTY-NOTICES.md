@@ -67,14 +67,21 @@ this one; the versions below are the ones a release carries.
 ## AlbumWall's own audio engine
 
 Beside libmpv, AlbumWall has an engine of its own (Preferences > Playback),
-with its own decoders written in C#. One of them is ported from someone else's
-work, and so is the exception to "nothing here has been modified": it is the
-same decoder, rewritten line for line in another language.
+with its own decoders written in C#. Two of them are ported from someone
+else's work, and so are the exception to "nothing here has been modified":
+each is the same decoder, rewritten function for function in another
+language.
 
 - **minimp3** (commit `ea99364`), by lieff — the MP3 decoder's core: Layer III,
   ported to C# with its tables copied value for value.
   License: CC0 1.0 Universal (dedicated to the public domain).
   Source: https://github.com/lieff/minimp3
+
+- **FAAD2** (commit `521d105`) — the AAC decoder's core: its AAC-LC path, ported
+  to C# with its tables copied value for value. Code from FAAD2 is copyright
+  (c) Nero AG, www.nero.com.
+  License: GNU GPL, version 2 or later.
+  Source: https://github.com/knik0/faad2
 
 ## The application
 

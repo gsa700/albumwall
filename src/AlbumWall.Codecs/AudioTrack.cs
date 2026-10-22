@@ -48,15 +48,16 @@ public static class AudioTracks
     /// here.
     public static bool CanDecode(string name) =>
         name.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)
-        || name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase);
+        || name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase);
 
     /// A track by name, from where it is: a file, or a server's address
     /// (http or https), which is fetched and not kept. The decoder is chosen
     /// by the name's extension, as the scanner chose the file by it.
     public static IAudioTrack Open(string name, string source) =>
-        name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
-            ? Mp3Track.Open(name, source)
-            : FlacTrack.Open(name, source);
+        name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ? Mp3Track.Open(name, source)
+        : name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) ? Mp4Track.Open(name, source)
+        : FlacTrack.Open(name, source);
 
     public static bool IsAddress(string source) =>
         source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || source.StartsWith("https://", StringComparison.OrdinalIgnoreCase);

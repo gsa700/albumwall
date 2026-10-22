@@ -78,6 +78,8 @@ WANTED = [
     # ---- the own engine's decoders: ported, at the commit the port was made from
     ("minimp3-LICENSE.txt", "minimp3 (CC0 1.0), ported into the MP3 decoder", "lieff/minimp3",
      ["ea99364f61c14656440e8d77e9c233ccf3124633"], ["LICENSE"]),
+    ("faad2-COPYING.txt", "FAAD2 (GPL v2 or later), ported into the AAC decoder", "knik0/faad2",
+     ["521d105979795b887ea11e1f36565e97a8fbfc53"], ["COPYING"]),
 ]
 
 # Something every real license in the list above contains at least one of.
