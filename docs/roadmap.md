@@ -45,7 +45,10 @@ is ahead, the history is for what is behind.
      a. Linux, through PulseAudio's simple API (libpulse-simple, which
         PipeWire serves too): the smallest of the three, and shared like mpv
         on a desktop. Checked muted on Techbench with `tools/engine-check.cs`,
-        heard there by him.
+        heard there by him. BUILT 2026-10-22 (PulseOutput; the commit says
+        how), checked muted and through a null sink, bit-exact; not yet heard.
+        The simple API has no pause or volume of its own: a pause is a flush,
+        and the slider is heard 0.2 s late. The full API, if that grates.
      b. Linux, ALSA direct, for the kiosk only: the device taken for itself,
         S/PDIF bit-perfect. Builds on (a).
      c. Windows, WASAPI shared mode: COM from .NET without a library, the

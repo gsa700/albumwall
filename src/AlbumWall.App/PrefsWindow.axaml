@@ -170,8 +170,8 @@
                 </StackPanel>
 
                 <!-- AlbumWall's own engine (roadmap, "Our own audio engine",
-                     step 1, 2026-10-21): local FLAC on the Mac, behind this
-                     switch, off unless turned on. mpv plays everything else
+                     steps 1 and 2a, 2026-10-21/22): local FLAC on the Mac and
+                     Linux, behind this switch, off unless turned on. mpv plays everything else
                      either way. Hidden where it cannot run. -->
                 <StackPanel x:Name="EngineSection" Spacing="4" Margin="0,6,0,0">
                     <TextBlock Text="Engine" FontSize="14" FontWeight="SemiBold"/>

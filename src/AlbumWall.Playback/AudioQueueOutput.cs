@@ -18,20 +18,15 @@ using System.Runtime.InteropServices;
 
 namespace AlbumWall.Playback;
 
-internal sealed unsafe class AudioQueueOutput : IDisposable
+internal sealed unsafe class AudioQueueOutput : IOutput
 {
     public const int FramesPerBuffer = 4096;
     private const int Buffers = 4;
 
-    /// Fills the span (interleaved floats, a whole number of frames) with what
-    /// plays next. Returns the frames written: fewer than asked for means the
-    /// end, and zero means nothing more will come.
-    public delegate int Source(Span<float> into);
-
     public int SampleRate { get; }
     public int Channels { get; }
 
-    private readonly Source _source;
+    private readonly IOutput.Source _source;
     private IntPtr _queue;
     private GCHandle _self;
     private int _idle;              // buffers handed back and not refilled
@@ -39,7 +34,7 @@ internal sealed unsafe class AudioQueueOutput : IDisposable
     private volatile bool _stopping;
     private long _lastPlayed;
 
-    public AudioQueueOutput(int sampleRate, int channels, Source source)
+    public AudioQueueOutput(int sampleRate, int channels, IOutput.Source source)
     {
         SampleRate = sampleRate;
         Channels = channels;

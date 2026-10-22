@@ -1,5 +1,6 @@
-// AlbumWall — its own audio engine: FLAC, on the Mac (roadmap, "Our own audio
-// engine: mpv out, in steps", step 1, started 2026-10-21).
+// AlbumWall — its own audio engine: FLAC, on the Mac and Linux (roadmap, "Our
+// own audio engine: mpv out, in steps", steps 1 and 2a, started 2026-10-21).
+// The output is the platform's (Output.cs); everything here is plain .NET.
 //
 // One continuous stream of samples. The album's tracks are decoded one after
 // another into the same output, so nothing happens at a track boundary: the
@@ -27,7 +28,7 @@ internal sealed class FlacEngine : IEngine
     // The output, and the decoding that feeds it (on the output's thread,
     // under _lock). _generation tells a callback from an output already
     // thrown away that it has nothing more to say.
-    private AudioQueueOutput? _out;
+    private IOutput? _out;
     private int _generation;
     private FlacTrack? _decoding;
     private int _decodingIndex = -1;
@@ -246,7 +247,7 @@ internal sealed class FlacEngine : IEngine
             Prefetch(index + 1);
         }
 
-        var output = new AudioQueueOutput(track.Info.SampleRate, track.Info.Channels, into => Source(into, generation));
+        var output = Output.Open(track.Info.SampleRate, track.Info.Channels, into => Source(into, generation));
         output.SetVolume(Cube(_volume));
         lock (_lock)
         {
@@ -260,7 +261,7 @@ internal sealed class FlacEngine : IEngine
     /// for a callback in progress, which may itself be waiting for the lock.
     private void Discard()
     {
-        AudioQueueOutput? old;
+        IOutput? old;
         lock (_lock)
         {
             old = _out;
