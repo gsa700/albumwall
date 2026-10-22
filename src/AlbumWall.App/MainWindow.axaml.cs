@@ -2027,7 +2027,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// AlbumWall's own engine for local FLAC (the Mac and Linux), for
+    /// AlbumWall's own engine for local FLAC (the Mac, Linux and Windows), for
     /// Preferences > Playback. Heard from the next album started: the one
     /// playing finishes on the engine it began on.
     internal bool OwnEngine

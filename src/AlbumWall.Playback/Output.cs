@@ -29,9 +29,11 @@ internal interface IOutput : IDisposable
 internal static class Output
 {
     /// Whether the own engine has an output on this machine.
-    public static bool IsAvailable => OperatingSystem.IsMacOS() || (OperatingSystem.IsLinux() && PulseOutput.IsAvailable);
+    public static bool IsAvailable => OperatingSystem.IsMacOS() || OperatingSystem.IsWindows()
+                                      || (OperatingSystem.IsLinux() && PulseOutput.IsAvailable);
 
     public static IOutput Open(int sampleRate, int channels, IOutput.Source source) =>
         OperatingSystem.IsMacOS() ? new AudioQueueOutput(sampleRate, channels, source)
-                                  : new PulseOutput(sampleRate, channels, source);
+        : OperatingSystem.IsWindows() ? new WasapiOutput(sampleRate, channels, source)
+        : new PulseOutput(sampleRate, channels, source);
 }

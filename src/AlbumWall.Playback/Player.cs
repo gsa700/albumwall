@@ -2,7 +2,7 @@
 //
 // Two engines behind one face (roadmap, "Our own audio engine: mpv out, in
 // steps"). mpv (MpvEngine) plays everything, as it always has. AlbumWall's own
-// (FlacEngine) plays local FLAC on the Mac and Linux when Preferences >
+// (FlacEngine) plays local FLAC on the Mac, Linux and Windows when Preferences >
 // Playback says so, which is off unless turned on (his call, 2026-10-21: a
 // Preferences switch). The choice is made for each queue as it starts, never
 // in the middle of one, so a record plays through on one engine.

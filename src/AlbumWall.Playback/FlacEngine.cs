@@ -1,5 +1,5 @@
-// AlbumWall — its own audio engine: FLAC, on the Mac and Linux (roadmap, "Our
-// own audio engine: mpv out, in steps", steps 1 and 2a, started 2026-10-21).
+// AlbumWall — its own audio engine: FLAC, on the Mac, Linux and Windows (roadmap,
+// "Our own audio engine: mpv out, in steps", steps 1, 2a and 2c, started 2026-10-21).
 // The output is the platform's (Output.cs); everything here is plain .NET.
 //
 // One continuous stream of samples. The album's tracks are decoded one after
