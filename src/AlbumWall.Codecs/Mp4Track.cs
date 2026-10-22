@@ -71,12 +71,23 @@ public sealed class Mp4Track : IAudioTrack
         var moov = FindMoov();
         var movie = Parse(moov.Start, moov.End);
         if (movie.Asc is null || movie.Sizes is null || movie.ChunkOffsets is null)
-            throw new FlacDecodeException("No AAC track in this MP4.");
+            throw new UnsupportedAudioException("No AAC track in this MP4 (ALAC, or another codec).");
         _decoder = AacDecoder.FromConfig(movie.Asc);
         SampleRate = _decoder.SampleRate;
         Channels = _decoder.Channels;
         _pcm = new float[AacDecoder.FrameLength * Channels];
         (_offsets, _sizes) = SampleTable(movie);
+
+        // The first frame decoded now and forgotten: what shows only inside the
+        // frames (SBR in a fill element, a coupling channel) is refused here,
+        // where another engine can take the track, not played as silence.
+        if (_offsets.Length > 0)
+        {
+            _bytes.WaitFor((int)Math.Min(_data.Length, _offsets[0] + _sizes[0]));
+            try { _decoder.DecodeFrame(_data, (int)_offsets[0], _sizes[0], _pcm); }
+            catch (FlacDecodeException) { }     // damaged, not unsupported: played as it comes
+            _decoder.Reset();
+        }
 
         // The length and the cuts, in decoded samples (FFmpeg's st->duration,
         // skip_samples and first_discard_sample).
@@ -496,7 +507,7 @@ public sealed class Mp4Track : IAudioTrack
         {
             _decoder.DecodeFrame(_data, (int)at, size, _pcm);
         }
-        catch (FlacDecodeException)
+        catch (IOException)
         {
             // A damaged frame still takes its place in time.
             Array.Clear(_pcm);

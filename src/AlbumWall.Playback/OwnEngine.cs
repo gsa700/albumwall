@@ -44,7 +44,8 @@ internal sealed class OwnEngine : IEngine
     private readonly List<Mark> _marks = [];
     private IAudioTrack? _afterBreak;             // the next track, when its format needs a new output
 
-    private Task<IAudioTrack?>? _prefetch;
+    private Task<(IAudioTrack? Track, bool Unsupported)>? _prefetch;
+    private int _handOffAt = -1;                // the track mpv is to take from, once this one has played out
     private int _prefetchIndex = -1;
 
     private volatile int _index = -1;
@@ -88,6 +89,11 @@ internal sealed class OwnEngine : IEngine
     public event EventHandler? Finished;
     public event EventHandler? DurationChanged;
     public event EventHandler<TimeSpan>? Seeked;
+
+    /// A track these decoders do not play (UnsupportedAudioException): the
+    /// queue is for another engine from there. Raised on the thread that found
+    /// it, with nothing of this engine still playing.
+    public event EventHandler<HandOffEventArgs>? HandOff;
 
     public GainMode Gain
     {
@@ -165,8 +171,15 @@ internal sealed class OwnEngine : IEngine
         _index = -1;
 
         var index = Math.Clamp(start, 0, paths.Count - 1);
-        var track = OpenFrom(ref index);
-        if (track is null) { Console.WriteLine("[engine] nothing in the queue would open"); return; }
+        var track = OpenFrom(ref index, out var unsupported);
+        if (track is null)
+        {
+            if (unsupported)
+                HandOff?.Invoke(this, new HandOffEventArgs(index, index == Math.Clamp(start, 0, paths.Count - 1) ? at : null, !paused));
+            else
+                Console.WriteLine("[engine] nothing in the queue would open");
+            return;
+        }
 
         long frame = 0;
         if (at is { TotalSeconds: > 0.5 } a && index == Math.Clamp(start, 0, paths.Count - 1))
@@ -202,8 +215,16 @@ internal sealed class OwnEngine : IEngine
     private void JumpTo(int index, bool play)
     {
         if (index < 0 || index >= Count) return;
-        var track = OpenFrom(ref index);
-        if (track is null) return;
+        var track = OpenFrom(ref index, out var unsupported);
+        if (track is null)
+        {
+            if (unsupported)
+            {
+                Discard();
+                HandOff?.Invoke(this, new HandOffEventArgs(index, null, play));
+            }
+            return;
+        }
         if (!Restart(index, track, 0, play))
         {
             Discard();
@@ -297,6 +318,7 @@ internal sealed class OwnEngine : IEngine
             _marks.Clear();
             _marks.Add(new Mark(at, p.Index, p.Frame, p.Track));
             _afterBreak = null;
+            _handOffAt = -1;
             Array.Fill(_levelBlock, -1);
             _levelAt = at;
             _levelL = _levelR = 0;
@@ -319,6 +341,7 @@ internal sealed class OwnEngine : IEngine
             _handed = 0;
             _marks.Clear();
             _marks.Add(new Mark(0, index, frame, track));
+            _handOffAt = -1;
             _afterBreak = null;
             Array.Fill(_levelBlock, -1);
             _levelAt = 0;
@@ -402,7 +425,16 @@ internal sealed class OwnEngine : IEngine
         IAudioTrack? next = null;
         while (index < _queue.Count && next is null)
         {
-            next = index == _prefetchIndex && _prefetch is not null ? _prefetch.Result : TryOpen(_names[index], _queue[index]);
+            bool unsupported;
+            if (index == _prefetchIndex && _prefetch is not null) (next, unsupported) = _prefetch.Result;
+            else next = TryOpen(_names[index], _queue[index], out unsupported);
+            if (unsupported)
+            {
+                // Not skipped: this one plays out, and Watch hands the rest on.
+                _decoding = null;
+                _handOffAt = index;
+                return false;
+            }
             if (next is null) index++;
         }
         _decoding = null;
@@ -430,26 +462,32 @@ internal sealed class OwnEngine : IEngine
         if (index >= _queue.Count || index == _prefetchIndex) return;
         var (name, source) = (_names[index], _queue[index]);
         _prefetchIndex = index;
-        _prefetch = Task.Run(() => TryOpen(name, source));
+        _prefetch = Task.Run(() => (TryOpen(name, source, out var unsupported), unsupported));
     }
 
-    /// The first track from `index` on that opens, with `index` moved to it.
-    private IAudioTrack? OpenFrom(ref int index)
+    /// The first track from `index` on that opens, with `index` moved to it;
+    /// a broken one is passed over, one these decoders do not play stops it
+    /// there (`unsupported`), for another engine to take.
+    private IAudioTrack? OpenFrom(ref int index, out bool unsupported)
     {
+        unsupported = false;
         for (; index < Count; index++)
         {
-            Task<IAudioTrack?>? ready;
+            Task<(IAudioTrack? Track, bool Unsupported)>? ready;
             string name, source;
             lock (_lock)
             {
                 ready = index == _prefetchIndex ? _prefetch : null;
                 (name, source) = (_names[index], _queue[index]);
             }
-            var track = ready?.Result;
+            IAudioTrack? track = null;
+            if (ready is not null) (track, unsupported) = ready.Result;
+            if (unsupported) return null;
             // Not the one being decoded now (the last track's, opened ahead,
             // stays the prefetch): its cursor is the output's. A fresh copy.
             if (track is not null && track == _decoding) { track = null; ready = null; }
-            track ??= TryOpen(name, source);
+            track ??= TryOpen(name, source, out unsupported);
+            if (unsupported) return null;
             if (track is null) continue;
             // A track that was half played before is opened at its start.
             if (ready is not null) track.Seek(0);
@@ -459,9 +497,16 @@ internal sealed class OwnEngine : IEngine
     }
 
     /// Logged by name only: a server's source carries the sign-in.
-    private static IAudioTrack? TryOpen(string name, string source)
+    private static IAudioTrack? TryOpen(string name, string source, out bool unsupported)
     {
+        unsupported = false;
         try { return AudioTracks.Open(name, source); }
+        catch (UnsupportedAudioException ex)
+        {
+            Console.WriteLine($"[engine] {System.IO.Path.GetFileName(name)}: {ex.Message} Handed to mpv.");
+            unsupported = true;
+            return null;
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Net.Http.HttpRequestException
                                       or OperationCanceledException or FlacDecodeException)
         {
@@ -532,7 +577,7 @@ internal sealed class OwnEngine : IEngine
             Mark? now = null;
             bool drained = false;
             IAudioTrack? afterBreak = null;
-            int breakIndex = -1;
+            int breakIndex = -1, handOff = -1;
             lock (_lock)
             {
                 if (_out is null) continue;
@@ -543,6 +588,11 @@ internal sealed class OwnEngine : IEngine
                     afterBreak = _afterBreak;
                     breakIndex = _decodingIndex;
                     _afterBreak = null;
+                }
+                if (drained && _handOffAt >= 0)
+                {
+                    handOff = _handOffAt;
+                    _handOffAt = -1;
                 }
                 // What has played is let go of, all but the track sounding now.
                 if (now is { } n) _marks.RemoveAll(m => m.At < n.At);
@@ -563,6 +613,14 @@ internal sealed class OwnEngine : IEngine
             {
                 Console.WriteLine($"[engine] new output for {breakIndex}: {afterBreak.SampleRate} Hz, {afterBreak.Channels} ch");
                 Begin(breakIndex, afterBreak, 0, _playing);
+            }
+            else if (handOff >= 0)
+            {
+                // Played up to a track these decoders do not play: the rest is
+                // another engine's, from there, without a Finished.
+                Discard();
+                _index = -1;
+                HandOff?.Invoke(this, new HandOffEventArgs(handOff, null, true));
             }
             else if (drained)
             {
@@ -589,4 +647,13 @@ internal sealed class OwnEngine : IEngine
         Discard();
         _watch.Join(500);
     }
+}
+
+/// Where another engine is to take the queue from: the track, the place in it
+/// (a restored session's), and whether to play or hold.
+internal sealed class HandOffEventArgs(int index, TimeSpan? at, bool play) : EventArgs
+{
+    public int Index { get; } = index;
+    public TimeSpan? At { get; } = at;
+    public bool Play { get; } = play;
 }

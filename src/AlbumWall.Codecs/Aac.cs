@@ -83,24 +83,24 @@ internal sealed class AacDecoder
         int objectType = (int)ld.GetBits(5);
         if (objectType == 31) objectType = 32 + (int)ld.GetBits(6);
         int sfIndex = (int)ld.GetBits(4);
-        if (sfIndex == 15) throw new FlacDecodeException("An explicit AAC sample rate is not supported.");
+        if (sfIndex == 15) throw new UnsupportedAudioException("An explicit AAC sample rate is not supported.");
         int channelConfiguration = (int)ld.GetBits(4);
-        if (objectType is 5 or 29) throw new FlacDecodeException("HE-AAC (SBR) is not supported.");
-        if (objectType != 2) throw new FlacDecodeException($"AAC object type {objectType} is not supported, only LC (2).");
+        if (objectType is 5 or 29) throw new UnsupportedAudioException("HE-AAC (SBR) is not supported.");
+        if (objectType != 2) throw new UnsupportedAudioException($"AAC object type {objectType} is not supported, only LC (2).");
         if (sfIndex >= 12) throw new FlacDecodeException("AAC sample rate index out of range.");
         // GASpecificConfig
-        if (ld.Get1Bit() != 0) throw new FlacDecodeException("960-sample AAC frames are not supported.");
+        if (ld.Get1Bit() != 0) throw new UnsupportedAudioException("960-sample AAC frames are not supported.");
         if (ld.Get1Bit() != 0) ld.GetBits(14);         // dependsOnCoreCoder: coreCoderDelay
         ld.Get1Bit();                                    // extensionFlag, 0 for LC
         if (channelConfiguration is not (1 or 2))
-            throw new FlacDecodeException($"AAC channel configuration {channelConfiguration} is not supported.");
+            throw new UnsupportedAudioException($"AAC channel configuration {channelConfiguration} is not supported.");
         // A backward-compatible SBR signal after the config (sync word 0x2b7):
         // an HE-AAC stream that would play at twice the rate.
         if (ld.BitsLeft >= 16 && ld.ShowBits(11) == 0x2b7)
         {
             ld.GetBits(11);
             var ext = (int)ld.GetBits(5);
-            if (ext == 5 && ld.Get1Bit() != 0) throw new FlacDecodeException("HE-AAC (SBR) is not supported.");
+            if (ext == 5 && ld.Get1Bit() != 0) throw new UnsupportedAudioException("HE-AAC (SBR) is not supported.");
         }
         return new AacDecoder(sfIndex, channelConfiguration);
     }
@@ -136,7 +136,7 @@ internal sealed class AacDecoder
                     channels += 2;
                     break;
                 case IdCce:
-                    throw new FlacDecodeException("AAC coupling channels are not supported.");
+                    throw new UnsupportedAudioException("AAC coupling channels are not supported.");
                 case IdDse:
                     DataStreamElement(ld);
                     break;
@@ -231,7 +231,7 @@ internal sealed class AacDecoder
     {
         var count = (int)ld.GetBits(4);
         if (count == 15) count += (int)ld.GetBits(8) - 1;
-        if (count > 0 && ld.ShowBits(4) is 13 or 14) throw new FlacDecodeException("HE-AAC (SBR) is not supported.");
+        if (count > 0 && ld.ShowBits(4) is 13 or 14) throw new UnsupportedAudioException("HE-AAC (SBR) is not supported.");
         ld.Skip(count * 8);
     }
 
@@ -254,7 +254,7 @@ internal sealed class AacDecoder
         WindowGroupingInfo(ics);
         if (ics.MaxSfb > ics.NumSwb) throw new FlacDecodeException("AAC max_sfb out of range.");
         if (ics.WindowSequence != EightShortSequence && ld.Get1Bit() != 0)
-            throw new FlacDecodeException("AAC prediction (MAIN or LTP) is not supported.");
+            throw new UnsupportedAudioException("AAC prediction (MAIN or LTP) is not supported.");
     }
 
     private void IndividualChannelStream(BitReader ld, Ics ics, bool commonWindow, short[] specData)
@@ -266,7 +266,7 @@ internal sealed class AacDecoder
         DecodeScaleFactors(ld, ics);
         if ((ics.PulseDataPresent = ld.Get1Bit() != 0)) PulseData(ld, ics);
         if ((ics.TnsDataPresent = ld.Get1Bit() != 0)) TnsData(ld, ics);
-        if (ld.Get1Bit() != 0) throw new FlacDecodeException("AAC gain control (SSR) is not supported.");
+        if (ld.Get1Bit() != 0) throw new UnsupportedAudioException("AAC gain control (SSR) is not supported.");
 
         SpectralData(ld, ics, specData);
         if (ics.PulseDataPresent)

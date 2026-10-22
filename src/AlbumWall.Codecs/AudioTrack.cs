@@ -42,6 +42,11 @@ public interface IAudioTrack
     bool Interrupted { get; }
 }
 
+/// A file these decoders do not play, though nothing is wrong with it (ALAC or
+/// HE-AAC in an .m4a, multichannel AAC, MP2 named .mp3): another engine can.
+/// Unlike a damaged file, which is passed over, it is handed on.
+public sealed class UnsupportedAudioException(string message) : IOException(message);
+
 public static class AudioTracks
 {
     /// Whether a track by this name (its file or library path) has a decoder

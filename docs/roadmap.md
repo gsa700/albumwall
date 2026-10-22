@@ -90,10 +90,13 @@ is ahead, the history is for what is behind.
         multichannel and ALAC are refused when opened. 9 tracks (Dark Side,
         Wish You Were Here, Live After Death) the same length as ffmpeg's,
         2e-8 RMS from it; seeks exact; heard by him from Navidrome, Dark
-        Side's joins included: "its good". NOT YET: an .m4a the decoder
-        refuses is skipped, not handed to mpv, because the engine is chosen by
-        the name; look inside an M4A before choosing, before this is anyone's
-        default.
+        Side's joins included: "its good". A track the decoders do not play
+        (ALAC or HE-AAC in an .m4a, multichannel, MP2 named .mp3) was skipped,
+        the engine being chosen by the name; since the same day it is handed
+        to mpv instead (UnsupportedAudioException, OwnEngine.HandOff): at once
+        if it is the first, after the track before it if not, mpv playing
+        the rest of the queue. Not probed ahead, which for a server's tracks
+        would be a request each before the first sample.
      Vorbis, Opus, ALAC and PCM stay with mpv until they are wanted.
   4. The default, once gapless passes on all four builds.
   5. mpv and its companions removed, with their notices and source archives.

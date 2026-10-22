@@ -39,6 +39,12 @@ public sealed class Player : IDisposable
     private readonly OwnEngine? _own;
     private IEngine _active;
 
+    // The queue as last given, for mpv to take over from the own engine at a
+    // track it does not play; and the thread to do it on (the app's).
+    private List<string>? _queue;
+    private int _queueGeneration;
+    private readonly SynchronizationContext? _context = SynchronizationContext.Current;
+
     /// Whether playback is possible at all on this machine. mpv still plays
     /// everything the own engine does not, so it is still required.
     public static bool IsAvailable => MpvEngine.IsAvailable;
@@ -63,6 +69,24 @@ public sealed class Player : IDisposable
             engine.DurationChanged += (s, e) => { if (s == _active) DurationChanged?.Invoke(this, e); };
             engine.Seeked += (s, e) => { if (s == _active) Seeked?.Invoke(this, e); };
         }
+        if (_own is not null) _own.HandOff += OnHandOff;
+    }
+
+    /// The own engine has come to a track its decoders do not play (ALAC or
+    /// HE-AAC in an .m4a, say): mpv plays the queue from there. On the app's
+    /// thread, never the engine's, and not if a new queue has begun since.
+    private void OnHandOff(object? sender, HandOffEventArgs e)
+    {
+        var generation = _queueGeneration;
+        void Switch()
+        {
+            if (generation != _queueGeneration || _active != _own || _queue is null) return;
+            _active = _mpv;
+            Console.WriteLine($"[player] engine: mpv, from track {e.Index} (the own engine does not play it)");
+            _mpv.Play(_queue, e.Index, e.At, paused: !e.Play);
+        }
+        if (_context is null) Switch();
+        else _context.Post(_ => Switch(), null);
     }
 
     private IEnumerable<IEngine> Engines() => _own is null ? [_mpv] : [_mpv, _own];
@@ -120,6 +144,8 @@ public sealed class Player : IDisposable
     {
         var list = paths.ToList();
         if (list.Count == 0) return;
+        _queue = list;
+        _queueGeneration++;
         IReadOnlyList<string> called = names is not null && names.Count == list.Count ? names : list;
 
         IEngine engine = UseOwnEngine && _own is not null && OwnEngine.CanPlay(list, called) ? _own : _mpv;

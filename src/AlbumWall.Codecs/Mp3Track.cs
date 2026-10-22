@@ -94,7 +94,7 @@ public sealed unsafe class Mp3Track : IAudioTrack
             first = at + Mp3Decoder.Mp3dFindFrame(p + at, available - at, ref free, out firstBytes);
             if (firstBytes == 0) throw new FlacDecodeException("No MP3 frames.");
             var h = p + first;
-            if (Mp3Decoder.HdrGetLayer(h) != 1) throw new FlacDecodeException("Not Layer III.");
+            if (Mp3Decoder.HdrGetLayer(h) != 1) throw new UnsupportedAudioException("MPEG audio Layer I or II, not Layer III.");
             SampleRate = Mp3Decoder.HdrSampleRateHz(h);
             Channels = Mp3Decoder.HdrIsMono(h) ? 1 : 2;
             _spf = Mp3Decoder.HdrTestMpeg1(h) ? 1152 : 576;
