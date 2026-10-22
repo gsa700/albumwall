@@ -9,7 +9,7 @@
 // here is what playing needs and checking a rip does not: the tags (for
 // ReplayGain) and finding the frame that holds a given sample (for seeking).
 
-namespace AlbumWall.Playback;
+namespace AlbumWall.Codecs;
 
 /// STREAMINFO (RFC 9639 §8.2): what every FLAC states about itself first.
 public sealed record FlacStreamInfo(

@@ -16,9 +16,9 @@
 
 using System.Net.Http;
 
-namespace AlbumWall.Playback;
+namespace AlbumWall.Codecs;
 
-internal sealed class TrackBytes
+public sealed class TrackBytes
 {
     private static readonly TimeSpan Answer = TimeSpan.FromSeconds(10);    // for the server to start sending
     private static readonly TimeSpan Stall = TimeSpan.FromSeconds(30);     // with nothing more arriving
@@ -48,6 +48,11 @@ internal sealed class TrackBytes
 
     /// True once nothing more will arrive: all of it, or a failure.
     public bool Done => _done;
+
+    /// From where the track is: a file, or a server's address (http or
+    /// https), which is fetched and not kept.
+    public static TrackBytes Open(string name, string source) =>
+        AudioTracks.IsAddress(source) ? FromServer(source, name) : FromFile(source);
 
     /// Opens the file and returns at once, with the rest read in behind.
     public static TrackBytes FromFile(string path)

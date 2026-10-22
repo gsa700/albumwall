@@ -22,6 +22,13 @@ namespace AlbumWall.Playback;
 
 public enum GainMode { Off, Track, Album }
 
+internal static class GainModes
+{
+    /// What the own engine multiplies a track's samples by, in a mode.
+    public static float Multiplier(this Codecs.ReplayGain gain, GainMode mode) =>
+        mode == GainMode.Off ? 1f : gain.Multiplier(album: mode == GainMode.Album);
+}
+
 public sealed class TrackChangedEventArgs(int index) : EventArgs
 {
     public int Index { get; } = index;

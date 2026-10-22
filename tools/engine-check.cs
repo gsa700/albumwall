@@ -18,6 +18,7 @@
 
 using System.Diagnostics;
 using System.Security.Cryptography;
+using AlbumWall.Codecs;
 using AlbumWall.Playback;
 
 var mode = args.Length > 0 ? args[0] : "";

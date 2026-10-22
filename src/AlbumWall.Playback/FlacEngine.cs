@@ -15,8 +15,10 @@
 // break: the first is let play out and a new output is made for the second.
 // A CD rip never does that.
 //
-// Levels and gain match mpv's (FlacTrack.ReplayGain, Volume below), so the
+// Levels and gain match mpv's (Codecs' ReplayGain, Volume below), so the
 // same record plays at the same loudness whichever engine plays it.
+
+using AlbumWall.Codecs;
 
 namespace AlbumWall.Playback;
 
@@ -32,15 +34,15 @@ internal sealed class FlacEngine : IEngine
     private IOutput? _out;
     private int _outChannels;
     private int _generation;
-    private (int Index, FlacTrack Track, long Frame)? _pending;    // a seek or jump the output has yet to restart for
-    private volatile FlacTrack? _decoding;      // read outside the lock too, to wait for its bytes there
+    private (int Index, IAudioTrack Track, long Frame)? _pending;    // a seek or jump the output has yet to restart for
+    private volatile IAudioTrack? _decoding;      // read outside the lock too, to wait for its bytes there
     private int _decodingIndex = -1;
     private float _decodingGain = 1f;
     private long _handed;                       // frames given to _out so far
     private readonly List<Mark> _marks = [];
-    private FlacTrack? _afterBreak;             // the next track, when its format needs a new output
+    private IAudioTrack? _afterBreak;             // the next track, when its format needs a new output
 
-    private Task<FlacTrack?>? _prefetch;
+    private Task<IAudioTrack?>? _prefetch;
     private int _prefetchIndex = -1;
 
     private volatile int _index = -1;
@@ -54,7 +56,7 @@ internal sealed class FlacEngine : IEngine
 
     /// Where a track starts on the output's timeline: frame At of the output is
     /// frame TrackFrame of track Index (not 0 after a seek).
-    private readonly record struct Mark(long At, int Index, long TrackFrame, FlacTrack Track);
+    private readonly record struct Mark(long At, int Index, long TrackFrame, IAudioTrack Track);
 
     public FlacEngine(GainMode gain)
     {
@@ -71,8 +73,8 @@ internal sealed class FlacEngine : IEngine
     public static bool CanPlay(IReadOnlyList<string> sources, IReadOnlyList<string> names) =>
         sources.Count > 0 && sources.Count == names.Count
         && Enumerable.Range(0, sources.Count).All(i =>
-            names[i].EndsWith(".flac", StringComparison.OrdinalIgnoreCase)
-            && (FlacTrack.IsAddress(sources[i]) || (!sources[i].Contains("://") && File.Exists(sources[i]))));
+            AudioTracks.CanDecode(names[i])
+            && (AudioTracks.IsAddress(sources[i]) || (!sources[i].Contains("://") && File.Exists(sources[i]))));
 
     public bool IsPlaying => _playing;
     public int Index => _index;
@@ -120,7 +122,7 @@ internal sealed class FlacEngine : IEngine
             lock (_lock)
             {
                 // Where it was asked to go, until the output is there.
-                if (_pending is { } p) return TimeSpan.FromSeconds((double)p.Frame / p.Track.Info.SampleRate);
+                if (_pending is { } p) return TimeSpan.FromSeconds((double)p.Frame / p.Track.SampleRate);
                 if (_out is null || Current(_out.Played) is not { } m) return TimeSpan.Zero;
                 return TimeSpan.FromSeconds((double)(_out.Played - m.At + m.TrackFrame) / _out.SampleRate);
             }
@@ -167,12 +169,12 @@ internal sealed class FlacEngine : IEngine
         long frame = 0;
         if (at is { TotalSeconds: > 0.5 } a && index == Math.Clamp(start, 0, paths.Count - 1))
         {
-            frame = (long)(a.TotalSeconds * track.Info.SampleRate);
+            frame = (long)(a.TotalSeconds * track.SampleRate);
             track.Seek(frame);
         }
         Console.WriteLine($"[engine] queued {paths.Count}, from {index}{(frame > 0 ? $" at {at!.Value:m\\:ss}" : "")}"
-                        + $"{(paused ? ", held" : "")}: {System.IO.Path.GetFileName(track.Path)} "
-                        + $"({track.Info.SampleRate} Hz, {track.Info.BitsPerSample}-bit, {track.Info.Channels} ch, "
+                        + $"{(paused ? ", held" : "")}: {System.IO.Path.GetFileName(track.Name)} "
+                        + $"({track.SampleRate} Hz, {track.BitsPerSample}-bit, {track.Channels} ch, "
                         + $"gain x{track.Gain.Multiplier(_gain):0.###})");
         Begin(index, track, frame, play: !paused);
         SetState(!paused);
@@ -230,7 +232,7 @@ internal sealed class FlacEngine : IEngine
     public void Seek(TimeSpan to)
     {
         int index;
-        FlacTrack track;
+        IAudioTrack track;
         lock (_lock)
         {
             // A seek on a seek not yet done is on the same track.
@@ -239,7 +241,7 @@ internal sealed class FlacEngine : IEngine
             else return;
         }
 
-        var frame = Math.Clamp((long)(to.TotalSeconds * track.Info.SampleRate), 0, Math.Max(0, track.Info.TotalSamples - 1));
+        var frame = Math.Clamp((long)(to.TotalSeconds * track.SampleRate), 0, Math.Max(0, track.TotalFrames - 1));
         if (!Restart(index, track, frame, _playing))
         {
             Discard();          // before the track's cursor moves under the decoding
@@ -256,13 +258,13 @@ internal sealed class FlacEngine : IEngine
     /// the output's own thread is ready for it, so its cursor never moves
     /// under the decoding. False when it cannot be kept: a different format,
     /// or an output that cannot.
-    private bool Restart(int index, FlacTrack track, long frame, bool play)
+    private bool Restart(int index, IAudioTrack track, long frame, bool play)
     {
         IOutput? output;
         lock (_lock)
         {
             output = _out;
-            if (output is null || output.SampleRate != track.Info.SampleRate || _outChannels != track.Info.Channels) return false;
+            if (output is null || output.SampleRate != track.SampleRate || _outChannels != track.Channels) return false;
             _pending = (index, track, frame);
         }
         // A wait for a server's bytes lets go, so that the output gets to it.
@@ -301,14 +303,14 @@ internal sealed class FlacEngine : IEngine
     }
 
     /// A new output, starting with `track` at `frame`.
-    private void Begin(int index, FlacTrack track, long frame, bool play)
+    private void Begin(int index, IAudioTrack track, long frame, bool play)
     {
         Discard();
         int generation;
         lock (_lock)
         {
             generation = _generation;
-            _outChannels = track.Info.Channels;
+            _outChannels = track.Channels;
             _decoding = track;
             _decodingIndex = index;
             _decodingGain = track.Gain.Multiplier(_gain);
@@ -322,7 +324,7 @@ internal sealed class FlacEngine : IEngine
             Prefetch(index + 1);
         }
 
-        var output = Output.Open(track.Info.SampleRate, track.Info.Channels, into => Source(into, generation));
+        var output = Output.Open(track.SampleRate, track.Channels, into => Source(into, generation));
         output.SetVolume(Cube(_volume));
         lock (_lock)
         {
@@ -357,12 +359,12 @@ internal sealed class FlacEngine : IEngine
         // A server's track may still be arriving: what this asks for is
         // waited for here, before the lock, so that nothing else waits with it.
         // Only the output's thread reads a track, so this is safe unlocked.
-        if (_decoding is { } track) track.Prepare(into.Length / track.Info.Channels);
+        if (_decoding is { } track) track.Prepare(into.Length / track.Channels);
 
         lock (_lock)
         {
             if (generation != _generation || _decoding is null) return 0;
-            var channels = _decoding.Info.Channels;
+            var channels = _decoding.Channels;
             var want = into.Length / channels;
             var done = 0;
             while (done < want && _decoding is not null)
@@ -372,7 +374,7 @@ internal sealed class FlacEngine : IEngine
                 catch (FlacDecodeException ex)
                 {
                     // mpv goes on to the next track after a broken one; so does this.
-                    Console.WriteLine($"[engine] {System.IO.Path.GetFileName(_decoding.Path)}: {ex.Message}");
+                    Console.WriteLine($"[engine] {System.IO.Path.GetFileName(_decoding.Name)}: {ex.Message}");
                     n = 0;
                 }
                 var chunk = into.Slice(done * channels, n * channels);
@@ -395,7 +397,7 @@ internal sealed class FlacEngine : IEngine
     private bool NextTrack()
     {
         var index = _decodingIndex + 1;
-        FlacTrack? next = null;
+        IAudioTrack? next = null;
         while (index < _queue.Count && next is null)
         {
             next = index == _prefetchIndex && _prefetch is not null ? _prefetch.Result : TryOpen(_names[index], _queue[index]);
@@ -404,8 +406,8 @@ internal sealed class FlacEngine : IEngine
         _decoding = null;
         if (next is null) return false;
 
-        var current = _marks[^1].Track.Info;
-        if (next.Info.SampleRate != current.SampleRate || next.Info.Channels != current.Channels)
+        var current = _marks[^1].Track;
+        if (next.SampleRate != current.SampleRate || next.Channels != current.Channels)
         {
             _afterBreak = next;
             _decodingIndex = index;
@@ -430,11 +432,11 @@ internal sealed class FlacEngine : IEngine
     }
 
     /// The first track from `index` on that opens, with `index` moved to it.
-    private FlacTrack? OpenFrom(ref int index)
+    private IAudioTrack? OpenFrom(ref int index)
     {
         for (; index < Count; index++)
         {
-            Task<FlacTrack?>? ready;
+            Task<IAudioTrack?>? ready;
             string name, source;
             lock (_lock)
             {
@@ -455,9 +457,9 @@ internal sealed class FlacEngine : IEngine
     }
 
     /// Logged by name only: a server's source carries the sign-in.
-    private static FlacTrack? TryOpen(string name, string source)
+    private static IAudioTrack? TryOpen(string name, string source)
     {
-        try { return FlacTrack.Open(name, source); }
+        try { return AudioTracks.Open(name, source); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Net.Http.HttpRequestException
                                       or OperationCanceledException or FlacDecodeException)
         {
@@ -527,7 +529,7 @@ internal sealed class FlacEngine : IEngine
             Thread.Sleep(40);
             Mark? now = null;
             bool drained = false;
-            FlacTrack? afterBreak = null;
+            IAudioTrack? afterBreak = null;
             int breakIndex = -1;
             lock (_lock)
             {
@@ -557,7 +559,7 @@ internal sealed class FlacEngine : IEngine
 
             if (afterBreak is not null)
             {
-                Console.WriteLine($"[engine] new output for {breakIndex}: {afterBreak.Info.SampleRate} Hz, {afterBreak.Info.Channels} ch");
+                Console.WriteLine($"[engine] new output for {breakIndex}: {afterBreak.SampleRate} Hz, {afterBreak.Channels} ch");
                 Begin(breakIndex, afterBreak, 0, _playing);
             }
             else if (drained)

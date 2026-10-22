@@ -12,15 +12,20 @@
 // the output's thread, where waiting for the bytes it lands in holds up
 // nothing but the sound.
 
-namespace AlbumWall.Playback;
+namespace AlbumWall.Codecs;
 
-internal sealed class FlacTrack
+public sealed class FlacTrack : IAudioTrack
 {
     /// The track's name: its file, or its library path for a server's track.
     /// Never the address it is fetched from, which carries the sign-in.
-    public string Path { get; }
+    public string Name { get; }
     public FlacStreamInfo Info { get; }
     public ReplayGain Gain { get; }
+
+    public int SampleRate => Info.SampleRate;
+    public int Channels => Info.Channels;
+    public int BitsPerSample => Info.BitsPerSample;
+    public long TotalFrames => Info.TotalSamples;
 
     private readonly TrackBytes _bytes;
     private readonly byte[] _data;
@@ -35,9 +40,9 @@ internal sealed class FlacTrack
     private long _seekTo = -1;          // a seek asked for and not yet done
     private volatile bool _interrupted;
 
-    private FlacTrack(string path, TrackBytes bytes)
+    private FlacTrack(string name, TrackBytes bytes)
     {
-        Path = path;
+        Name = name;
         _bytes = bytes;
         _data = bytes.Data;
         Info = Metadata(bytes, out _framesStart, out var tags);
@@ -58,11 +63,7 @@ internal sealed class FlacTrack
 
     /// A track by name, from where it is: a file, or a server's address
     /// (http or https), which is fetched and not kept.
-    public static FlacTrack Open(string name, string source) =>
-        new(name, IsAddress(source) ? TrackBytes.FromServer(source, name) : TrackBytes.FromFile(source));
-
-    public static bool IsAddress(string source) =>
-        source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || source.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+    public static FlacTrack Open(string name, string source) => new(name, TrackBytes.Open(name, source));
 
     /// The metadata, as soon as enough of the file has arrived to hold it: a
     /// picture in it can make that a few megabytes.
@@ -224,59 +225,5 @@ internal sealed class FlacTrack
                     return (i, first, size);
         }
         return null;
-    }
-}
-
-/// ReplayGain from a file's tags, read the way mpv reads it, so that the same
-/// record plays at the same level whichever engine plays it. mpv plays FLAC
-/// through FFmpeg's demuxer (MpvEngine's `demuxer=lavf`), where FFmpeg parses the
-/// four tags (libavformat/replaygain.c) and mpv takes them from there
-/// (demux_lavf.c, export_replaygain): a gain counts only with a peak above
-/// zero beside it, an album without its own gain takes the track's, and with
-/// neither there is no ReplayGain at all.
-internal readonly record struct ReplayGain(bool Present, float TrackGain, float TrackPeak, float AlbumGain, float AlbumPeak)
-{
-    public static ReplayGain From(IReadOnlyDictionary<string, string> tags)
-    {
-        var tg = Parse(tags, "REPLAYGAIN_TRACK_GAIN", int.MinValue);
-        var tp = Parse(tags, "REPLAYGAIN_TRACK_PEAK", 0);
-        var ag = Parse(tags, "REPLAYGAIN_ALBUM_GAIN", int.MinValue);
-        var ap = Parse(tags, "REPLAYGAIN_ALBUM_PEAK", 0);
-        var track = tg != int.MinValue && tp != 0;
-        var album = ag != int.MinValue && ap != 0;
-        if (!track && !album) return default;
-
-        float trackGain = 0, trackPeak = 1, albumGain = 0, albumPeak = 1;
-        if (track) { trackGain = albumGain = tg / 100000f; trackPeak = albumPeak = tp / 100000f; }
-        if (album) { albumGain = ag / 100000f; albumPeak = ap / 100000f; }
-        return new ReplayGain(true, trackGain, trackPeak, albumGain, albumPeak);
-    }
-
-    /// The multiplier for a mode: mpv's compute_replaygain, clipping
-    /// prevention on (its default), no pre-amp, no fallback gain.
-    public float Multiplier(GainMode mode)
-    {
-        if (!Present || mode == GainMode.Off) return 1f;
-        var (gain, peak) = mode == GainMode.Track ? (TrackGain, TrackPeak) : (AlbumGain, AlbumPeak);
-        return Math.Min(MathF.Pow(10f, gain / 20f), 1f / peak);
-    }
-
-    /// FFmpeg's parse_value: a whole number, then up to five decimals, in
-    /// hundred-thousandths ("-7.53 dB" is -753000; what follows is ignored).
-    private static int Parse(IReadOnlyDictionary<string, string> tags, string key, int missing)
-    {
-        if (!tags.TryGetValue(key, out var text)) return missing;
-        var s = text.AsSpan().TrimStart(" \t");
-        var negative = s.Length > 0 && s[0] == '-';
-        var i = s.Length > 0 && (s[0] == '-' || s[0] == '+') ? 1 : 0;
-        long whole = 0;
-        for (; i < s.Length && char.IsAsciiDigit(s[i]); i++) whole = Math.Min(whole * 10 + (s[i] - '0'), int.MaxValue);
-        long fraction = 0;
-        if (i < s.Length && s[i] == '.')
-            for (int scale = 10000, j = i + 1; scale > 0 && j < s.Length && char.IsAsciiDigit(s[j]); j++, scale /= 10)
-                fraction += scale * (s[j] - '0');
-        if (whole > (int.MaxValue - fraction) / 100000) return missing;
-        var value = whole * 100000 + fraction;
-        return (int)(negative ? -value : value);
     }
 }

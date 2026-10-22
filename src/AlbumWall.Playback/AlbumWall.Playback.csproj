@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AlbumWall.Domain\AlbumWall.Domain.csproj" />
+    <ProjectReference Include="..\AlbumWall.Codecs\AlbumWall.Codecs.csproj" />
   </ItemGroup>
 
   <ItemGroup>
