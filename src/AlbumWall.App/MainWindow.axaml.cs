@@ -1434,6 +1434,7 @@ public partial class MainWindow : Window
         // AppKit lays its title bar out again after each of these and puts the
         // lights back where it keeps them, so they are moved again once it has.
         SizeChanged += (_, _) => RecenterTrafficLights();
+        MacWindow.WatchDisplays(OnDisplaysChanged);
         Activated += (_, _) => RecenterTrafficLights();
         Deactivated += (_, _) => RecenterTrafficLights();
         PropertyChanged += (_, e) =>
@@ -1470,6 +1471,39 @@ public partial class MainWindow : Window
     {
         CenterTrafficLights();
         Dispatcher.UIThread.Post(() => CenterTrafficLights(), DispatcherPriority.Render);
+    }
+
+    private DispatcherTimer? _redrawAfter;
+    private readonly List<string> _displayNews = [];
+
+    /// The displays may have come back different (MacWindow.WatchDisplays), so
+    /// the window is redrawn the way a resize redraws it (MacWindow.Nudge). A
+    /// wake, an unlock and a change of scale arrive close together, and what
+    /// the system says about them goes on for a moment, so once, a second and a
+    /// half after the last of them.
+    private void OnDisplaysChanged(string what)
+    {
+        _displayNews.Add(what);
+        if (_redrawAfter is null)
+        {
+            _redrawAfter = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+            _redrawAfter.Tick += (_, _) =>
+            {
+                _redrawAfter.Stop();
+                RedrawAsResized(string.Join(", ", _displayNews.Distinct()));
+                _displayNews.Clear();
+            };
+        }
+        _redrawAfter.Stop();
+        _redrawAfter.Start();
+    }
+
+    private void RedrawAsResized(string why)
+    {
+        if (WindowState == WindowState.Minimized || !IsVisible) return;
+        var h = TryGetPlatformHandle();
+        MacWindow.Nudge(h?.Handle ?? IntPtr.Zero, h?.HandleDescriptor);
+        Console.WriteLine($"[wall] redrawn as if resized ({why}); scaling {RenderScaling}");
     }
 
     private WindowEdge? EdgeAt(Point p)
@@ -2656,6 +2690,12 @@ public partial class MainWindow : Window
             Position = new PixelPoint(px, py);
             RememberNormalGeometry(); ScheduleSave();
             Console.WriteLine($"[wall] moved to {Position}");
+            return;
+        }
+        // What a display waking does here (OnDisplaysChanged), without waiting for one.
+        if (text.Equals("redraw", StringComparison.OrdinalIgnoreCase))
+        {
+            RedrawAsResized("asked");
             return;
         }
         if (text.Equals("screens", StringComparison.OrdinalIgnoreCase))

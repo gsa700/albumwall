@@ -129,10 +129,117 @@ internal static class MacWindow
         SendPtr(app, Sel(selector), IntPtr.Zero);
     }
 
+    /// Resizes the window by a point and back, what a drag on its edge does.
+    ///
+    /// After the display woke on 2026-10-21 (locked from the menu bar's Lock
+    /// Display, dark three hours) the window kept its size but drew everything
+    /// twice as big, showing only its top-left quarter, until Dave resized it.
+    /// Avalonia's drawing surface had kept a wrong scale through the wake, and a
+    /// resize makes it take the window's scale again. Done with AppKit's own
+    /// setFrame so that it works zoomed as well as not, where setting Width
+    /// would un-zoom the window. The second half waits for a frame to be drawn
+    /// at the first, as a drag would.
+    public static void Nudge(IntPtr handle, string? descriptor)
+    {
+        if (!OperatingSystem.IsMacOS() || handle == IntPtr.Zero) return;
+        var window = descriptor == "NSView" ? Send(handle, Sel("window")) : handle;
+        if (window == IntPtr.Zero) return;
+
+        var frame = SendRect(window, Sel("frame"));
+        SendSetFrame(window, Sel("setFrame:display:"), frame with { W = frame.W + 1 }, true);
+        Avalonia.Threading.DispatcherTimer.RunOnce(
+            () => SendSetFrame(window, Sel("setFrame:display:"), frame, true), TimeSpan.FromMilliseconds(100));
+    }
+
+    private static Action<string>? _displaysChanged;
+
+    /// Calls `changed`, on the UI thread, with the name of whatever the system
+    /// says when the displays may have come back different: they woke, the
+    /// screen was unlocked, their arrangement or a window's scale changed. Which
+    /// one left the surface wrong on 2026-10-21 is not known, so all of them.
+    public static unsafe void WatchDisplays(Action<string> changed)
+    {
+        if (!OperatingSystem.IsMacOS() || _displaysChanged is not null) return;
+        _displaysChanged = changed;
+
+        var cls = objc_getClass("AlbumWallDisplayWatcher");
+        if (cls == IntPtr.Zero)
+        {
+            cls = objc_allocateClassPair(objc_getClass("NSObject"), "AlbumWallDisplayWatcher", 0);
+            delegate* unmanaged<IntPtr, IntPtr, IntPtr, void> note = &OnDisplays;
+            class_addMethod(cls, Sel("awDisplays:"), (IntPtr)note, "v@:@");
+            objc_registerClassPair(cls);
+        }
+        var watcher = Send(Send(cls, Sel("alloc")), Sel("init"));     // kept for the life of the process
+
+        var appKit = NativeLibrary.Load("/System/Library/Frameworks/AppKit.framework/AppKit");
+        IntPtr AppKitName(string constant) => Marshal.ReadIntPtr(NativeLibrary.GetExport(appKit, constant));
+
+        var local = Send(objc_getClass("NSNotificationCenter"), Sel("defaultCenter"));
+        var workspace = Send(Send(objc_getClass("NSWorkspace"), Sel("sharedWorkspace")), Sel("notificationCenter"));
+        var distributed = Send(objc_getClass("NSDistributedNotificationCenter"), Sel("defaultCenter"));
+
+        Observe(local, AppKitName("NSApplicationDidChangeScreenParametersNotification"));
+        Observe(local, AppKitName("NSWindowDidChangeBackingPropertiesNotification"));
+        Observe(workspace, AppKitName("NSWorkspaceScreensDidWakeNotification"));
+        // Held back while another app is in front unless asked otherwise, and
+        // AlbumWall is seldom in front when the screen is unlocked (tried
+        // 2026-10-21: it came only once the window was clicked).
+        SendObserveNow(distributed, Sel("addObserver:selector:name:object:suspensionBehavior:"), watcher,
+                       Sel("awDisplays:"), NSString("com.apple.screenIsUnlocked"), IntPtr.Zero, DeliverImmediately);
+
+        void Observe(IntPtr center, IntPtr name) =>
+            SendObserve(center, Sel("addObserver:selector:name:object:"), watcher, Sel("awDisplays:"), name, IntPtr.Zero);
+    }
+
+    [UnmanagedCallersOnly]
+    private static void OnDisplays(IntPtr self, IntPtr sel, IntPtr notification)
+    {
+        try
+        {
+            var name = Marshal.PtrToStringUTF8(Send(Send(notification, Sel("name")), Sel("UTF8String"))) ?? "?";
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => _displaysChanged?.Invoke(name));
+        }
+        catch
+        {
+            // Nothing may be thrown back into AppKit; a missed redraw is a resize away.
+        }
+    }
+
+    private static IntPtr NSString(string s)
+    {
+        var utf8 = Marshal.StringToCoTaskMemUTF8(s);
+        try { return SendPtrRet(objc_getClass("NSString"), Sel("stringWithUTF8String:"), utf8); }
+        finally { Marshal.FreeCoTaskMem(utf8); }
+    }
+
     private static IntPtr Sel(string name) => sel_registerName(name);
 
     [DllImport("/usr/lib/libobjc.A.dylib")]
     private static extern IntPtr objc_getClass(string name);
+
+    [DllImport("/usr/lib/libobjc.A.dylib")]
+    private static extern IntPtr objc_allocateClassPair(IntPtr superclass, string name, nuint extraBytes);
+
+    [DllImport("/usr/lib/libobjc.A.dylib")]
+    private static extern void objc_registerClassPair(IntPtr cls);
+
+    [DllImport("/usr/lib/libobjc.A.dylib")]
+    private static extern bool class_addMethod(IntPtr cls, IntPtr sel, IntPtr imp, string types);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr SendPtrRet(IntPtr receiver, IntPtr selector, IntPtr value);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void SendObserve(IntPtr receiver, IntPtr selector, IntPtr observer, IntPtr action, IntPtr name, IntPtr obj);
+
+    private const nuint DeliverImmediately = 4;    // NSNotificationSuspensionBehaviorDeliverImmediately
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void SendObserveNow(IntPtr receiver, IntPtr selector, IntPtr observer, IntPtr action, IntPtr name, IntPtr obj, nuint behavior);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void SendSetFrame(IntPtr receiver, IntPtr selector, CGRect frame, [MarshalAs(UnmanagedType.I1)] bool display);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern void SendPtr(IntPtr receiver, IntPtr selector, IntPtr value);
