@@ -1,7 +1,7 @@
 #:project ../src/AlbumWall.Playback/AlbumWall.Playback.csproj
 #:property AllowUnsafeBlocks=true
 
-// AlbumWall - the own audio engine (FlacEngine) and its decoders, checked
+// AlbumWall - the own audio engine (OwnEngine) and its decoders, checked
 // without the app.
 //
 //   dotnet run tools/engine-check.cs -- decode <file.flac>...   every sample, against the file's own MD5
@@ -176,7 +176,7 @@ static int SeekCheck(string file)
 
 static int PlayCheck(List<string> files)
 {
-    using var e = new FlacEngine(GainMode.Album) { Volume = 0 };
+    using var e = new OwnEngine(GainMode.Album) { Volume = 0 };
     var sw = Stopwatch.StartNew();
     string T() => $"{sw.Elapsed.TotalSeconds,6:0.00}";
     var finished = false;

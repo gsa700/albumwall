@@ -1,5 +1,5 @@
 // AlbumWall — where the own engine's samples go: one output per platform
-// (roadmap, "Our own audio engine", step 2). FlacEngine asks only this of it.
+// (roadmap, "Our own audio engine", step 2). OwnEngine asks only this of it.
 
 namespace AlbumWall.Playback;
 

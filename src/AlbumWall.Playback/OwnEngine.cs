@@ -1,6 +1,8 @@
-// AlbumWall — its own audio engine: FLAC, on the Mac, Linux and Windows (roadmap,
-// "Our own audio engine: mpv out, in steps", steps 1, 2a and 2c, started 2026-10-21).
-// The output is the platform's (Output.cs); everything here is plain .NET.
+// AlbumWall — its own audio engine: FLAC, MP3 and AAC, on the Mac, Linux and
+// Windows (roadmap, "Our own audio engine: mpv out, in steps", steps 1 to 3b,
+// started 2026-10-21). Called FlacEngine until it played more than FLAC. The
+// decoders are AlbumWall.Codecs'; the output is the platform's (Output.cs);
+// everything here is plain .NET.
 //
 // One continuous stream of samples. The album's tracks are decoded one after
 // another into the same output, so nothing happens at a track boundary: the
@@ -22,7 +24,7 @@ using AlbumWall.Codecs;
 
 namespace AlbumWall.Playback;
 
-internal sealed class FlacEngine : IEngine
+internal sealed class OwnEngine : IEngine
 {
     private readonly Lock _lock = new();
     private List<string> _queue = [];           // where each track is: a file, or a server's address
@@ -58,7 +60,7 @@ internal sealed class FlacEngine : IEngine
     /// frame TrackFrame of track Index (not 0 after a seek).
     private readonly record struct Mark(long At, int Index, long TrackFrame, IAudioTrack Track);
 
-    public FlacEngine(GainMode gain)
+    public OwnEngine(GainMode gain)
     {
         _gain = gain;
         Array.Fill(_levelBlock, -1);

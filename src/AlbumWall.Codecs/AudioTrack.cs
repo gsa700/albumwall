@@ -1,5 +1,5 @@
 // AlbumWall — one track open for playing, whatever its format: what the own
-// engine (FlacEngine) asks of a decoder, and nothing more.
+// engine (OwnEngine) asks of a decoder, and nothing more.
 //
 // Each format is a small codec core on the shared parts of this project: the
 // bytes as they arrive (TrackBytes), the tags (ReplayGain), seeking to an

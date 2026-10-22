@@ -1,7 +1,7 @@
 namespace AlbumWall.Playback;
 
 /// What plays a queue: mpv (MpvEngine), or for FLAC on the Mac AlbumWall's own
-/// (FlacEngine). Player chooses between them for each queue and is the only
+/// (OwnEngine). Player chooses between them for each queue and is the only
 /// thing the app sees; this is the surface it relies on.
 internal interface IEngine : IDisposable
 {

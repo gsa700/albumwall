@@ -1,7 +1,7 @@
 ﻿// AlbumWall — playback through mpv.
 //
 // What plays everything but local FLAC on the Mac with the own engine turned
-// on (Player chooses; FlacEngine is the other). This was Player until
+// on (Player chooses; OwnEngine is the other). This was Player until
 // 2026-10-21. All the mpv policy lives here; Mpv.cs is only the wire. The requirements this is
 // built to meet, from the spec:
 //

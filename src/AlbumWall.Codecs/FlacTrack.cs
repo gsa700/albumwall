@@ -4,7 +4,7 @@
 // the track is. That makes the decoder's input a plain array, which is what
 // Deadwax's decoder takes (Flac.cs), and it means a track boundary never waits
 // on the disk or the network: the next track is opened ahead of time
-// (FlacEngine).
+// (OwnEngine).
 //
 // The file arrives while it plays, from the disk or a server (TrackBytes),
 // so every frame waits for its own bytes before it is

@@ -2,10 +2,9 @@
 //
 // Two engines behind one face (roadmap, "Our own audio engine: mpv out, in
 // steps"). mpv (MpvEngine) plays everything, as it always has. AlbumWall's own
-// (FlacEngine) plays FLAC, local or from a server, on the Mac, Linux and
-// Windows when Preferences > Playback says so, which is off unless turned on
-// (his call, 2026-10-21: a
-// Preferences switch). The choice is made for each queue as it starts, never
+// (OwnEngine) plays FLAC, MP3 and AAC, local or from a server, on the Mac,
+// Linux and Windows when Preferences > Playback says so, which is off unless
+// turned on (his call, 2026-10-21: a Preferences switch). The choice is made for each queue as it starts, never
 // in the middle of one, so a record plays through on one engine.
 //
 // The requirements both are held to, from the spec:
@@ -37,7 +36,7 @@ public sealed class TrackChangedEventArgs(int index) : EventArgs
 public sealed class Player : IDisposable
 {
     private readonly MpvEngine _mpv;
-    private readonly FlacEngine? _own;
+    private readonly OwnEngine? _own;
     private IEngine _active;
 
     /// Whether playback is possible at all on this machine. mpv still plays
@@ -55,7 +54,7 @@ public sealed class Player : IDisposable
     {
         _mpv = new MpvEngine(gain);
         _active = _mpv;
-        if (OwnEngineAvailable) _own = new FlacEngine(gain);
+        if (OwnEngineAvailable) _own = new OwnEngine(gain);
         foreach (var engine in Engines())
         {
             engine.TrackChanged += (s, e) => { if (s == _active) TrackChanged?.Invoke(this, e); };
@@ -123,13 +122,13 @@ public sealed class Player : IDisposable
         if (list.Count == 0) return;
         IReadOnlyList<string> called = names is not null && names.Count == list.Count ? names : list;
 
-        IEngine engine = UseOwnEngine && _own is not null && FlacEngine.CanPlay(list, called) ? _own : _mpv;
+        IEngine engine = UseOwnEngine && _own is not null && OwnEngine.CanPlay(list, called) ? _own : _mpv;
         if (engine != _active)
         {
             var old = _active;
             _active = engine;
             old.Stop();
-            Console.WriteLine($"[player] engine: {(engine == _own ? "AlbumWall's own (FLAC)" : "mpv")}");
+            Console.WriteLine($"[player] engine: {(engine == _own ? "AlbumWall's own" : "mpv")}");
         }
         if (engine == _own) _own.Play(list, called, start, at, paused);
         else engine.Play(list, start, at, paused);
