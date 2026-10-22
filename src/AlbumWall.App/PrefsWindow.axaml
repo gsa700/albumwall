@@ -170,14 +170,15 @@
                 </StackPanel>
 
                 <!-- AlbumWall's own engine (roadmap, "Our own audio engine",
-                     steps 1 and 2a, 2026-10-21/22): local FLAC on the Mac and
-                     Linux, behind this switch, off unless turned on. mpv plays everything else
-                     either way. Hidden where it cannot run. -->
+                     steps 1-3, 2026-10-21/22): FLAC, MP3 and AAC, local or from
+                     a server, behind this switch, on unless turned off since
+                     2026-10-22. mpv plays everything else either way. Hidden
+                     where it cannot run. -->
                 <StackPanel x:Name="EngineSection" Spacing="4" Margin="0,6,0,0">
                     <TextBlock Text="Engine" FontSize="14" FontWeight="SemiBold"/>
-                    <CheckBox x:Name="OwnEngine" Content="Play FLAC with AlbumWall's own engine (experimental)"/>
+                    <CheckBox x:Name="OwnEngine" Content="Play with AlbumWall's own engine (experimental)"/>
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
-                               Text="Albums of FLAC files on this computer play through AlbumWall itself instead of mpv. Everything else, and anything from a server, still plays through mpv. Takes effect from the next album you start."/>
+                               Text="FLAC, MP3 and AAC play through AlbumWall itself instead of mpv, from this computer or a server. Anything else still plays through mpv. Takes effect from the next album you start."/>
                 </StackPanel>
             </StackPanel>
         </TabItem>

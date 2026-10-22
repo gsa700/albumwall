@@ -35,7 +35,9 @@ is ahead, the history is for what is behind.
   **The steps, mpv the fallback until the last; each one ships on its own and
   a pause between any two is fine:**
   1. Our engine, FLAC only, on the Mac (CoreAudio), behind a switch; mpv
-     still plays everything else and stays the default. BUILT 2026-10-21
+     still plays everything else and stays the default (until 2026-10-22,
+     when our engine became the default, his call for the Edge release: "we're
+     on the edge, enable it by default"; the switch still turns it off). BUILT 2026-10-21
      (FlacEngine, Preferences > Playback > Engine; the commit says how), and
      heard on Control the same night: identical to his ear, no gap or click
      at a boundary. A stream from a server too, since 2026-10-22 (seen on

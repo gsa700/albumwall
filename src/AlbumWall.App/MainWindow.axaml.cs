@@ -2027,12 +2027,12 @@ public partial class MainWindow : Window
         }
     }
 
-    /// AlbumWall's own engine for local FLAC (the Mac, Linux and Windows), for
-    /// Preferences > Playback. Heard from the next album started: the one
-    /// playing finishes on the engine it began on.
+    /// AlbumWall's own engine for FLAC, MP3 and AAC (the Mac, Linux and
+    /// Windows), for Preferences > Playback; on unless turned off. Heard from
+    /// the next album started: the one playing finishes on the engine it began on.
     internal bool OwnEngine
     {
-        get => _settings.OwnEngine == true;
+        get => _settings.OwnEngine != false;
         set
         {
             _settings.OwnEngine = value;
@@ -3317,7 +3317,7 @@ public partial class MainWindow : Window
 
         // A player built now starts at whatever the slider already says.
         _player.Volume = _volume;
-        _player.UseOwnEngine = _settings.OwnEngine == true;
+        _player.UseOwnEngine = OwnEngine;
 
         _player.TrackChanged += OnTrackChanged;
         _player.StateChanged += OnPlaybackState;

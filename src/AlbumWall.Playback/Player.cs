@@ -3,9 +3,10 @@
 // Two engines behind one face (roadmap, "Our own audio engine: mpv out, in
 // steps"). mpv (MpvEngine) plays everything, as it always has. AlbumWall's own
 // (OwnEngine) plays FLAC, MP3 and AAC, local or from a server, on the Mac,
-// Linux and Windows when Preferences > Playback says so, which is off unless
-// turned on (his call, 2026-10-21: a Preferences switch). The choice is made for each queue as it starts, never
-// in the middle of one, so a record plays through on one engine.
+// Linux and Windows when Preferences > Playback says so (his call, 2026-10-21:
+// a Preferences switch), which is on unless turned off since 2026-10-22. The
+// choice is made for each queue as it starts, never in the middle of one, so
+// a record plays through on one engine.
 //
 // The requirements both are held to, from the spec:
 //
@@ -49,8 +50,8 @@ public sealed class Player : IDisposable
     /// everything the own engine does not, so it is still required.
     public static bool IsAvailable => MpvEngine.IsAvailable;
 
-    /// Whether the own engine can run here at all: the Mac, and Linux with
-    /// PulseAudio's client library (PipeWire serves it too), for now.
+    /// Whether the own engine can run here at all: the Mac, Windows, and
+    /// Linux with PulseAudio's client library (PipeWire serves it too).
     public static bool OwnEngineAvailable => Output.IsAvailable;
 
     /// The Preferences switch. Takes effect at the next queue.
