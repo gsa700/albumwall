@@ -119,7 +119,44 @@ public sealed class WallView : Panel
         return _realized.TryGetValue(index, out var el) ? el.DesiredSize.Height : 0;
     }
 
-    private void OnItemsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => Reset();
+    /// A row put in, taken out or replaced - the panel, every time an album
+    /// opens, closes or swaps in place - moves the rows after it by one and leaves every row element
+    /// holding the row it held. Resetting instead handed the pooled elements
+    /// back in a different order, each to a different row, so every album row
+    /// on screen rebuilt all its tiles: 50-100 ms stalls through every unfold
+    /// and fold (Techbench, 2026-10-23). Anything else still lays out afresh.
+    private void OnItemsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        switch (e)
+        {
+            case { Action: System.Collections.Specialized.NotifyCollectionChangedAction.Add, NewItems.Count: 1 }:
+                Shift(e.NewStartingIndex, +1);
+                break;
+            case { Action: System.Collections.Specialized.NotifyCollectionChangedAction.Remove, OldItems.Count: 1 }:
+                if (_realized.Remove(e.OldStartingIndex, out var gone)) Retire(gone);
+                Shift(e.OldStartingIndex + 1, -1);
+                break;
+            // A swap in place puts a new panel where the old one was.
+            case { Action: System.Collections.Specialized.NotifyCollectionChangedAction.Replace, NewItems.Count: 1 }:
+                if (_realized.Remove(e.NewStartingIndex, out var old)) Retire(old);
+                break;
+            default:
+                Reset();
+                return;
+        }
+        InvalidateMeasure();
+    }
+
+    /// Renumbers the realized rows from `from` on by `by`.
+    private void Shift(int from, int by)
+    {
+        var moved = _realized.Where(kv => kv.Key >= from).OrderBy(kv => by > 0 ? -kv.Key : kv.Key).ToList();
+        foreach (var (i, el) in moved)
+        {
+            _realized.Remove(i);
+            _realized[i + by] = el;
+        }
+    }
 
     /// Drops every realized row, ready to lay the wall out again.
     ///
