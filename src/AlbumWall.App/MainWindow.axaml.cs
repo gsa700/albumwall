@@ -2710,6 +2710,23 @@ public partial class MainWindow : Window
         if (text.Equals("expand", StringComparison.OrdinalIgnoreCase)) { ExitCompact(); return; }
         if (text.Equals("fullscreen", StringComparison.OrdinalIgnoreCase)) { ToggleFullScreen(); return; }
         if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
+        if (text.Equals("focus position", StringComparison.OrdinalIgnoreCase)) { PositionSlider.Focus(NavigationMethod.Tab); return; }
+        // Where the keyboard is: the focused control, the album and track it is on,
+        // and which side of its album the open panel is.
+        if (text.Equals("focused", StringComparison.OrdinalIgnoreCase))
+        {
+            var f = FocusManager?.GetFocusedElement();
+            var what = f switch
+            {
+                Button { DataContext: AlbumVm a } => $"cover {a.Album.Title}",
+                Button b when b.Classes.Contains("track") => $"track {_trackCursor + 1}",
+                Slider s => $"slider {s.Name} {s.Value:0.000}",
+                null => "nothing",
+                var o => o.GetType().Name,
+            };
+            Console.WriteLine($"[focused] {what}  (album {_keyAlbum?.Album.Title ?? "-"}, open {_open?.Album.Title ?? "-"}, panel {(_panelAbove ? "above" : "below")}, at {Clock(_player?.Position ?? TimeSpan.Zero)})");
+            return;
+        }
         if (text.Equals("maximize", StringComparison.OrdinalIgnoreCase)
             || text.Equals("restore", StringComparison.OrdinalIgnoreCase))
         {
@@ -3955,7 +3972,13 @@ public partial class MainWindow : Window
         var compactKey = e.Key == Key.M && ctrl && other == Shortcut.CompactExtra;
         var helpKey = OperatingSystem.IsMacOS() && e.Key == Key.OemQuestion && ctrl && other == KeyModifiers.Shift;  // Cmd+?
         // Shift+← → seeks: the arrows alone move about the wall (MainWindow.Keyboard.cs).
-        var seekKey = !ctrl && other == KeyModifiers.Shift && e.Key is Key.Left or Key.Right;
+        // On the position slider the arrows seek too, with Shift or without: the
+        // slider's own steps are a whole track (it runs 0 to 1) and never reached
+        // the player, so the arrows "jump all over the place" and Shift+arrow did
+        // nothing (Dave, Narrator check on Hambench, 2026-10-22).
+        var onPosition = ReferenceEquals(focused, PositionSlider);
+        var seekKey = !ctrl && (other == KeyModifiers.Shift || (onPosition && other == KeyModifiers.None))
+                      && e.Key is Key.Left or Key.Right;
         if (other != KeyModifiers.None && !(e.Key == Key.OemQuestion && other == KeyModifiers.Shift) && !compactKey && !seekKey) return;
 
         // Compact first. Esc is the way back to the wall, and the keys that only
@@ -4049,8 +4072,8 @@ public partial class MainWindow : Window
                 _player.Previous();
                 break;
 
-            case Key.Right when seekKey && !typing && focused is not Slider:
-            case Key.Left when seekKey && !typing && focused is not Slider:
+            case Key.Right when seekKey && !typing && (focused is not Slider || onPosition):
+            case Key.Left when seekKey && !typing && (focused is not Slider || onPosition):
             {
                 if (_player is null || !_mprisState.HasTrack) return;
                 var duration = _player.Duration;
@@ -4061,6 +4084,18 @@ public partial class MainWindow : Window
                 Dispatcher.UIThread.Post(PushTimeline, DispatcherPriority.Background);
                 break;
             }
+
+            // The position slider's other keys would move it a whole track, or
+            // to an end, without seeking. Home is the start of the track; the
+            // rest do nothing there.
+            case Key.Home when onPosition && !ctrl:
+                if (_player is null || !_mprisState.HasTrack) return;
+                _player.Seek(TimeSpan.Zero);
+                UpdatePosition();
+                Dispatcher.UIThread.Post(PushTimeline, DispatcherPriority.Background);
+                break;
+            case Key.Up or Key.Down or Key.End or Key.PageUp or Key.PageDown when onPosition && !ctrl:
+                break;
 
             case Key.Up when ctrl:
                 VolumeSlider.Value = Math.Min(100, VolumeSlider.Value + VolumeStep);

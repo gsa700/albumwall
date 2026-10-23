@@ -6,6 +6,13 @@
 // comes back out. Seeking moved to Shift+← →: the arrows have to MOVE, here and on
 // a kiosk's remote, which sends nothing else.
 //
+// WHICH WAY THE TRACKS ARE. The panel usually opens under its album, but opening
+// an album in the row under the open one swaps in place and leaves the panel
+// where it was, above (_panelAbove). Then the arrows follow the screen: ↑ from the
+// cover goes into the tracks, ↓ past the last track comes back to the cover, and
+// ↑ past the first goes on up to the row above the panel (found by Dave on
+// Hambench, 2026-10-22: "you press ↓ to reach a track list that's above you").
+//
 // THE CURSOR IS AN ALBUM, NOT A CONTROL. The wall is virtualized, so the cover to
 // move to may not exist yet as an element: the album is chosen first, the wall
 // scrolled to it by arithmetic (WallView knows every row's offset), and only then,
@@ -59,7 +66,11 @@ public partial class MainWindow
         {
             case Key.Left: MoveTo(_visible[To(at - 1)]); return true;
             case Key.Right: MoveTo(_visible[To(at + 1)]); return true;
-            case Key.Up: MoveTo(_visible[To(at - _columns)]); return true;
+            case Key.Up:
+                // The open album's tracks are over its cover when the panel is above.
+                if (_panelAbove && ReferenceEquals(_keyAlbum, _open) && TrackButtons().Count > 0) { MoveToTrack(0); return true; }
+                MoveTo(_visible[To(at - _columns)]);
+                return true;
             case Key.Home: MoveTo(_visible[0]); return true;
             case Key.End: MoveTo(_visible[^1]); return true;
             case Key.PageUp: MoveTo(_visible[To(at - _columns * perScreen)]); return true;
@@ -67,7 +78,7 @@ public partial class MainWindow
 
             case Key.Down:
                 // The open album's tracks are under its cover: ↓ goes into them.
-                if (ReferenceEquals(_keyAlbum, _open) && TrackButtons().Count > 0) { MoveToTrack(0); return true; }
+                if (!_panelAbove && ReferenceEquals(_keyAlbum, _open) && TrackButtons().Count > 0) { MoveToTrack(0); return true; }
                 MoveTo(_visible[To(at + _columns)]);
                 return true;
 
@@ -87,17 +98,14 @@ public partial class MainWindow
         switch (key)
         {
             case Key.Up:
-                if (_trackCursor == 0) MoveTo(_keyAlbum!);        // back up onto the cover
-                else MoveToTrack(_trackCursor - 1);
+                if (_trackCursor > 0) MoveToTrack(_trackCursor - 1);
+                else if (_panelAbove) Leave(-_columns);             // off the top: on to the row above the panel
+                else MoveTo(_keyAlbum!);                            // back up onto the cover
                 return true;
             case Key.Down:
                 if (_trackCursor < count - 1) MoveToTrack(_trackCursor + 1);
-                else
-                {
-                    // Off the end of the list: on to the row under the album.
-                    var at = _visible.IndexOf(_keyAlbum!);
-                    MoveTo(_visible[Math.Clamp(at + _columns, 0, _visible.Count - 1)]);
-                }
+                else if (_panelAbove) MoveTo(_keyAlbum!);           // back down onto the cover
+                else Leave(_columns);                               // off the end: on to the row under the album
                 return true;
             case Key.Home: MoveToTrack(0); return true;
             case Key.End: MoveToTrack(count - 1); return true;
@@ -110,8 +118,9 @@ public partial class MainWindow
                 return true;
         }
         return false;
-    }
 
+        void Leave(int by) => MoveTo(_visible[Math.Clamp(_visible.IndexOf(_keyAlbum!) + by, 0, _visible.Count - 1)]);
+    }
 
     /// Puts the keyboard on an album: scrolled into view, then focused.
     private void MoveTo(AlbumVm album)

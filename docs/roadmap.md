@@ -194,9 +194,14 @@ is ahead, the history is for what is behind.
   (Program.ScreenReaderRunning), and there everything is named. The parts
   inside sliders and scroll bars ("Thumb", "RepeatButton", "Line up") still
   show in the raw tree: Avalonia's AT-SPI bridge ignores AccessibilityView,
-  and they take no focus, so keyboard use never lands on them. Not yet tried:
-  Narrator, Orca's speech itself, and someone who uses a screen reader every
-  day;
+  and they take no focus, so keyboard use never lands on them. NARRATOR on
+  Windows passed (his check on Hambench, 0.7.3, 2026-10-22: "all good except
+  track seek"), and found two keyboard bugs, both fixed in 0.7.4: the arrows
+  ignored a panel that had opened ABOVE its album (they now follow the
+  screen), and the focused position slider jumped a whole track per arrow
+  without seeking (← → and Shift+← → now seek 10 s there, Home goes to the
+  start). Not yet tried: Orca's speech itself, and someone who uses a screen
+  reader every day;
   the "names" debug command shows what they are told, not how it sounds in
   use. Avalonia's Linux screen-reader support is the weakest of the three.
   `--help` and `--version` exist (CommandLine.cs); a man page for Linux can
