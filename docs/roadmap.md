@@ -200,7 +200,12 @@ is ahead, the history is for what is behind.
   ignored a panel that had opened ABOVE its album (they now follow the
   screen), and the focused position slider jumped a whole track per arrow
   without seeking (← → and Shift+← → now seek 10 s there, Home goes to the
-  start). Not yet tried: Orca's speech itself, and someone who uses a screen
+  start). Both checked by him on the Mac in 0.7.5 (2026-10-23). The
+  keyboard's ring vanished on light sleeves (his, 2026-10-23: "leaving you
+  wondering what is selected"); since 0.7.6 it is a thin line round a band of
+  the opposite color, light-round-dark on a light cover and dark-round-light
+  on the rest, chosen from the cover's edge (KeyRing.cs). Not yet tried:
+  Orca's speech itself, and someone who uses a screen
   reader every day;
   the "names" debug command shows what they are told, not how it sounds in
   use. Avalonia's Linux screen-reader support is the weakest of the three.

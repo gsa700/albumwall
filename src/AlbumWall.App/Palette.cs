@@ -33,7 +33,13 @@ public sealed record AlbumPalette(
     IBrush Light,      // a LIGHT tone lifted from the art, for the transport bar
     IBrush OnLight,    // text and glyphs on Light
     IBrush OnLightDim,
-    IBrush OnLightHover);
+    IBrush OnLightHover)
+{
+    /// How much of the cover's outer edge, where the keyboard's ring is drawn,
+    /// the light ring and the dark one each read against (0 to 1).
+    public double EdgeLight { get; init; } = 1;
+    public double EdgeDark { get; init; }
+}
 
 public static class Palette
 {
@@ -81,8 +87,8 @@ public static class Palette
         var key = $"{source}\u0000{album.ArtSize}\u0000{album.ArtModified}";
         return Cache.GetOrAdd(key, _ =>
         {
-            var (hue, sat, highlight) = Analyze(source);
-            return sat <= 0.02 ? Neutral : Build(hue, sat, highlight);
+            var (hue, sat, highlight, light, dark) = Analyze(source);
+            return (sat <= 0.02 ? Neutral : Build(hue, sat, highlight)) with { EdgeLight = light, EdgeDark = dark };
         });
     }
 
@@ -179,13 +185,16 @@ public static class Palette
     /// so a plain average of 350 and 10 degrees returns their opposite. The
     /// saturation returned is the weighted mean, which is what tells us whether
     /// this album has a color at all or is a black-and-white sleeve.
-    private static (double Hue, double Saturation, double Highlight) Analyze(string source)
+    ///
+    /// It also measures the outer edge, one pixel of the 16 all round, for the
+    /// keyboard's ring (KeyRing): how much of it each ring color reads against.
+    private static (double Hue, double Saturation, double Highlight, double EdgeLight, double EdgeDark) Analyze(string source)
     {
         Avalonia.Media.Imaging.Bitmap? bmp = null;
         try
         {
             bmp = ArtCache.DecodeTiny(source, 16);
-            if (bmp is null) return (0, 0, 0.74);
+            if (bmp is null) return (0, 0, 0.74, 1, 0);
 
             var w = bmp.PixelSize.Width;
             var h = bmp.PixelSize.Height;
@@ -202,6 +211,7 @@ public static class Palette
 
                 double sx = 0, sy = 0, wsum = 0, satsum = 0;
                 var lightnesses = new List<double>(size / 4);
+                int edge = 0, edgeLight = 0, edgeDark = 0;
 
                 for (var i = 0; i < size; i += 4)
                 {
@@ -210,6 +220,15 @@ public static class Palette
                     double b = bgr ? bytes[i] : bytes[i + 2];
                     var (hh, ss, ll) = ToHsl(r / 255, g / 255, b / 255);
                     lightnesses.Add(ll);
+
+                    var px = i / 4 % w; var py = i / 4 / w;
+                    if (px == 0 || py == 0 || px == w - 1 || py == h - 1)
+                    {
+                        var c = Color.FromRgb((byte)r, (byte)g, (byte)b);
+                        edge++;
+                        if (KeyRing.Reads(KeyRing.LightColor, c)) edgeLight++;
+                        if (KeyRing.Reads(KeyRing.DarkColor, c)) edgeDark++;
+                    }
 
                     var weight = ss * (1 - Math.Abs(2 * ll - 1));
                     if (weight <= 0) continue;
@@ -221,16 +240,17 @@ public static class Palette
                     satsum += ss * weight;
                 }
 
-                if (wsum <= 0) return (0, 0, Highlight(lightnesses));
+                double el = edge > 0 ? (double)edgeLight / edge : 1, ed = edge > 0 ? (double)edgeDark / edge : 0;
+                if (wsum <= 0) return (0, 0, Highlight(lightnesses), el, ed);
                 var hue = Math.Atan2(sy, sx) * 180 / Math.PI;
                 if (hue < 0) hue += 360;
-                return (hue, satsum / wsum, Highlight(lightnesses));
+                return (hue, satsum / wsum, Highlight(lightnesses), el, ed);
             }
             finally { Marshal.FreeHGlobal(buf); }
         }
         catch
         {
-            return (0, 0, 0.74);
+            return (0, 0, 0.74, 1, 0);
         }
         finally { bmp?.Dispose(); }
     }

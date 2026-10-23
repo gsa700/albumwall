@@ -103,10 +103,19 @@
                                     <!-- The keyboard's ring, over the art's edge like the
                                          selection ring and on top of it: the tile clips
                                          anything drawn outside (tried, 2026-10-21: only its
-                                         bottom edge showed). White, so it reads apart from
-                                         the open album's colored ring. -->
-                                    <Border Classes="keyring" CornerRadius="2" BorderThickness="4"
-                                            IsHitTestVisible="False"/>
+                                         bottom edge showed). Light and dark, so it reads
+                                         on any cover and apart from the open album's
+                                         colored ring (KeyRing.cs). -->
+                                    <Border Classes="keyring" CornerRadius="2" BorderThickness="1.5"
+                                            IsHitTestVisible="False">
+                                        <!-- A thin line at the tile's edge round a band in
+                                             the opposite color, one light and one dark,
+                                             which way round to suit the cover (KeyRing.Paint).
+                                             One color alone vanished on some covers; the dark
+                                             band alone was "too dark by itself" (Dave,
+                                             2026-10-23). -->
+                                        <Border Classes="keyline" BorderThickness="3"/>
+                                    </Border>
                                 </Panel>
                                 <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Medium"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"/>
@@ -413,7 +422,6 @@
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
         </Style>
         <Style Selector="Button.tile Border.keyring">
-            <Setter Property="BorderBrush" Value="#F2EDE4"/>
             <Setter Property="Opacity" Value="0"/>
         </Style>
         <Style Selector="Button.tile:focus-visible Border.keyring">

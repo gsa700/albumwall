@@ -23,6 +23,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -180,9 +181,18 @@ public partial class MainWindow
         if (_keyAlbum is null) return;
         var row = RowIndexOf(_keyAlbum);
         if (Wall.TryGetElement(row) is not { } el) return;
-        el.GetVisualDescendants().OfType<Button>()
-          .FirstOrDefault(b => b.Classes.Contains("tile") && ReferenceEquals(b.DataContext, _keyAlbum))
-          ?.Focus(NavigationMethod.Directional);
+        var tile = el.GetVisualDescendants().OfType<Button>()
+          .FirstOrDefault(b => b.Classes.Contains("tile") && ReferenceEquals(b.DataContext, _keyAlbum));
+        if (tile is null) return;
+        // Light or dark to suit the cover (KeyRing.cs). Set on every move, since
+        // a recycled tile may still carry the last album's.
+        if (tile.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("keyring")) is { } ring)
+        {
+            var dark = KeyRing.DarkFor(_keyAlbum, ring.Bounds.Width, Color.Parse(_ramp.GroundHex));
+            KeyRing.Paint(ring, dark);
+            Console.WriteLine($"[key] ring {(dark ? "dark" : "light")} on {_keyAlbum.Album.Title}");
+        }
+        tile.Focus(NavigationMethod.Directional);
     }
 
     /// Scrolls just enough for the album's row to be wholly in view, and not at
