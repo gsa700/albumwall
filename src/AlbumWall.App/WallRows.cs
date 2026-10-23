@@ -208,11 +208,11 @@ public sealed class PanelRow : WallItem
                 if (multi && t.Disc != disc)
                 {
                     disc = t.Disc;
-                    lines.Add(TrackLine.Header($"Disc {disc} of {Album.Album.DiscCount}"));
+                    lines.Add(TrackLine.Header($"Disc {disc} of {Album.Album.DiscCount}", Palette));
                 }
 
                 var from = i;
-                lines.Add(TrackLine.Of(t, () => PlayFrom?.Invoke(Album, from, false)));
+                lines.Add(TrackLine.Of(t, Palette, () => PlayFrom?.Invoke(Album, from, false)));
             }
 
             // Split so the left column is never shorter than the right, and never
@@ -260,10 +260,18 @@ public sealed class TrackLine : System.ComponentModel.INotifyPropertyChanged
     public string Duration { get; private init; } = "";
     public Domain.Track? Source { get; private init; }
 
-    public static TrackLine Header(string text) => new() { IsHeader = true, Text = text };
+    /// The panel's colors, carried by each line so the template binds them
+    /// directly. It used to reach them through the panel's ItemsControl
+    /// ($parent[ItemsControl].((app:PanelRow)DataContext).Palette), six
+    /// ancestor walks a line. Lighter, though not what made opening slow: that
+    /// was the wall rebuilding its rows (WallView.OnItemsChanged, 2026-10-23).
+    public required AlbumPalette Palette { get; init; }
 
-    public static TrackLine Of(Domain.Track t, Action play) => new()
+    public static TrackLine Header(string text, AlbumPalette palette) => new() { IsHeader = true, Text = text, Palette = palette };
+
+    public static TrackLine Of(Domain.Track t, AlbumPalette palette, Action play) => new()
     {
+        Palette = palette,
         Source = t,
         Number = t.Number > 0 ? t.Number.ToString() : "",
         Text = t.Title,

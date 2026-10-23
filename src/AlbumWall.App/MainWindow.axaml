@@ -266,7 +266,7 @@
             <Panel>
                 <TextBlock Text="{Binding Text}" IsVisible="{Binding IsHeader}"
                            FontSize="11" FontWeight="Bold" Margin="0,14,0,5"
-                           Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Accent}"/>
+                           Foreground="{Binding Palette.Accent}"/>
                 <Button Classes="track" Classes.playing="{Binding IsPlaying}"
                         AutomationProperties.Name="{Binding Spoken}"
                         IsVisible="{Binding !IsHeader}" IsTabStop="False"
@@ -275,7 +275,7 @@
                     <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="12"
                                IsVisible="{Binding NotPlaying}"
                                VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
-                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
+                               Foreground="{Binding Palette.TextDim}"/>
 
                     <!-- The playing track shows a marker in place of its number,
                          so the list does not change width as playback moves. The
@@ -283,23 +283,20 @@
                          live", not demand attention. -->
                     <Path Grid.Column="0" Classes="pulse" Data="M 0 0 L 8 5 L 0 10 Z"
                           IsVisible="{Binding IsPlaying}"
-                          Fill="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"
+                          Fill="{Binding Palette.Text}"
                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"/>
 
-                    <!-- Two blocks rather than a converter: the "playing" color
-                         is the PANEL's accent, which differs per album, so there
-                         is no single brush a converter could return. -->
-                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="14"
-                               IsVisible="{Binding !IsPlaying}"
+                    <!-- One block; the playing track's is SemiBold by its class
+                         (TextBlock.title.playing below). It was two blocks, one
+                         shown and one hidden, from when the playing color was a
+                         different brush: both are Palette.Text now. -->
+                    <TextBlock Grid.Column="1" Classes="title" Classes.playing="{Binding IsPlaying}"
+                               Text="{Binding Text}" FontSize="14"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="14"
-                               IsVisible="{Binding IsPlaying}" FontWeight="SemiBold"
-                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.Text}"/>
+                               Foreground="{Binding Palette.Text}"/>
                     <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="12"
                                VerticalAlignment="Center" Margin="10,0,0,0"
-                               Foreground="{Binding $parent[ItemsControl].((app:PanelRow)DataContext).Palette.TextDim}"/>
+                               Foreground="{Binding Palette.TextDim}"/>
                 </Grid>
                 </Button>
             </Panel>
@@ -574,6 +571,9 @@
              white wash rather than a color, so it works against every album
              palette by construction — which a fixed blue did not, and which the
              album's own accent could not, since the disc headers use that. -->
+        <Style Selector="Button.track TextBlock.title.playing">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
         <Style Selector="Button.track.playing /template/ ContentPresenter">
             <Setter Property="Background" Value="#1FFFFFFF"/>
         </Style>
