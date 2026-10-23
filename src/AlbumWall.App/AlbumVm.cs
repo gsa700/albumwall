@@ -244,7 +244,13 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
     /// The ring takes the album's OWN accent color, so the selected tile is
     /// visibly tied to the panel that opened below it.
-    public Avalonia.Media.IBrush RingBrush => Palette.For(Album).Accent;
+    ///
+    /// Only for the selected album. Bound on every tile, it analyzed every
+    /// cover as its tile appeared (Palette.Analyze, about 2.5 ms a cover, on
+    /// the UI thread), which was most of each hitch while scrolling: 40-50 ms
+    /// a row, and 225-355 ms freezes on a fast fling (Techbench, 2026-10-23).
+    public Avalonia.Media.IBrush RingBrush =>
+        _selected ? Palette.For(Album).Accent : Avalonia.Media.Brushes.Transparent;
 
     private bool _selected;
     /// Drives the selection ring. The open album has to stay identifiable while
@@ -252,7 +258,7 @@ public sealed class AlbumVm : INotifyPropertyChanged
     public bool IsSelected
     {
         get => _selected;
-        set { if (_selected == value) return; _selected = value; OnPropertyChanged(); }
+        set { if (_selected == value) return; _selected = value; OnPropertyChanged(); OnPropertyChanged(nameof(RingBrush)); }
     }
 
     /// How far a cover may be enlarged before it is shown smaller instead.
