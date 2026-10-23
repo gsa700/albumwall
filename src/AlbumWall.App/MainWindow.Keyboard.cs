@@ -39,11 +39,16 @@ public partial class MainWindow
     {
         if (_visible.Count == 0) return false;
 
-        // From the search box only ↓ leaves it, onto the first album found.
+        // From the search box only ↓ leaves it: onto the first album found, or,
+        // with nothing typed, where the keyboard would start anyway. An empty
+        // search box with the cursor in it is easy to leave behind (the library
+        // picker, a click), and ↓ there went to the top of the wall, not to the
+        // album he had open (Dave, 2026-10-22).
         if (typing)
         {
             if (key != Key.Down) return false;
-            MoveTo(_visible[0]);
+            if (string.IsNullOrEmpty(SearchBox.Text)) { WallScroller.Focus(); StartAt("from an empty search box"); }
+            else { Console.WriteLine($"[key] keyboard starts on the first found, {_visible[0].Album.Title}"); MoveTo(_visible[0]); }
             return true;
         }
 
@@ -56,7 +61,7 @@ public partial class MainWindow
             // The first key lands somewhere sensible before it moves anything: the
             // open album, else the first one on screen.
             if (key is Key.Enter) return false;
-            MoveTo(_open is not null && _visible.Contains(_open) ? _open : TopAlbumInView() ?? _visible[0]);
+            StartAt($"on {key}");
             return true;
         }
 
@@ -69,7 +74,7 @@ public partial class MainWindow
             case Key.Up:
                 // The open album's tracks are over its cover when the panel is above.
                 if (_panelAbove && ReferenceEquals(_keyAlbum, _open) && TrackButtons().Count > 0) { MoveToTrack(0); return true; }
-                MoveTo(_visible[To(at - _columns)]);
+                MoveRow(at, -1);
                 return true;
             case Key.Home: MoveTo(_visible[0]); return true;
             case Key.End: MoveTo(_visible[^1]); return true;
@@ -79,7 +84,7 @@ public partial class MainWindow
             case Key.Down:
                 // The open album's tracks are under its cover: ↓ goes into them.
                 if (!_panelAbove && ReferenceEquals(_keyAlbum, _open) && TrackButtons().Count > 0) { MoveToTrack(0); return true; }
-                MoveTo(_visible[To(at + _columns)]);
+                MoveRow(at, +1);
                 return true;
 
             case Key.Enter:
@@ -99,13 +104,13 @@ public partial class MainWindow
         {
             case Key.Up:
                 if (_trackCursor > 0) MoveToTrack(_trackCursor - 1);
-                else if (_panelAbove) Leave(-_columns);             // off the top: on to the row above the panel
+                else if (_panelAbove) Leave(-1);             // off the top: on to the row above the panel
                 else MoveTo(_keyAlbum!);                            // back up onto the cover
                 return true;
             case Key.Down:
                 if (_trackCursor < count - 1) MoveToTrack(_trackCursor + 1);
                 else if (_panelAbove) MoveTo(_keyAlbum!);           // back down onto the cover
-                else Leave(_columns);                               // off the end: on to the row under the album
+                else Leave(+1);                               // off the end: on to the row under the album
                 return true;
             case Key.Home: MoveToTrack(0); return true;
             case Key.End: MoveToTrack(count - 1); return true;
@@ -119,7 +124,29 @@ public partial class MainWindow
         }
         return false;
 
-        void Leave(int by) => MoveTo(_visible[Math.Clamp(_visible.IndexOf(_keyAlbum!) + by, 0, _visible.Count - 1)]);
+        void Leave(int rows) => MoveRow(_visible.IndexOf(_keyAlbum!), rows);
+    }
+
+    /// A row up or down from the album at `at`. Off the top row it stays where
+    /// it is: clamping took ↑ from anywhere in the top row to the first album
+    /// ("I hit the up arrow from alice in chains and it move to acdc", Dave,
+    /// 2026-10-22). Down onto a short last row with nothing straight below goes
+    /// to its last album; down from the last row stays.
+    private void MoveRow(int at, int rows)
+    {
+        var to = at + rows * _columns;
+        if (to < 0) to = at;
+        else if (to >= _visible.Count)
+            to = (_visible.Count - 1) / _columns > at / _columns ? _visible.Count - 1 : at;
+        MoveTo(_visible[to]);
+    }
+
+    /// Where the keyboard starts: the open album, else the first one on screen.
+    private void StartAt(string why)
+    {
+        var album = _open is not null && _visible.Contains(_open) ? _open : TopAlbumInView() ?? _visible[0];
+        Console.WriteLine($"[key] keyboard starts on {album.Album.Title} ({(ReferenceEquals(album, _open) ? "open" : "top of view")}), {why}");
+        MoveTo(album);
     }
 
     /// Puts the keyboard on an album: scrolled into view, then focused.
