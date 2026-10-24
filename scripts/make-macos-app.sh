@@ -16,20 +16,20 @@
 # Launchpad, Spotlight and the Dock find it there, and Now Playing and the
 # media keys name the app from it (docs/roadmap.md, macOS).
 #
-# SIGNED WITH A LOCAL CERTIFICATE when this Mac has one, AD HOC otherwise.
-# Neither is Apple's Developer ID: both are enough for Apple silicon to run what
-# was built here, neither lets a DOWNLOADED copy past Gatekeeper. Real signing
-# and notarization are his call (roadmap, macOS point 3); until then this is for
-# building at home, not for a release.
+# SIGNED WITH APPLE'S DEVELOPER ID when this Mac has that certificate (since
+# 2026-10-23, team 4QX5GG2276), else with a local certificate, else AD HOC.
+# Not yet notarized, and without the hardened runtime: a DOWNLOADED copy still
+# doesn't get past Gatekeeper. Notarization comes next (roadmap, macOS point 3);
+# until then this is for building at home, not for a release.
 #
-# Why a local certificate at all: macOS remembers a permission (the Music
-# folder, first of all) against the app's signature. An ad hoc signature IS the
-# build's own hash, so every rebuild was a stranger and asked again ("asks me
-# everytime for access to Music", 2026-10-14). Signed with a certificate, the
-# app is its identifier plus that certificate, the same from build to build.
-# Make one once in Keychain Access (Certificate Assistant, Create a Certificate:
-# Self-Signed Root, Certificate Type Code Signing), named "AlbumWall Local", or
-# name yours in ALBUMWALL_SIGN_ID.
+# Why a certificate at all: macOS remembers a permission (the Music folder,
+# first of all) against the app's signature. An ad hoc signature IS the build's
+# own hash, so every rebuild was a stranger and asked again ("asks me everytime
+# for access to Music", 2026-10-14). Signed with a certificate, the app is its
+# identifier plus that certificate, the same from build to build. Without a
+# Developer ID, make a local one once in Keychain Access (Certificate Assistant,
+# Create a Certificate: Self-Signed Root, Certificate Type Code Signing), named
+# "AlbumWall Local", or name any certificate in ALBUMWALL_SIGN_ID.
 #
 # The identity, io.github.gsa700.AlbumWall, is the Mac's reverse-domain form of
 # the Windows AppUserModelID gsa700.AlbumWall (WindowsShell.cs). It is where
@@ -121,9 +121,22 @@ cat > "$APP/Contents/Info.plist" <<EOF
 EOF
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 
-SIGN_ID="${ALBUMWALL_SIGN_ID:-AlbumWall Local}"
-if security find-identity -p codesigning | grep -qF "\"$SIGN_ID\""; then
-    echo "== sign ($SIGN_ID)"
+# Which certificate: ALBUMWALL_SIGN_ID if set (a name or a SHA-1); else this Mac's
+# Apple Developer ID Application certificate when there is exactly one (two
+# while one is being renewed: then name one); else the local "AlbumWall Local".
+if [ -n "${ALBUMWALL_SIGN_ID:-}" ]; then
+    SIGN_ID=$ALBUMWALL_SIGN_ID
+else
+    DEVID=$(security find-identity -v -p codesigning | sed -n 's/^ *[0-9]*) \([0-9A-F]\{40\}\) "Developer ID Application: .*"$/\1/p')
+    case $(printf '%s' "$DEVID" | grep -c . || true) in
+        0) SIGN_ID="AlbumWall Local" ;;
+        1) SIGN_ID=$DEVID ;;
+        *) echo "several Developer ID Application certificates on this Mac: name one in ALBUMWALL_SIGN_ID" >&2
+           security find-identity -v -p codesigning | grep "Developer ID Application" >&2; exit 1 ;;
+    esac
+fi
+if security find-identity -p codesigning | grep -qF -e "\"$SIGN_ID\"" -e ") $SIGN_ID "; then
+    echo "== sign ($(security find-identity -p codesigning | grep -F -e "\"$SIGN_ID\"" -e ") $SIGN_ID " | head -1 | sed 's/^[^"]*"\([^"]*\)".*/\1/'))"
     codesign --force --sign "$SIGN_ID" "$APP"
 else
     echo "== sign (ad hoc: no \"$SIGN_ID\" certificate on this Mac, so macOS will ask for the Music folder again)"
