@@ -60,3 +60,7 @@ it at release time; the rules above are for every push.
 
 The design record is `docs/roadmap.md` (what is wanted and decided) and the
 commit messages (what was learned). Windows specifics: `docs/windows-notes.md`.
+
+Hymie's FLAC decoder (`src/AlbumWall.Codecs/Flac.cs`) is a copy of Deadwax's
+(`~/Projects/deadwax`, `src/Deadwax.Output/FlacDecoder.cs` and `FlacBits.cs`).
+The frame decoding is kept identical in both: a fix to it here goes there too.
