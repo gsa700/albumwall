@@ -254,6 +254,25 @@ is ahead, the history is for what is behind.
   and the warm-up time from its log line. The kiosk files must be reinstalled
   there for `--kiosk`, though ALBUMWALL_SUPERVISED already turns it on.
 
+- **An Apple TV app, as another kind of kiosk** (his question 2026-10-25,
+  "could this be adapted to an Apple TV app?"). LOWER PRIORITY THAN THE MAIN
+  PLAYER: a note, nothing to build before the road to Native AOT is done. What
+  it would be: a companion app, not a port. tvOS IS a kiosk already (full
+  screen, one job, no session or supervisor to manage), and the shared C#
+  (the library model, Hymie's decoders, playback) can run there, but only
+  compiled ahead of time (no JIT on tvOS), so the AOT road above is its
+  groundwork. The music comes from Navidrome (an Apple TV holds no library and
+  does not browse shares easily; the Navidrome client exists). The Siri Remote
+  moves by focus, much like the wall's arrow keys. What does not carry over:
+  the window layer (Avalonia does not target tvOS, as far as is known, so the
+  wall and panels would be rebuilt in Apple's UI around the shared core; the
+  bulk of the work), and the front panel (one HDMI output). Installed on his
+  own Apple TV through his Developer account (Xcode or TestFlight), no App
+  Store. FIRST QUESTION, before any work: the audio path. The understanding is
+  that an Apple TV outputs at a fixed 48 kHz, which would resample 44.1 kHz CD
+  rips; measure that on a real Apple TV, since for this player it could decide
+  the whole idea.
+
 - **Keyboard and screen readers: hear it for real.** The arrow keys, reduce
   motion, the names and the contrast floor are built (2026-10-21; see the
   commits, MainWindow.Keyboard.cs, Motion.cs, Contrast.cs). VoiceOver on the
