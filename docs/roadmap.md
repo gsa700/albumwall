@@ -7,6 +7,78 @@ is ahead, the history is for what is behind.
 
 ## Wanted
 
+- **The road to Native AOT, as Deadwax took it** (his direction 2026-10-23:
+  Native AOT on every platform, "building per platform wouldn't be so bad if it
+  makes the app better"; drafted 2026-10-25 after Deadwax 0.8.0 shipped it). What
+  it bought Deadwax, measured: downloads 42-45 MB -> 19 MB, the window up 3-9x
+  sooner (Mac 0.42 -> 0.13 s, Linux 0.69 -> 0.08 s, Windows 1.55 -> 0.26 s),
+  about 29% less memory, no runtime unpacked into a user-writable ~/.net, and on
+  the Mac the hardened runtime with no exception at all (no allow-jit).
+
+  WHERE IT STARTS (trial 2026-10-25 on Control, 0.7.7 source): `dotnet publish
+  src/AlbumWall.App -c Release -r osx-arm64 -p:PublishAot=true` BUILDS: a 27 MB
+  program, with libAvaloniaNative, libSkiaSharp, libHarfBuzzSharp and
+  libe_sqlite3 beside it (av_libglesv2 too on Windows). Not launched yet. Its
+  warnings, few and known:
+  - JSON by reflection: Settings.Load/Save, Session.Load/Save, SingleInstance
+    (Send/Listen, a string[]). Fix: a JsonSerializerContext per type, as Deadwax
+    did; check the files come out byte-identical.
+  - WaylandShell: Deadwax's copy, already fixed there (DynamicDependency on the
+    private Avalonia and NWayland members it reaches, and the reason for the
+    suppression). Take that fix; the two stay in step.
+  - MainWindow.SuppressDecorationPopover reaches into a private member by
+    reflection: keep it alive the same way, or find a public route.
+  - InstallService.IsSingleFile (IL3000): an empty Assembly.Location is the
+    answer under AOT too; suppress with the reason, as Deadwax did.
+  - TagLibSharp "produced trim warnings" (IL2104). THE REAL RISK: the library
+    scanner and the tag writer go through it, and it finds a file's type by
+    reflection. Prove tag reading for every format the scanner meets, and
+    writing, in the AOT build; if it breaks, root the assembly
+    (TrimmerRootAssembly) before anything cleverer.
+  Not tried yet: the Windows build (SMTC goes through WinRT on the -windows
+  target; CsWinRT has its own AOT mode) and linux-arm64.
+
+  BEFORE IT, in this order: 0.7.7 to Stable (done 2026-10-25). The security
+  review (last one 2026-10-10; decided 2026-10-24 to come after that Stable):
+  the updater and its kiosk path, Hymie's decoders on untrusted files, the
+  Navidrome client. The Mac items below (Developer ID signing exists; then
+  notarization and the hardened runtime, a .dmg, the bundle updater, a macOS
+  zip in release.sh): Deadwax's make-macos-app.sh and MacUpdate.cs are the
+  model. CI on all three systems (only macos.yml today), plus linux-arm64 on
+  GitHub's ubuntu-22.04-arm runners.
+
+  THE STEPS (Deadwax's, with AlbumWall's own wrinkles):
+  1. Clean the warnings while the single file still ships; IsAotCompatible on
+     the libraries so new ones show at build time; tests and a listen unchanged.
+  2. The AOT build proven on each system: Mac (Control), Windows (Hambench or
+     Mobilenode), Linux x64 (Techbench), and the Pi kiosk (linux-arm64): launch,
+     scan a library (tags from every format), play every codec Hymie has,
+     gapless, Navidrome, Now Playing / MPRIS / SMTC, the kiosk's front panel.
+  3. Releases from CI: each runner builds its own system (AOT cannot build for
+     another); release.sh takes the run of the release commit (a push or a
+     manual start only), checks the exact file list, the first bytes, and
+     "X.Y.Z+<commit>" in the program, and packs AlbumWall-<rid>-aot.zip; the Mac
+     is made on Control. Linux builds on Ubuntu 22.04 (glibc 2.34 floor; the Pi
+     OS bookworm has 2.36), and CI fails if the floor rises.
+  4. A BRIDGE release first, still single file: an updater that installs a
+     package (the libraries first, the program last, a backup, a start check
+     and a rollback), prefers the -aot name, and an installer that copies the
+     libraries. Deadwax 0.7.6 is the model (UpdateService, InstallLayout.
+     NativeLibraries). AlbumWall's own wrinkle: the SUPERVISED path (a kiosk's
+     launcher sets ALBUMWALL_SUPERVISED=1, the program is replaced in place
+     before it exits and the supervisor restarts it). A start check there needs
+     its own design, or a bad build restarts for ever. His call before building.
+  5. Self-update 0.7.x -> 0.8 proven on every system, the kiosk included, before
+     Stable; then measure start-up, memory and size for the notes.
+
+  LESSONS FROM DEADWAX'S ROAD: a test copy started as a systemd SERVICE takes
+  the update helper down with it (use a scope, as the desktop does); a copy
+  checks the update feed once at start and keeps the answer; files go in by
+  copy-then-rename, never written in place under a running copy;
+  GetFolderPath needs DoNotVerify for a folder that may not exist yet; on
+  Windows a USERPROFILE override does not move the home folder; the Mac's
+  "drutil tray open" quirk is Deadwax's alone.
+
 - **Hymie, our own audio engine: mpv out, in steps** (agreed 2026-10-20, on Control,
   the night Deadwax 0.6.0 shipped its own FLAC encoder and decoder): "I'd like
   to do it. It simplifies the code, may increase performance / lower memory
