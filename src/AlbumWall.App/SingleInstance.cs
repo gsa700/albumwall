@@ -42,7 +42,9 @@ public static class SingleInstance
     /// path every login agrees on. A full path is used as is. A socket path has
     /// a limit of about a hundred bytes; a settings folder too deep for it (a
     /// test run's scratch folder) gets one in /tmp, which every login also
-    /// shares, named for the user and the folder.
+    /// shares, named for the user and the folder: inside a folder of this
+    /// user's own (PrivateTmpDir), never loose in /tmp, where anyone could take
+    /// the name first (security review 2026-10-26, L13).
     private static string PipeName
     {
         get
@@ -51,8 +53,37 @@ public static class SingleInstance
             var name = "albumwall-" + Convert.ToHexString(SHA256.HashData(key))[..16].ToLowerInvariant();
             if (OperatingSystem.IsWindows()) return name;
             var beside = Path.Combine(Path.GetFullPath(ConfigDir), "instance.sock");
-            return Encoding.UTF8.GetByteCount(beside) <= 100 ? beside : $"/tmp/{name}.sock";
+            return Encoding.UTF8.GetByteCount(beside) <= 100 ? beside : Path.Combine(PrivateTmpDir, name + ".sock");
         }
+    }
+
+    /// /tmp/albumwall-&lt;user&gt;: the fallback socket's folder, one per user.
+    private static string PrivateTmpDir
+    {
+        get
+        {
+            var user = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Environment.UserName)))[..12].ToLowerInvariant();
+            return $"/tmp/albumwall-{user}";
+        }
+    }
+
+    /// Makes PrivateTmpDir 0700, or says why it cannot be used: a link, or a
+    /// folder someone else made open to others. One another user made 0700
+    /// cannot be written, and the bind says so.
+    private static string? PreparePrivateTmpDir()
+    {
+        if (OperatingSystem.IsWindows()) return null;
+        var dir = PrivateTmpDir;
+        try
+        {
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var info = new DirectoryInfo(dir);
+            if (info.LinkTarget is not null) return $"{dir} is a link";
+            if ((info.UnixFileMode & (UnixFileMode)0x3F) != 0) return $"{dir} is open to other users";
+            return null;
+        }
+        catch (Exception ex) { return ex.Message; }
     }
 
     /// Takes the lock, or says another copy has it. Never throws: a lock that
@@ -101,10 +132,27 @@ public static class SingleInstance
         // copy that crashed would stop the server binding; holding the lock means
         // it is nobody's, so it goes.
         if (!OperatingSystem.IsWindows())
+        {
+            if (name.StartsWith(PrivateTmpDir + "/", StringComparison.Ordinal) && PreparePrivateTmpDir() is { } why)
+            {
+                Console.WriteLine($"[instance] not answering second launches: {why}");
+                return;
+            }
             try { File.Delete(name); } catch { }
+            // Gone with the process, so a fallback in /tmp is not left behind (L13).
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                if (_lock is not null) try { File.Delete(name); } catch { }
+            };
+        }
 
         _ = Task.Run(async () =>
         {
+            // A failure again and again (the name taken, the folder not ours) waits
+            // longer each time, up to half a minute, and is logged when it changes,
+            // not five times a second for ever (L13).
+            var wait = TimeSpan.FromMilliseconds(200);
+            string? lastError = null;
             while (!stop.IsCancellationRequested)
             {
                 try
@@ -119,12 +167,17 @@ public static class SingleInstance
                     Console.WriteLine($"[instance] from a second launch: {(args.Length == 0 ? "(nothing: come forward)" : string.Join(' ', args))}");
                     var reply = await handle(args);
                     await writer.WriteLineAsync(reply);
+                    wait = TimeSpan.FromMilliseconds(200);
+                    lastError = null;
                 }
                 catch (OperationCanceledException) when (stop.IsCancellationRequested) { return; }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[instance] a second launch was not answered: {ex.Message}");
-                    try { await Task.Delay(200, stop); } catch (OperationCanceledException) { return; }
+                    if (ex.Message != lastError)
+                        Console.WriteLine($"[instance] a second launch was not answered: {ex.Message}");
+                    lastError = ex.Message;
+                    try { await Task.Delay(wait, stop); } catch (OperationCanceledException) { return; }
+                    wait = TimeSpan.FromTicks(Math.Min(wait.Ticks * 2, TimeSpan.FromSeconds(30).Ticks));
                 }
             }
         });
