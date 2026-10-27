@@ -56,6 +56,9 @@ public sealed class WallView : Panel
     /// Raised when a row becomes real — the moment to ask for its covers.
     public event EventHandler<WallElementEventArgs>? ElementPrepared;
 
+    /// What the rows laid out right now are showing (their DataContexts).
+    public IEnumerable<object?> RealizedData => _realized.Values.Select(e => e.DataContext);
+
     /// Raised when a row is put away because the wall has SCROLLED well past it
     /// (it is outside the screen of overscan either side) — the moment its covers
     /// may be let go. Not when the rows are rebuilt (Reset): opening an album

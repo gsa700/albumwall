@@ -39,6 +39,7 @@ public sealed class MacNowPlaying
 
     /// The cover the artwork block hands back: an NSImage, retained, or nothing.
     private static IntPtr _image;
+    private static IntPtr _previousImage;     // released at the change after it is replaced
     private static IntPtr _artBlock;
 
     private readonly IntPtr _mediaPlayer;
@@ -169,8 +170,11 @@ public sealed class MacNowPlaying
             if (key != _artFor)
             {
                 _artFor = key;
-                SetArtwork(IntPtr.Zero);
-                _ = LoadCoverAsync(album, key);
+                // The last album's cover stays up until this one's is read (a few ms
+                // from a local file): clearing it first showed no cover at all in
+                // Control Center at every album change (interface pass, 2026-10-27).
+                if (key is null) SetArtwork(IntPtr.Zero);
+                else _ = LoadCoverAsync(album, key);
             }
             Publish();
         }
@@ -225,11 +229,15 @@ public sealed class MacNowPlaying
         try
         {
             var bytes = await Task.Run(() => ReadCover(album));
-            if (key != _artFor || bytes is null) return;      // the record changed while we read
+            if (key != _artFor) return;      // the record changed while we read
 
-            var data = SendBytes(Class("NSData"), Sel("dataWithBytes:length:"), bytes, (nuint)bytes.Length);
-            var image = Send(Send(Class("NSImage"), Sel("alloc")), Sel("initWithData:"), data);
-            if (image == IntPtr.Zero) return;
+            var image = IntPtr.Zero;
+            if (bytes is not null)
+            {
+                var data = SendBytes(Class("NSData"), Sel("dataWithBytes:length:"), bytes, (nuint)bytes.Length);
+                image = Send(Send(Class("NSImage"), Sel("alloc")), Sel("initWithData:"), data);
+            }
+            // None, or none that decodes: no cover, rather than the last album's.
             SetArtwork(image);
             Publish();
         }
@@ -255,7 +263,12 @@ public sealed class MacNowPlaying
     private unsafe void SetArtwork(IntPtr image)
     {
         if (_artwork != IntPtr.Zero) { Send(_artwork, Sel("release")); _artwork = IntPtr.Zero; }
-        if (_image != IntPtr.Zero) Send(_image, Sel("release"));
+        // The image being replaced is released at the NEXT change, not now: ArtFor hands
+        // MediaPlayer the current one unretained, possibly on a thread of its own, and one
+        // that asked a moment before this swap may still be drawing it (a use after free
+        // suspected by the security review of 2026-10-26 and the interface pass).
+        if (_previousImage != IntPtr.Zero) Send(_previousImage, Sel("release"));
+        _previousImage = _image;
         _image = image;
         if (image == IntPtr.Zero) return;
 

@@ -188,15 +188,29 @@ public partial class MainWindow
                 ? Picture(Path.GetFileName(back), album.BackWidth, album.BackHeight, album.BackSize)
                 : "none"));
 
-        var sleeve = await Task.Run(() => FrontOf(album));
+        // Both read the album's folder, a share's as often as not: off the UI thread, or the
+        // window waited on a sleeping NAS before it opened (interface pass, 2026-10-27).
+        // The pictures as bytes, read here too: the window decodes them, and reading a
+        // sleeve scan off the share was the slow part.
+        var sleeve = await Task.Run(() => WithBytes(FrontOf(album)));
+        var backPicture = album.BackPath is { } backFile ? await Task.Run(() => WithBytes(new("Back", backFile))) : null;
+        var rip = onServer ? null : await Task.Run(() => RipLog(album));
         if (ask != _propertiesAsk) return;
         var pictures = new List<PropertiesWindow.Picture>();
         if (sleeve is not null) pictures.Add(sleeve);
-        if (album.BackPath is { } backFile) pictures.Add(new("Back", backFile));
+        if (backPicture is not null) pictures.Add(backPicture);
 
         var sections = new List<PropertiesWindow.Section> { new("Album", rows), new("Sleeve", art, Pictures: pictures) };
-        if (!onServer && RipLog(album) is { Count: > 0 } rip) sections.Add(new("Rip", rip));
+        if (rip is { Count: > 0 }) sections.Add(new("Rip", rip));
         PropertiesWindow.ShowFrom(this, album.Title, album.AlbumArtist, sections, cover: sleeve);
+    }
+
+    /// A picture with its file's bytes read, or null if the file cannot be read.
+    private static PropertiesWindow.Picture? WithBytes(PropertiesWindow.Picture? picture)
+    {
+        if (picture is not { File: { } file, Data: null }) return picture;
+        try { return picture with { Data = File.ReadAllBytes(file) }; }
+        catch (Exception) { return null; }
     }
 
     private static string Picture(string where, int width, int height, long size) =>
@@ -236,7 +250,9 @@ public partial class MainWindow
 
         Add("Track", track.Number > 0 ? $"{track.Number}{(track.Disc > 1 ? $", disc {track.Disc}" : "")}" : null);
         Add("Length", track.DurationText);
-        Add("Size", PropertiesWindow.Bytes(track.Size > 0 || onServer ? track.Size : FileSize(track.Path)));
+        Add("Size", PropertiesWindow.Bytes(track.Size > 0 || onServer ? track.Size
+                                           : await Task.Run(() => FileSize(track.Path))));
+        if (ask != _propertiesAsk) return;
 
         var sections = new List<PropertiesWindow.Section>();
         if (onServer)
@@ -303,7 +319,7 @@ public partial class MainWindow
                     });
             }
         }
-        var cover = await Task.Run(() => FrontOf(album));
+        var cover = await Task.Run(() => WithBytes(FrontOf(album)));
         if (ask != _propertiesAsk) return;
 
         // The tracks either side of it, in the album's own order.

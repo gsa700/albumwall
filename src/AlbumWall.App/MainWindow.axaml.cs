@@ -138,7 +138,9 @@ public partial class MainWindow : Window
         {
             if (_player is not null && _transportShown) UpdatePosition();
             CompactTick();
-            if (Environment.TickCount64 - _timelineSent > 2000) PushTimeline();
+            // While playing only: paused, the position does not move, and Now Playing
+            // was told everything every two seconds for as long as a track was loaded.
+            if (_player?.IsPlaying == true && Environment.TickCount64 - _timelineSent > 2000) PushTimeline();
             return true;
         }, TimeSpan.FromMilliseconds(250));
         SetUpBench();
@@ -2342,7 +2344,11 @@ public partial class MainWindow : Window
             if (e.Property != RangeBase.ValueProperty) return;
             _volume = (int)Math.Round(VolumeSlider.Value);
             if (_player is not null) _player.Volume = _volume;
-            RefreshMprisState();
+            // Only MPRIS has a volume to show. Refreshing the whole state here sent
+            // everything to Now Playing or Windows' controls on every step of a drag, up
+            // to a hundred times (interface pass, 2026-10-27).
+            _mprisState = _mprisState with { Volume = _volume / 100.0 };
+            _mpris?.NotifyChanged();
             ScheduleSave();
         };
     }
@@ -2446,8 +2452,18 @@ public partial class MainWindow : Window
     {
         if (e.Property != TextBox.TextProperty) return;
         _filter = (SearchBox.Text ?? "").Trim().ToLowerInvariant();
-        ApplyFilter();
+        // Typing: once the keys pause, not on every one. Each rebuilt the whole wall,
+        // every row on and around the screen built again, at typing speed (interface pass,
+        // 2026-10-27). Clearing it is at once: that is going back to the wall.
+        if (_filter.Length == 0) { _searchDelay?.Stop(); ApplyFilter(); return; }
+        _searchDelay ??= new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background,
+                                             (_, _) => { _searchDelay!.Stop(); ApplyFilter(); });
+        _searchDelay.Stop();
+        _searchDelay.Start();
     }
+
+    private DispatcherTimer? _searchDelay;
+    private string _lastFilter = "";     // what the rows were last built for (ApplyFilter)
 
     /// One resource drives every tile's geometry, so a slider drag re-lays out
     /// the wall without rebuilding items or touching per-tile bindings.
@@ -2474,11 +2490,16 @@ public partial class MainWindow : Window
             _searching = true;
         }
 
+        var before = _visible;
         _visible = _filter.Length == 0
             ? _all.ToList()
             : ArtQuery(_filter) is { } wanted
                 ? _all.Where(v => wanted(v.Album)).ToList()
                 : _all.Where(v => v.Album.SearchText.Contains(_filter)).ToList();
+        // The same albums as the last keystroke found (typing on through a word): the wall
+        // already shows them. Rebuild would build every row again only because the filter's
+        // text is part of its key, so the key is brought up to date instead.
+        var unchanged = filtering && before.Count == _visible.Count && before.SequenceEqual(_visible);
 
         // A filter that hides the open album has to close it: a panel pointing at
         // a cover that is no longer on the wall is worse than no panel.
@@ -2487,7 +2508,11 @@ public partial class MainWindow : Window
         if (filtering)
             StatusText.Text = $"{_visible.Count} of {_all.Count} albums";
 
-        Rebuild();
+        if (unchanged && _chunkKey == $"{_columns}|{before.Count}|{_lastFilter}")
+            _chunkKey = $"{_columns}|{_visible.Count}|{_filter}";
+        else
+            Rebuild();
+        _lastFilter = _filter;
 
         if (!filtering && _searching)
         {
@@ -3223,6 +3248,7 @@ public partial class MainWindow : Window
             foreach (var r in _albumRows) _rows.Add(r);
             _panelAt = -1;
             _panelAbove = false;    // the rows it sat between no longer exist
+            Dispatcher.UIThread.Post(SweepCovers, DispatcherPriority.Background);
         }
 
         SyncPanel(unfold);
@@ -3560,9 +3586,6 @@ public partial class MainWindow : Window
             ? null
             : _playingAlbum.Album.Tracks.FirstOrDefault(t => t.Path == path);
 
-        // An embedded cover has no file until MprisArt writes one; when it has,
-        // this runs again and the URL goes out then.
-        var art = MprisArt.For(_playingAlbum.Album, RefreshMprisState);
 
         _mprisState = new Mpris.State(
             Playing: _player.IsPlaying,
@@ -3570,15 +3593,31 @@ public partial class MainWindow : Window
             Title: track?.Title ?? (path is null ? "" : Path.GetFileNameWithoutExtension(path)),
             Artist: _playingAlbum.Artist,
             Album: _playingAlbum.Title,
-            // Only a real file on disk becomes a URL: a sidecar, or an embedded
-            // cover MprisArt has written out.
-            ArtUrl: art is not null && File.Exists(art) ? new Uri(art).AbsoluteUri : "",
+            ArtUrl: ArtUrlFor(_playingAlbum),
             LengthMicros: (long)(_player.Duration.TotalMicroseconds),
             PositionMicros: 0,
             Volume: _volume / 100.0,
             TrackKey: path ?? "");
         PushToSystem();
     }
+
+    /// The cover as a file URL, for MPRIS: Linux only, the one reader of it. Only a real file
+    /// on disk becomes a URL, a sidecar or an embedded cover MprisArt has written out; an
+    /// embedded one has no file until MprisArt writes it, and then this runs again. Found once
+    /// per album and kept: it was a File.Exists on the share at every play, pause, track
+    /// change and volume step, on the UI thread, on every system (interface pass, 2026-10-27).
+    private string ArtUrlFor(AlbumVm album)
+    {
+        if (!OperatingSystem.IsLinux()) return "";
+        if (ReferenceEquals(album, _artUrlAlbum)) return _artUrl;
+        var art = MprisArt.For(album.Album, RefreshMprisState);
+        var url = art is not null && File.Exists(art) ? new Uri(art).AbsoluteUri : "";
+        if (url.Length > 0) { _artUrlAlbum = album; _artUrl = url; }
+        return url;
+    }
+
+    private AlbumVm? _artUrlAlbum;
+    private string _artUrl = "";
 
     /// Both of the desktop's media controls have to be TOLD. Neither comes back
     /// to ask.
@@ -3588,13 +3627,21 @@ public partial class MainWindow : Window
     /// read live; the shell just does not read twice. See Mpris.NotifyChanged.
     private void PushToSystem()
     {
-        _mpris?.NotifyChanged();
+        _mpris?.NotifyChanged();     // dedupes by itself
+        // The same state for the same album again: nothing to tell. A track change came
+        // here twice (TrackChanged, then DurationChanged), each a full publish.
+        if (_mprisState == _pushedState && ReferenceEquals(_playingAlbum, _pushedAlbum)) return;
+        _pushedState = _mprisState;
+        _pushedAlbum = _playingAlbum;
 #if WINDOWS
         _smtc?.Update(_mprisState, _playingAlbum?.Album);
 #endif
         _macNowPlaying?.Update(_mprisState, _playingAlbum?.Album);
         PushTimeline();
     }
+
+    private Mpris.State? _pushedState;
+    private AlbumVm? _pushedAlbum;
 
     /// Tells the desktop's media controls where the track is. Called when
     /// something changes and, from the position timer, every two seconds.
@@ -3654,7 +3701,13 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
-        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); CompactTick(); SaveSession(); UpdateAwake(); });
+        Dispatcher.UIThread.Post(() =>
+        {
+            UpdateNowPlaying(); CompactTick(); SaveSession(); UpdateAwake();
+            Classes.Set("paused", _player?.IsPlaying != true);     // the playing marker rests
+            // The meters' timer sleeps through a pause (StartMeters); playing wakes it.
+            if (_player?.IsPlaying == true && LiveViews().Any()) StartMeters();
+        });
 
     private readonly KeepAwake _awake = new();
 
@@ -4738,6 +4791,22 @@ public partial class MainWindow : Window
         if (Program.Kiosk || e.Element.DataContext is not AlbumRow row) return;
         foreach (var vm in row.Albums)
             if (!ReferenceEquals(vm, _open) && !ReferenceEquals(vm, _playingAlbum))
+                vm.ReleaseCover();
+    }
+
+    /// After the rows are rebuilt (a search keystroke, a column change), once the wall has
+    /// laid out again: the covers of albums that are on no row it laid out go, as
+    /// OnRowScrolledAway lets go of rows scrolled past. The rebuild put the old rows away
+    /// without that (WallView.Reset: opening an album rebuilds the list too, and those
+    /// covers are on screen), so every album seen before a search kept its cover however
+    /// far the results had moved, and the cache's budget did not bound them (interface
+    /// pass, 2026-10-27). The open album's and the playing one's stay. A kiosk keeps all.
+    private void SweepCovers()
+    {
+        if (Program.Kiosk) return;
+        var onWall = new HashSet<AlbumVm>(Wall.RealizedData.OfType<AlbumRow>().SelectMany(r => r.Albums));
+        foreach (var vm in _all)
+            if (!onWall.Contains(vm) && !ReferenceEquals(vm, _open) && !ReferenceEquals(vm, _playingAlbum))
                 vm.ReleaseCover();
     }
 

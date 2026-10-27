@@ -247,7 +247,7 @@ public partial class MainWindow
         _compact = false;
         _compactLeft = Environment.TickCount64;
 
-        if (_frontPanel is null) { _meterTimer?.Stop(); _meterTimer = null; }    // the panel still needs them
+        if (_frontPanel is null) StopMeters();    // the panel still needs them
         _aspectSnap?.Stop();
         CompactHost.IsVisible = false;
         MainDock.IsVisible = true;
@@ -322,17 +322,34 @@ public partial class MainWindow
     {
         if (_meterTimer is not null) return;        // one reading, every live view
         _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        var quietTicks = 0;
         _meterTimer.Tick += (_, _) =>
         {
-            var views = LiveViews().ToList();
-            if (views.Count == 0) return;
             var metering = _player is not null;
-            foreach (var v in views) if (v.ShowMeters != metering) v.ShowMeters = metering;
-            if (_player is null) return;
-            var (l, r) = _player.IsPlaying ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
-            foreach (var v in views) v.SetLevels(l, r);
+            var any = false;
+            foreach (var v in LiveViews())
+            {
+                any = true;
+                if (v.ShowMeters != metering) v.ShowMeters = metering;
+            }
+            if (!any || _player is null) return;
+            var playing = _player.IsPlaying;
+            var (l, r) = playing ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
+            foreach (var v in LiveViews()) v.SetLevels(l, r);
+            // Paused, stopped or at the end: once the needles have had time to fall (they
+            // reach rest in well under a second), nothing changes until the music starts
+            // again, and thirty wake-ups a second were for nothing. On the kiosk, whose front
+            // panel never closes, that was every paused hour. OnPlaybackState starts it again.
+            quietTicks = playing ? 0 : quietTicks + 1;
+            if (quietTicks > 90) StopMeters();
         };
         _meterTimer.Start();
+    }
+
+    private void StopMeters()
+    {
+        _meterTimer?.Stop();
+        _meterTimer = null;
     }
 
     /// Four times a second while compact: the position always, the rest only

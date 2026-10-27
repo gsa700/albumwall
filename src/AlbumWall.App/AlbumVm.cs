@@ -353,6 +353,17 @@ public sealed class AlbumVm : INotifyPropertyChanged
         // Not if the cover was let go while it was being decoded: the tile has
         // scrolled away, and setting it now would hold it again for good.
         await Dispatcher.UIThread.InvokeAsync(() => { if (generation == _coverGeneration) Cover = bmp; });
+
+        // And its colors, here off the UI thread, while the file is still in the system's
+        // cache from the read just done. Palette.For decodes the art when it has not seen it,
+        // and its callers are on the UI thread: the first open of an album and every album
+        // the arrow keys reached did that read and decode before anything moved, a hitch on
+        // a share or a Navidrome cover (interface pass, 2026-10-27). Cached once made.
+        await Task.Run(() =>
+        {
+            try { Palette.For(Album); }
+            catch { /* the panel works it out itself, as before */ }
+        }).ConfigureAwait(false);
     }
 
     private int _coverGeneration;
@@ -365,6 +376,9 @@ public sealed class AlbumVm : INotifyPropertyChanged
     /// keeps the most recent 160 MB, or from the file, when the tile does.
     public void ReleaseCover()
     {
+        // The back too, unless it is the face showing: it was kept for good once turned to
+        // (about 1 MB each), and comes back from ArtCache on the next turn.
+        if (!_showingBack) _back = null;
         if (_cover is null && _loadedBucket < 0) return;
         _coverGeneration++;
         _loadedBucket = -1;

@@ -171,6 +171,30 @@ public sealed class VuMeter : Control
     private static readonly Typeface Numbers = new(App.Mono, FontStyle.Normal, FontWeight.Medium);
     private static readonly Typeface Caption = new(FontFamily.Default, FontStyle.Normal, FontWeight.SemiBold);
 
+    // Everything on the face but the needle is the same on every frame, and the needle moves
+    // on every frame while music plays: the numbers were shaped again (seven FormattedTexts)
+    // and the lip built again 30 to 60 times a second per meter, the path the 2026-10-18 font
+    // leak rode on. Made once, on first use (App.Mono needs the app up).
+    private static readonly Lazy<(FormattedText Text, Point At)[]> Labels = new(() =>
+        Marks.Where(m => m.Label is not null).Select(m =>
+        {
+            var red = m.Db > 0;
+            var text = new FormattedText(m.Label!, System.Globalization.CultureInfo.InvariantCulture,
+                                         FlowDirection.LeftToRight, Numbers, 11, red ? RedBrush : InkBrush);
+            var at = At(Position(m.Db), ArcR + 20);
+            // Kept inside the face: at the ends of the arc a centred label would
+            // hang off the edge (the "+3" did, first light).
+            var x = Math.Clamp(at.X - text.Width / 2, 4, FaceW - 4 - text.Width);
+            return (text, new Point(x, at.Y - text.Height / 2));
+        }).ToArray());
+
+    private static readonly Lazy<FormattedText> VuCaption = new(() =>
+        new FormattedText("VU", System.Globalization.CultureInfo.InvariantCulture,
+                          FlowDirection.LeftToRight, Caption, 16, VuInk));
+
+    /// The lip over the pivot.
+    private static readonly Geometry LipShape = new RectangleGeometry(new Rect(0.5, 106, FaceW - 1, FaceH - 106));
+
     public override void Render(DrawingContext ctx)
     {
         var scale = Math.Min(Bounds.Width / FaceW, Bounds.Height / FaceH);
@@ -183,37 +207,19 @@ public sealed class VuMeter : Control
         ctx.DrawGeometry(null, Ink, ScaleArc);
         ctx.DrawGeometry(null, RedZone, RedArc);
 
-        foreach (var (db, major, label) in Marks)
+        foreach (var (db, major, _) in Marks)
         {
             var p = Position(db);
-            var red = db > 0;
-            ctx.DrawLine(red ? RedThin : Ink, At(p, ArcR), At(p, ArcR + (major ? 11 : 7)));
-            if (label is null) continue;
-            var text = new FormattedText(label, System.Globalization.CultureInfo.InvariantCulture,
-                                         FlowDirection.LeftToRight, Numbers, 11, red ? RedBrush : InkBrush);
-            var at = At(p, ArcR + 20);
-            // Kept inside the face: at the ends of the arc a centred label would
-            // hang off the edge (the "+3" did, first light).
-            var x = Math.Clamp(at.X - text.Width / 2, 4, FaceW - 4 - text.Width);
-            ctx.DrawText(text, new Point(x, at.Y - text.Height / 2));
+            ctx.DrawLine(db > 0 ? RedThin : Ink, At(p, ArcR), At(p, ArcR + (major ? 11 : 7)));
         }
+        foreach (var (text, at) in Labels.Value) ctx.DrawText(text, at);
 
-        var vu = new FormattedText("VU", System.Globalization.CultureInfo.InvariantCulture,
-                                   FlowDirection.LeftToRight, Caption, 16, VuInk);
+        var vu = VuCaption.Value;
         ctx.DrawText(vu, new Point(Pivot.X - vu.Width / 2, 84));
 
         ctx.DrawLine(Needle, Pivot, At(_x, NeedleR));
 
         // The lip over the pivot, drawn last so the needle's foot is under it.
-        var lip = new StreamGeometry();
-        using (var c = lip.Open())
-        {
-            c.BeginFigure(new Point(0.5, 106), true);
-            c.LineTo(new Point(FaceW - 0.5, 106));
-            c.LineTo(new Point(FaceW - 0.5, FaceH));
-            c.LineTo(new Point(0.5, FaceH));
-            c.EndFigure(true);
-        }
-        ctx.DrawGeometry(Lip, null, lip);
+        ctx.DrawGeometry(Lip, null, LipShape);
     }
 }
