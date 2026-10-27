@@ -172,7 +172,7 @@ public sealed class Settings
         try
         {
             if (File.Exists(Path))
-                return JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path)) ?? new Settings();
+                return JsonSerializer.Deserialize(File.ReadAllText(Path), SettingsJson.Default.Settings) ?? new Settings();
 
             // No file: a machine this app has never run on. See NeedsLibrary.
             return new Settings { NeedsLibrary = true };
@@ -193,7 +193,7 @@ public sealed class Settings
         try
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-            var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(this, SettingsJson.Default.Settings);
 
             // His alone: a Navidrome library keeps a sign-in token in here. Not
             // the password (see Library.Token), but enough to sign in with. So
@@ -343,3 +343,10 @@ public sealed class Library
         return string.IsNullOrEmpty(name) ? path : name;
     }
 }
+
+// Source-generated, as Domain's are (NavidromeJson, IntegrityJson): reflection-based
+// serialization is not there in a Native AOT build (docs/roadmap.md, the road to it).
+// Writes byte for byte what the reflection-based serializer wrote.
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(Settings))]
+internal sealed partial class SettingsJson : JsonSerializerContext;

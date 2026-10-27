@@ -21,6 +21,7 @@ using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AlbumWall.App;
 
@@ -163,7 +164,7 @@ public static class SingleInstance
                     using var reader = new StreamReader(server, leaveOpen: true);
                     await using var writer = new StreamWriter(server, leaveOpen: true) { AutoFlush = true };
                     var line = await reader.ReadLineAsync(stop).AsTask().WaitAsync(TimeSpan.FromSeconds(5), stop);
-                    var args = JsonSerializer.Deserialize<string[]>(line ?? "[]") ?? [];
+                    var args = JsonSerializer.Deserialize(line ?? "[]", InstanceJson.Default.StringArray) ?? [];
                     Console.WriteLine($"[instance] from a second launch: {(args.Length == 0 ? "(nothing: come forward)" : string.Join(' ', args))}");
                     var reply = await handle(args);
                     await writer.WriteLineAsync(reply);
@@ -197,7 +198,7 @@ public static class SingleInstance
                 client.Connect(500);
                 using var reader = new StreamReader(client, leaveOpen: true);
                 using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
-                writer.WriteLine(JsonSerializer.Serialize(args));
+                writer.WriteLine(JsonSerializer.Serialize(args, InstanceJson.Default.StringArray));
                 // No line back is no answer: on Unix a launch that queued behind
                 // another is cut off when that one's pipe closes, and tries again.
                 return reader.ReadLine() ?? throw new IOException("no answer");
@@ -213,3 +214,7 @@ public static class SingleInstance
         }
     }
 }
+
+// The arguments a second launch hands over, source-generated as SettingsJson is.
+[JsonSerializable(typeof(string[]))]
+internal sealed partial class InstanceJson : JsonSerializerContext;

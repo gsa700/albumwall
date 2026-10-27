@@ -50,6 +50,9 @@
          runtime or not (security review 2026-10-26, M2; Deadwax's M1). -->
     <StartupHookSupport>false</StartupHookSupport>
     <Nullable>enable</Nullable>
+    <!-- Native AOT (docs/roadmap.md, the road to it): warn at every build about
+         code a trimmed or compiled build cannot run. -->
+    <IsAotCompatible>true</IsAotCompatible>
     <!-- MacNowPlaying.cs: function pointers handed to the Objective-C runtime. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -43,7 +43,7 @@ public sealed class Session
         try
         {
             return File.Exists(Path)
-                ? JsonSerializer.Deserialize<Session>(File.ReadAllText(Path))
+                ? JsonSerializer.Deserialize(File.ReadAllText(Path), SessionJson.Default.Session)
                 : null;
         }
         catch
@@ -64,8 +64,7 @@ public sealed class Session
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
             var tmp = Path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(this,
-                new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(tmp, JsonSerializer.Serialize(this, SessionJson.Default.Session));
             File.Move(tmp, Path, overwrite: true);
         }
         catch (Exception ex)
@@ -79,3 +78,8 @@ public sealed class Session
         try { File.Delete(Path); } catch { /* nothing to resume either way */ }
     }
 }
+
+// Source-generated, as SettingsJson is.
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(Session))]
+internal sealed partial class SessionJson : JsonSerializerContext;

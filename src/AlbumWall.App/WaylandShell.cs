@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Avalonia.Controls;
 
@@ -25,6 +26,18 @@ internal static class WaylandShell
     /// The .desktop file's name without the extension, which is what GNOME matches on.
     public static string AppId => Path.GetFileNameWithoutExtension(Install.DesktopEntry.FileName);
 
+    // Each member reached below, kept by name so a trimmed or Native AOT build
+    // still has it; a member Avalonia renames is still caught by the checks.
+    // The analyzer cannot follow GetType() on objects of private types, hence
+    // the suppression: every lookup is checked and a miss only costs the icon.
+    // Deadwax's copy, where this was done first (its road to Native AOT).
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, typeof(TopLevel))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicFields, "Avalonia.Wayland.WindowImpl", "Avalonia.Wayland")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, "Avalonia.Wayland.Server.Persistent.WXdgTopLevelProxy", "Avalonia.Wayland")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, "Avalonia.Wayland.Server.Persistent.WSurfaceProxy", "Avalonia.Wayland")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicFields, "Avalonia.Wayland.Server.Persistent.WXdgTopLevel", "Avalonia.Wayland")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, "NWayland.Protocols.XdgShell.XdgToplevel", "NWayland")]
+    [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Private Avalonia members, kept by the DynamicDependency attributes; every lookup is checked.")]
     public static void ClaimIdentity(Window window)
     {
         if (!Program.NativeWayland) return;

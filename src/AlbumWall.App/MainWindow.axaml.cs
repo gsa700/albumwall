@@ -1792,7 +1792,15 @@ public partial class MainWindow : Window
     /// off after Avalonia's ApplyFullscreenState has turned them on. Every step is
     /// checked and a failure is logged and ignored: the worst case is the second bar
     /// we already had. When Avalonia offers a switch for it, use that.
+    ///
+    /// Both fields are kept by name for a trimmed or Native AOT build (the attribute
+    /// below; checked present in Avalonia 12.1.2); the analyzer cannot follow
+    /// GetType() on a private type, hence the suppression, as in WaylandShell.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.DynamicDependency(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields,
+        "Avalonia.Controls.TopLevelHost", "Avalonia.Controls")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075",
+        Justification = "A private Avalonia field, kept by the DynamicDependency attribute; every lookup is checked.")]
     private void SuppressDecorationPopover()
     {
         if (WindowState != WindowState.FullScreen) return;
