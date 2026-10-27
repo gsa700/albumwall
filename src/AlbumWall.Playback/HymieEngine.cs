@@ -73,7 +73,28 @@ internal sealed class HymieEngine : IDisposable
 
     public bool IsPlaying => _playing;
     public int Index => _index;
-    public int Count { get { lock (_lock) return _queue.Count; } }
+    public int Count
+    {
+        get
+        {
+            if (!_lock.TryEnter(UiWait)) return _lastCount;
+            try { return _lastCount = _queue.Count; }
+            finally { _lock.Exit(); }
+        }
+    }
+
+    // THE UI NEVER WAITS ON THE AUDIO THREAD. Position, Levels and Count are read by the
+    // window's timers (four and thirty times a second), and the audio thread holds _lock
+    // while it decodes, which at a track change includes opening the next file
+    // (NextTrack: _prefetch.Result, or TryOpen). A file on a sleeping NAS or a slow
+    // Navidrome reply held the lock for seconds, and the window froze with it (interface
+    // pass, 2026-10-27). These three ask for the lock for a few milliseconds at most and
+    // otherwise answer with what they last read: the position a quarter second stale, a
+    // needle a frame late, never a frozen window.
+    private static readonly TimeSpan UiWait = TimeSpan.FromMilliseconds(5);
+    private TimeSpan _lastPosition;
+    private (double Left, double Right) _lastLevels = (double.NegativeInfinity, double.NegativeInfinity);
+    private int _lastCount;
 
     public event EventHandler<TrackChangedEventArgs>? TrackChanged;
     public event EventHandler? StateChanged;
@@ -113,14 +134,18 @@ internal sealed class HymieEngine : IDisposable
     {
         get
         {
-            lock (_lock)
-            {
-                // Where it was asked to go, until the output is there.
-                if (_pending is { } p) return TimeSpan.FromSeconds((double)p.Frame / p.Track.SampleRate);
-                if (_out is null || Current(_out.Played) is not { } m) return TimeSpan.Zero;
-                return TimeSpan.FromSeconds((double)(_out.Played - m.At + m.TrackFrame) / _out.SampleRate);
-            }
+            if (!_lock.TryEnter(UiWait)) return _lastPosition;
+            try { return _lastPosition = PositionLocked(); }
+            finally { _lock.Exit(); }
         }
+    }
+
+    private TimeSpan PositionLocked()
+    {
+        // Where it was asked to go, until the output is there.
+        if (_pending is { } p) return TimeSpan.FromSeconds((double)p.Frame / p.Track.SampleRate);
+        if (_out is null || Current(_out.Played) is not { } m) return TimeSpan.Zero;
+        return TimeSpan.FromSeconds((double)(_out.Played - m.At + m.TrackFrame) / _out.SampleRate);
     }
 
     public TimeSpan Duration => _duration;
@@ -538,14 +563,16 @@ internal sealed class HymieEngine : IDisposable
 
     public (double Left, double Right) Levels()
     {
-        lock (_lock)
+        if (!_lock.TryEnter(UiWait)) return _lastLevels;
+        try
         {
-            if (_out is null) return (double.NegativeInfinity, double.NegativeInfinity);
+            if (_out is null) return _lastLevels = (double.NegativeInfinity, double.NegativeInfinity);
             var block = _out.Played >> LevelShift;
             var slot = (int)(block % LevelBlocks);
-            if (_levelBlock[slot] != block) return (double.NegativeInfinity, double.NegativeInfinity);
-            return (Db(_levelLeft[slot]), Db(_levelRight[slot]));
+            if (_levelBlock[slot] != block) return _lastLevels = (double.NegativeInfinity, double.NegativeInfinity);
+            return _lastLevels = (Db(_levelLeft[slot]), Db(_levelRight[slot]));
         }
+        finally { _lock.Exit(); }
 
         static double Db(float meanSquare) => meanSquare > 0 ? 10 * Math.Log10(meanSquare) : double.NegativeInfinity;
     }
