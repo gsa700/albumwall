@@ -282,6 +282,7 @@
                          pulse is slow on purpose: it should read as "this one is
                          live", not demand attention. -->
                     <Path Grid.Column="0" Classes="pulse" Data="M 0 0 L 8 5 L 0 10 Z"
+                          Opacity="{Binding MarkerOpacity}"
                           IsVisible="{Binding IsPlaying}"
                           Fill="{Binding Palette.Text}"
                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"/>
@@ -539,22 +540,10 @@
             <Setter Property="Background" Value="#1A1512"/>
             <Setter Property="BorderBrush" Value="#55FFFFFF"/>
         </Style>
-        <!-- A slow breath on the playing marker. Long and shallow deliberately:
-             it should read as "this one is live", not compete with the music.
-             Not with reduced motion (Motion.cs), where the window is ".still",
-             and not while paused (".paused", OnPlaybackState): then it rests.
-             Only on the playing line: every line's marker is there, hidden, and
-             the style once ran an endless animation on each of them, all the
-             time an album was open (interface pass, 2026-10-27). -->
-        <Style Selector=":is(Window):not(.still):not(.paused) Button.track.playing Path.pulse">
-            <Style.Animations>
-                <Animation Duration="0:0:2.2" IterationCount="INFINITE" Easing="SineEaseInOut">
-                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>
-                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.35"/></KeyFrame>
-                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>
-                </Animation>
-            </Style.Animations>
-        </Style>
+        <!-- The playing marker's slow breath is no longer a style animation: that
+             ran at the display's rate, and every frame cost the same however small
+             the marker (about 7% CPU on Control, 2026-10-27). MainWindow.Pulse sets
+             the playing line's MarkerOpacity twelve times a second instead. -->
         <Style Selector="Button.track">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>

@@ -211,10 +211,14 @@ public partial class NowPlayingPanel : UserControl
     }
 
     /// The latest levels, in dBFS of RMS. The needles do their own moving.
-    public void SetLevels(double left, double right)
+    /// The levels to chase, and how long since the last call: the needles move on by
+    /// that much (VuMeter.Step), so the meter timer's tick is their frame rate.
+    public void SetLevels(double left, double right, double seconds)
     {
         LeftMeter.SetLevel(left);
         RightMeter.SetLevel(right);
+        LeftMeter.Step(seconds);
+        RightMeter.Step(seconds);
     }
 
     private void UpdateClock()

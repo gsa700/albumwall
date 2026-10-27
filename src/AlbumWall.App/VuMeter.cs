@@ -17,6 +17,15 @@
 // damper chasing the level (natural frequency 13.5 rad/s, damping 0.77, which
 // simulates to ~300 ms and ~1.3%), stepped on every frame. That, not the number
 // fed in, is what makes it look like a meter rather than a bar graph.
+//
+// TWO LAYERS, AND THIRTY FRAMES A SECOND (2026-10-27). Measured on Control, a
+// moving needle cost about 14% CPU in compact: about 3% drawing the face again on
+// every frame, the rest the window producing sixty frames a second at all, which
+// costs the same however small the change (Avalonia's dirty-rect options did not
+// help). The face is now a layer of its own, kept as a bitmap (BitmapCache) and
+// drawn once per size; only the needle and the lip over it are drawn again. And the
+// needle is stepped by the meter timer's 30 Hz tick (MainWindow.StartMeters, through
+// Step) rather than by a frame loop of its own: the same spring, drawn half as often.
 
 using Avalonia;
 using Avalonia.Controls;
@@ -25,7 +34,7 @@ using Avalonia.Media.Immutable;
 
 namespace AlbumWall.App;
 
-public sealed class VuMeter : Control
+public sealed class VuMeter : Panel
 {
     private const double FaceW = 190, FaceH = 124;
     private static readonly Point Pivot = new(95, 132);
@@ -48,13 +57,17 @@ public sealed class VuMeter : Control
     private double _target;     // 0..~1.05 of the arc
     private double _x;          // needle position, same units
     private double _v;
-    private long _lastTick;
-    private bool _animating;
+    private bool _resting = true;
+
+    private readonly NeedleLayer _needle;
 
     public VuMeter()
     {
         Width = FaceW;
         Height = FaceH;
+        ClipToBounds = false;
+        Children.Add(new FaceLayer { CacheMode = new BitmapCache() });
+        Children.Add(_needle = new NeedleLayer(this));
     }
 
     /// The level to chase, in dBFS of RMS. Negative infinity (silence, paused,
@@ -67,27 +80,18 @@ public sealed class VuMeter : Control
         // The needle hits the pin a little past +3 and goes no further.
         var target = Math.Min(volts / FullScale, 1.05);
         // Paused, the same zero comes thirty times a second. A needle already
-        // resting there has nothing to draw; restarting it anyway redrew both
+        // resting there has nothing to draw; moving it anyway redrew both
         // meters at that rate all through a pause (2026-10-18).
-        if (!_animating && target == _target) return;
+        if (_resting && target == _target) return;
         _target = target;
-        StartAnimating();
+        _resting = false;
     }
 
-    private void StartAnimating()
+    /// Moves the needle on by `seconds` (the meter timer's tick) and draws it if it moved.
+    public void Step(double seconds)
     {
-        if (_animating) return;
-        if (TopLevel.GetTopLevel(this) is not { } top) return;
-        _animating = true;
-        _lastTick = 0;
-        top.RequestAnimationFrame(Frame);
-    }
-
-    private void Frame(TimeSpan now)
-    {
-        var t = (long)now.TotalMilliseconds;
-        var dt = _lastTick == 0 ? 1 / 60.0 : Math.Clamp((t - _lastTick) / 1000.0, 0.001, 0.05);
-        _lastTick = t;
+        if (_resting) return;
+        var dt = Math.Clamp(seconds, 0.001, 0.05);
 
         // Semi-implicit Euler, in small steps so a slow frame cannot throw the
         // needle past where a real one could go.
@@ -101,16 +105,10 @@ public sealed class VuMeter : Control
             if (_x < -0.02) { _x = -0.02; _v = 0; }    // the rest pin
             if (_x > 1.05) { _x = 1.05; _v = 0; }      // the end pin
         }
-        InvalidateVisual();
+        _needle.InvalidateVisual();
 
-        // At rest and staying there: stop asking for frames.
-        if (Math.Abs(_x - _target) < 0.0005 && Math.Abs(_v) < 0.0005)
-        {
-            _animating = false;
-            return;
-        }
-        if (TopLevel.GetTopLevel(this) is { } top) top.RequestAnimationFrame(Frame);
-        else _animating = false;
+        // At rest and staying there: nothing more to draw until the level moves.
+        if (Math.Abs(_x - _target) < 0.0005 && Math.Abs(_v) < 0.0005) _resting = true;
     }
 
     // ---- drawing -----------------------------------------------------------
@@ -195,13 +193,44 @@ public sealed class VuMeter : Control
     /// The lip over the pivot.
     private static readonly Geometry LipShape = new RectangleGeometry(new Rect(0.5, 106, FaceW - 1, FaceH - 106));
 
-    public override void Render(DrawingContext ctx)
+    /// The face at the mockup's size, scaled to wherever the meter is laid out, and clipped
+    /// to its rounded corners: both layers draw inside this.
+    private static (IDisposable, IDisposable) FaceSpace(DrawingContext ctx, Rect bounds)
     {
-        var scale = Math.Min(Bounds.Width / FaceW, Bounds.Height / FaceH);
-        using var _ = ctx.PushTransform(Matrix.CreateScale(scale, scale));
-        var face = new Rect(0.5, 0.5, FaceW - 1, FaceH - 1);
-        using var clip = ctx.PushClip(new RoundedRect(new Rect(0, 0, FaceW, FaceH), 10));
+        var scale = Math.Min(bounds.Width / FaceW, bounds.Height / FaceH);
+        var transform = ctx.PushTransform(Matrix.CreateScale(scale, scale));
+        var clip = ctx.PushClip(new RoundedRect(new Rect(0, 0, FaceW, FaceH), 10));
+        return (transform, clip);
+    }
 
+    /// The face: the same until the meter's size changes, so kept as a bitmap.
+    private sealed class FaceLayer : Control
+    {
+        public override void Render(DrawingContext ctx)
+        {
+            var (transform, clip) = FaceSpace(ctx, Bounds);
+            using (transform) using (clip) DrawFace(ctx);
+        }
+    }
+
+    /// The needle and the lip over its pivot: the only part drawn again as it moves.
+    private sealed class NeedleLayer(VuMeter meter) : Control
+    {
+        public override void Render(DrawingContext ctx)
+        {
+            var (transform, clip) = FaceSpace(ctx, Bounds);
+            using (transform) using (clip)
+            {
+                ctx.DrawLine(Needle, Pivot, At(meter._x, NeedleR));
+                // The lip over the pivot, drawn last so the needle's foot is under it.
+                ctx.DrawGeometry(Lip, null, LipShape);
+            }
+        }
+    }
+
+    private static void DrawFace(DrawingContext ctx)
+    {
+        var face = new Rect(0.5, 0.5, FaceW - 1, FaceH - 1);
         ctx.DrawRectangle(Face, Rim, new RoundedRect(face, 10));
 
         ctx.DrawGeometry(null, Ink, ScaleArc);
@@ -216,10 +245,5 @@ public sealed class VuMeter : Control
 
         var vu = VuCaption.Value;
         ctx.DrawText(vu, new Point(Pivot.X - vu.Width / 2, 84));
-
-        ctx.DrawLine(Needle, Pivot, At(_x, NeedleR));
-
-        // The lip over the pivot, drawn last so the needle's foot is under it.
-        ctx.DrawGeometry(Lip, null, LipShape);
     }
 }

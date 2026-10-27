@@ -323,8 +323,11 @@ public partial class MainWindow
         if (_meterTimer is not null) return;        // one reading, every live view
         _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         var quietTicks = 0;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         _meterTimer.Tick += (_, _) =>
         {
+            var seconds = clock.Elapsed.TotalSeconds;
+            clock.Restart();
             var metering = _player is not null;
             var any = false;
             foreach (var v in LiveViews())
@@ -335,7 +338,7 @@ public partial class MainWindow
             if (!any || _player is null) return;
             var playing = _player.IsPlaying;
             var (l, r) = playing ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
-            foreach (var v in LiveViews()) v.SetLevels(l, r);
+            foreach (var v in LiveViews()) v.SetLevels(l, r, seconds);
             // Paused, stopped or at the end: once the needles have had time to fall (they
             // reach rest in well under a second), nothing changes until the music starts
             // again, and thirty wake-ups a second were for nothing. On the kiosk, whose front

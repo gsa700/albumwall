@@ -245,6 +245,21 @@ public sealed class TrackLine : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
+    private double _markerOpacity = 1;
+
+    /// The playing marker's breath (MainWindow.Pulse), set on the playing line only: a
+    /// value every line shared had to reach every hidden marker at each step.
+    public double MarkerOpacity
+    {
+        get => _markerOpacity;
+        set
+        {
+            if (_markerOpacity == value) return;
+            _markerOpacity = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(MarkerOpacity)));
+        }
+    }
+
     /// What a screen reader says for the row: "2. Money, 6:22, playing".
     public string Spoken => (Number.Length > 0 ? $"{Number}. " : "") + Text
                           + (Duration.Length > 0 ? $", {Duration}" : "") + (_playing ? ", playing" : "");

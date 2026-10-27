@@ -3291,6 +3291,8 @@ public partial class MainWindow : Window
     /// changes, and holds the wall still while it happens.
     private void SyncPanel(bool unfold)
     {
+        // Once the panel has settled: an album opened or closed, so the marker breathes or rests.
+        Dispatcher.UIThread.Post(Pulse);
         // The wall computes its own extent exactly (see WallView), so inserting a
         // panel no longer moves the meaning of the scroll offset. This used to be
         // guarded against an estimate that shifted the moment a panel several
@@ -3737,10 +3739,49 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() =>
         {
             UpdateNowPlaying(); CompactTick(); SaveSession(); UpdateAwake();
-            Classes.Set("paused", _player?.IsPlaying != true);     // the playing marker rests
+            Classes.Set("paused", _player?.IsPlaying != true);
+            Pulse();
             // The meters' timer sleeps through a pause (StartMeters); playing wakes it.
             if (_player?.IsPlaying == true && LiveViews().Any()) StartMeters();
         });
+
+    /// A slow breath on the playing marker: long and shallow deliberately, it should read
+    /// as "this one is live", not compete with the music. 2.2 s from full to 35% and back,
+    /// stepped twelve times a second (each step about 6% of opacity) rather than animated
+    /// at the display's rate, whose every frame cost the same however small the marker.
+    /// Only while music plays with an album open; not with reduced motion (Motion.cs).
+    /// Otherwise the marker rests at full.
+    private void Pulse()
+    {
+        var breathe = _player?.IsPlaying == true && _panelAt >= 0 && !Motion.Reduced;
+        if (!breathe)
+        {
+            _pulse?.Stop();
+            if (_pulsing is not null) _pulsing.MarkerOpacity = 1;
+            _pulsing = null;
+            return;
+        }
+        if (_pulse is { IsEnabled: true }) return;
+        var started = Environment.TickCount64;
+        _pulse ??= new DispatcherTimer(TimeSpan.FromMilliseconds(83), DispatcherPriority.Render, (_, _) =>
+        {
+            // The line playing now, in the open panel; the one before it goes back to full.
+            var line = _panelAt >= 0 && _panelAt < _rows.Count && _rows[_panelAt] is PanelRow panel
+                ? panel.AllLines.FirstOrDefault(l => l.IsPlaying) : null;
+            if (!ReferenceEquals(line, _pulsing))
+            {
+                if (_pulsing is not null) _pulsing.MarkerOpacity = 1;
+                _pulsing = line;
+            }
+            if (line is null) return;
+            var phase = (Environment.TickCount64 - started) / 2200.0 * 2 * Math.PI;
+            line.MarkerOpacity = Math.Round(0.675 + 0.325 * Math.Cos(phase), 2);
+        });
+        _pulse.Start();
+    }
+
+    private DispatcherTimer? _pulse;
+    private TrackLine? _pulsing;      // the line whose marker is breathing
 
     private readonly KeepAwake _awake = new();
 
