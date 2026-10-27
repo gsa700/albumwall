@@ -137,8 +137,14 @@ is ahead, the history is for what is behind.
      supervised, the app puts it in place itself and keeps previous/, and
      albumwall-kiosk puts that back after two quick exits. tools/update-check.cs
      runs the Linux helper and the launcher for real (PASS on Control and
-     Techbench). Not yet: the Windows helper run on Windows, an end-to-end
-     update to a real AOT package, and the release itself.
+     Techbench). END TO END on Techbench (2026-10-27): the bridge, installed
+     as a single file, offered CI's linux-x64 AOT package by a local feed beside
+     a single-file zip, took the -aot one, staged it with its three libraries,
+     and the helper put them in place after the bridge quit, started the AOT
+     program and kept it (no marker; staging, helper and the old unpacked
+     folder gone); the supervised install left the old single file in
+     previous/ with name.absent for the three libraries. Not yet: the Windows
+     helper run on Windows, and the release itself.
   5. Self-update 0.7.x -> 0.8 proven on every system, the kiosk included, before
      Stable; then measure start-up, memory and size for the notes.
 
