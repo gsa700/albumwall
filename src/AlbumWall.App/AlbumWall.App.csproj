@@ -97,6 +97,15 @@
     <EmbeddedResource Include="Assets\app-icon.png" LogicalName="app-icon.png" />
   </ItemGroup>
 
+  <!-- TagLibSharp whole, in a trimmed or Native AOT build. It picks the class for a
+       file by its type and constructs it by reflection, and the trimmer took what
+       that needs: a trial AOT build (2026-10-27) indexed every file of every format
+       as unreadable, 0 albums. Rooted, it reads them all as the JIT build does
+       (docs/roadmap.md, the road to Native AOT, step 2). -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="TagLibSharp" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\AlbumWall.Domain\AlbumWall.Domain.csproj" />
     <ProjectReference Include="..\AlbumWall.Playback\AlbumWall.Playback.csproj" />
