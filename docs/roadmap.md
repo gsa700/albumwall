@@ -340,6 +340,32 @@ is ahead, the history is for what is behind.
     look like the music got louder. ReplayGain's mode stays on the RG button
     rather than here as well, and the wall's album menu stays on the wall.
 
+  **Meters on the wall, in the play controls** (agreed 2026-10-27 on Hambench,
+  to be built on Control). Mockup: https://claude.ai/artifact/4bE3KuLx29wzJbM5F4xKbv
+  (boards "B · Play controls: LED / VU / 31-band RTA" and "B · RG beside the
+  volume"). He chose the play bar over the open album's panel (A) and over the
+  playing marker as a meter (C). What was agreed:
+  1. **All three meters, click to cycle**: VU pair, LED, 31-band RTA, at the
+     right end of the play bar after the remaining time, in the same order and
+     with the same click as compact mode (above). The style's name shows for a
+     moment as it changes.
+  2. **Always the same width.** The VU pair sets it (two faces about 104 x 62
+     px with a 6 px gap, about 214 px in the mockup), and the LED and the RTA
+     are sized to it: the LED's 32 segments and the RTA's 31 bands widen to
+     fill it. The title and the slider never move when the style changes.
+  3. **RG leaves the play bar** to make room, so the title keeps about 380 px.
+     It moves to the top bar, between the volume slider and the gear, the same
+     `RG ALBUM / RG TRACK / RG OFF` button with the same click. It stays VISIBLE,
+     as the comment on `GainButton` requires; Preferences › Playback is not
+     enough on its own.
+  4. On the light play bar the meters are dark ink: LED and RTA bars in the
+     bar's dark text color, the top segments and the RTA's peak caps amber and
+     red. The VU keeps its yellow faces.
+  Still open: whether the meters are on by default, whether the play bar and
+  compact mode share one meter choice or keep their own, and whether the
+  before-or-after-ReplayGain setting covers both. The RTA needs Hymie's
+  samples in hand (see 4 above).
+
   Later, maybe: a track list the compact view can drop open, as iTunes' mini
   player did ("lets not for now at least"). The "Next ..." line is gone and not
   coming back.
