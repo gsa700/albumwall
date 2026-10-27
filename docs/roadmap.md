@@ -315,6 +315,31 @@ is ahead, the history is for what is behind.
      tap (or the samples in hand, once our own engine plays), and the audio must
      stay bit-exact with it in the chain.
 
+  With 1 or 4, a setting for where the meters read (2026-10-27, Hambench): **before
+  ReplayGain or after it.** Today the VU reads before the gain, as mpv's astats
+  did (`HymieEngine.Measure`, ahead of `_decodingGain`), so a quiet master
+  reads quiet even when ReplayGain brings it up. "It's not a problem, just a
+  little inconsistent with what you are hearing." He chose to leave the VU as it
+  is for now. Before the gain is the record as mastered, after it is what reaches
+  the volume control. The default and the setting's wording are still to be decided.
+
+  Two ways in, both agreed 2026-10-27 (Hambench), neither built:
+  - **Click the meters to change them**, Winamp's way: VU, LED, spectrum, and
+    back to VU, kept like any other setting. The new style's name shows for a
+    moment as it changes, so the click does not look like a fault. A tap does
+    the same on the kiosk, where nothing can be right-clicked. It comes with 1:
+    while the VU is the only meter, a click has nothing to change.
+  - **A right-click menu of compact mode's own.** Today a right click on the
+    strip does nothing, and the strip has no menu bar or gear of its own.
+    In it: always on top (the classic mini-player option; greyed out with the
+    reason where the desktop decides, as GNOME on Wayland does), the clock when
+    paused (after 2 minutes, or never; `StandbyAfter` is fixed today), Properties
+    and *Show on the wall* for what is playing, and back to the wall with its
+    Ctrl+M beside it. The before-or-after-ReplayGain setting goes here, not on
+    the click, because a toggle that changes what the needles mean would just
+    look like the music got louder. ReplayGain's mode stays on the RG button
+    rather than here as well, and the wall's album menu stays on the wall.
+
   Later, maybe: a track list the compact view can drop open, as iTunes' mini
   player did ("lets not for now at least"). The "Next ..." line is gone and not
   coming back.
