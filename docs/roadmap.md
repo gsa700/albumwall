@@ -64,6 +64,17 @@ is ahead, the history is for what is behind.
      ffmpeg encoded with PNS (its default) never matches ffmpeg or a seek: the
      noise is random by design, JIT and AOT alike; engine-check's AAC files
      want -aac_pns 0 or afconvert.
+     His hands-on trial on the Mac (make-macos-app.sh --aot, his real
+     settings): "starts noticeably faster, everything works", Navidrome
+     included. It asked for the local network once per connection: that
+     permission follows the build's UUID (2dc89ec gives the prompt its words).
+     LINUX X64 (Techbench, Fedora 45, 2026-10-27): built there in 34 s, 35 MB,
+     the same one warning; the five-format library indexes as the JIT build
+     and the Mac do, every column; engine-check AOT: FLAC MD5s, AAC/ALAC/FLAC/
+     WAV within ISO accuracy of ffmpeg, ALAC = its FLAC, seeks, the hostile
+     files, a muted play through PulseAudio; Wayland app_id and MPRIS answer
+     (Identity, DesktopEntry, PlaybackStatus). The window in 0.074 s, the
+     single file's 0.780 s. Not yet: Windows, the Pi, and a listen on Linux.
   3. Releases from CI: each runner builds its own system (AOT cannot build for
      another); release.sh takes the run of the release commit (a push or a
      manual start only), checks the exact file list, the first bytes, and
