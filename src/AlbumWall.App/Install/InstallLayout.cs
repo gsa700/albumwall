@@ -161,4 +161,18 @@ public static class InstallLayout
             yield return System.IO.Path.Combine(programsDirectory, legacy);
         }
     }
+
+    /// <summary>
+    /// The native libraries a Native AOT build has beside the program, on Linux and Windows (the
+    /// Mac's are inside AlbumWall.app). A single file keeps them inside itself and has none beside
+    /// it. The one list: the updater installs these with the program, the installer copies them,
+    /// and scripts/release.sh checks a release carries exactly these (its native_libraries).
+    /// </summary>
+    public static IReadOnlyList<string> NativeLibraries(bool windows) => windows
+        ? ["libSkiaSharp.dll", "libHarfBuzzSharp.dll", "e_sqlite3.dll", "av_libglesv2.dll"]
+        : ["libSkiaSharp.so", "libHarfBuzzSharp.so", "libe_sqlite3.so"];
+
+    /// <summary>Those of <see cref="NativeLibraries(bool)"/> present in <paramref name="directory"/>.</summary>
+    public static IReadOnlyList<string> NativeLibrariesIn(string directory) =>
+        NativeLibraries(OperatingSystem.IsWindows()).Where(n => File.Exists(System.IO.Path.Combine(directory, n))).ToList();
 }

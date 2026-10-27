@@ -202,14 +202,19 @@ public static class UpdateService
             if (root.TryGetProperty("html_url", out var hu) && hu.GetString() is { Length: > 0 } url)
                 info.ReleaseUrl = url;
 
-            var wanted = $"AlbumWall-{Rid()}.zip";
+            // The Native AOT package first, the name 0.8 ships under (a program with its
+            // libraries beside it), else the single file. Copies before the bridge release do
+            // not look for the -aot name, and say the release has no build for them.
+            string[] wanted = [$"AlbumWall-{Rid()}-aot.zip", $"AlbumWall-{Rid()}.zip"];
             if (root.TryGetProperty("assets", out var assets))
             {
                 foreach (var a in assets.EnumerateArray())
                 {
                     var name = a.GetProperty("name").GetString();
                     var link = a.GetProperty("browser_download_url").GetString();
-                    if (name == wanted) { info.AssetUrl = link; info.AssetName = name; }
+                    var rank = Array.IndexOf(wanted, name);
+                    if (rank >= 0 && (info.AssetName is null || rank < Array.IndexOf(wanted, info.AssetName)))
+                    { info.AssetUrl = link; info.AssetName = name; }
                     else if (name == "SHA256SUMS") info.SumsUrl = link;
                 }
             }
@@ -217,7 +222,7 @@ public static class UpdateService
             // Unparseable on either side is "not newer", never "newer": see VersionOrder.
             info.UpdateAvailable = VersionOrder.IsNewer(info.LatestTag, CurrentVersion);
             Console.WriteLine($"[update] {(edge ? "edge" : "stable")}: latest {info.LatestTag}{(info.IsPrerelease ? " (edge build)" : "")}, have {CurrentVersion}, "
-                            + $"newer={info.UpdateAvailable}, asset={(info.AssetUrl is null ? "none for " + Rid() : wanted)}");
+                            + $"newer={info.UpdateAvailable}, asset={info.AssetName ?? "none for " + Rid()}");
         }
         catch (Exception ex)
         {
@@ -259,6 +264,23 @@ public static class UpdateService
 
         var tmp = Directory.CreateTempSubdirectory("AlbumWall-update-").FullName;
         _stageRoot = tmp;
+        // None left by a download that failed: every failure but a bad hash left its zip in
+        // temp, one more per try (security review 2026-10-26, INFO; Deadwax's the same).
+        try
+        {
+            return await StageAsync(info, tmp, progress);
+        }
+        catch
+        {
+            _stageRoot = null;
+            try { Directory.Delete(tmp, recursive: true); } catch { /* temp's to tidy */ }
+            throw;
+        }
+    }
+
+    /// <summary>The download proper; AssetUrl, AssetName and SumsUrl are checked above.</summary>
+    private static async Task<string> StageAsync(UpdateInfo info, string tmp, IProgress<double>? progress)
+    {
 
         // The list first: it is 300 bytes, and without the zip's line in it there is no point
         // fetching fifty megabytes.
@@ -320,18 +342,38 @@ public static class UpdateService
         ZipFile.ExtractToDirectory(zip, unpacked, overwriteFiles: true);
         File.Delete(zip);
 
-        var staged = Directory.GetFiles(unpacked, InstallService.ExeFileName, SearchOption.AllDirectories).FirstOrDefault()
+        var staged = FindProgram(unpacked, InstallService.ExeFileName)
             ?? throw new FileNotFoundException($"{InstallService.ExeFileName} is not in the downloaded package.");
 
-        // A last look before it is given the keys: the right kind of file, and not a stub.
-        var head = new byte[4];
-        await using (var fs = File.OpenRead(staged)) _ = await fs.ReadAsync(head);
-        var looksRight = OperatingSystem.IsWindows() ? head[0] == 'M' && head[1] == 'Z'
-                                                     : head[0] == 0x7F && head[1] == 'E' && head[2] == 'L' && head[3] == 'F';
-        if (!looksRight || new FileInfo(staged).Length < 1_000_000)
+        // A last look before it is given the keys: the right kind of file, and not a stub; and the
+        // same for each native library a Native AOT build has beside it.
+        if (!await IsBinaryForThisSystemAsync(staged) || new FileInfo(staged).Length < 1_000_000)
             throw new InvalidOperationException("The downloaded program is not an executable for this system.");
+        var folder = Path.GetDirectoryName(staged)!;
+        foreach (var lib in InstallLayout.NativeLibrariesIn(folder))
+            if (!await IsBinaryForThisSystemAsync(Path.Combine(folder, lib)))
+                throw new InvalidOperationException($"The downloaded {lib} is not a library for this system.");
 
         return staged;
+    }
+
+    /// <summary>The program at the top of the package, else the first file named exactly so below
+    /// it: a search that ignores case (Windows, the Mac) could take another file of a similar name
+    /// for it (Deadwax 836b46f).</summary>
+    public static string? FindProgram(string unpacked, string exeName)
+    {
+        bool Named(string f) => Path.GetFileName(f) == exeName;
+        return Directory.GetFiles(unpacked, exeName).FirstOrDefault(Named)
+            ?? Directory.GetFiles(unpacked, exeName, SearchOption.AllDirectories).FirstOrDefault(Named);
+    }
+
+    /// <summary>ELF on Linux, PE ("MZ") on Windows, by the first bytes.</summary>
+    private static async Task<bool> IsBinaryForThisSystemAsync(string path)
+    {
+        var head = new byte[4];
+        await using (var fs = File.OpenRead(path)) _ = await fs.ReadAsync(head);
+        return OperatingSystem.IsWindows() ? head[0] == 'M' && head[1] == 'Z'
+                                           : head[0] == 0x7F && head[1] == 'E' && head[2] == 'L' && head[3] == 'F';
     }
 
     private static HttpRequestMessage Request(string url)
@@ -365,34 +407,47 @@ public static class UpdateService
             return;
         }
 
+        var from = Path.GetDirectoryName(stagedExe)!;
+        var exeName = InstallService.ExeFileName;
+        var libraries = InstallLayout.NativeLibrariesIn(from);
+        var oldx = InstallService.OwnExtractionDir;
+        // The helper has a private folder of its own, not the staging folder: it deletes that one
+        // first, and its own last (a script cannot sit in the folder it is removing).
+        var helperDir = Directory.CreateTempSubdirectory("albumwall-apply-").FullName;
+
         // SUPERVISED (ALBUMWALL_SUPERVISED=1, set by a kiosk's launcher): something else restarts the
         // app when it exits, so the helper must not, or two copies run - which is what the Pi kiosk
-        // got from the first update it took (2026-09-28: two walls). And the new program has to be in
-        // place BEFORE this process exits, because the supervisor starts whatever file is there a
-        // second later. Linux lets a running program's file be replaced: copy beside it, then rename
-        // over it, which is atomic; this process keeps running from the old one until it exits.
+        // got from the first update it took (2026-09-28: two walls). And the new build has to be in
+        // place BEFORE this process exits, because the supervisor starts whatever is there a second
+        // later. Linux lets a running program's files be replaced: each is copied beside itself and
+        // renamed over the old one, which is atomic; this process keeps running from the old ones
+        // until it exits. What it replaces is kept in previous/, which the launcher puts back if
+        // the new build keeps falling over (kiosk/albumwall-kiosk; his call, 2026-10-27).
         if (Supervised && !OperatingSystem.IsWindows())
         {
-            var fresh = target + ".new";
-            File.Copy(stagedExe, fresh, overwrite: true);
-            File.SetUnixFileMode(fresh, File.GetUnixFileMode(fresh) | UnixFileMode.UserExecute
-                                       | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-            File.Move(fresh, target, overwrite: true);
+            InstallBeside(from, targetDir, libraries.Append(exeName).ToList(), exeName);
             if (File.Exists(marker)) File.Delete(marker);
-            Console.WriteLine($"[update] supervised: {target} replaced in place; the supervisor restarts it");
+            var tidy = Path.Combine(helperDir, "tidy.sh");
+            File.WriteAllText(tidy, UpdateApplyScript.UnixSupervised + "\n");
+            Process.Start(new ProcessStartInfo("/bin/sh")
+            {
+                ArgumentList = { tidy, pid.ToString(System.Globalization.CultureInfo.InvariantCulture), oldx ?? "", StageRoot, helperDir },
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetTempPath(),
+            });
+            Console.WriteLine($"[update] supervised: {exeName}{(libraries.Count > 0 ? " and " + string.Join(", ", libraries) : "")} "
+                            + $"put in place in {targetDir}, the old ones in {Path.Combine(targetDir, PreviousFolder)}; the supervisor restarts it");
+            return;
         }
 
-        // The helper lives in the temp root, not in the staging folder: it deletes that folder, and a
-        // script cannot sit in the folder it is removing.
         if (OperatingSystem.IsWindows())
         {
-            var ps1 = Path.Combine(Path.GetTempPath(), "albumwall-apply-update.ps1");
-            File.WriteAllText(ps1, UpdateApplyScript.Windows(pid, stagedExe, target, marker, targetDir,
-                                                             StageRoot, InstallService.OwnExtractionDir, ps1, args));
-            Process.Start(new ProcessStartInfo
+            var ps1 = Path.Combine(helperDir, "apply-update.ps1");
+            File.WriteAllText(ps1, UpdateApplyScript.Windows(pid, from, targetDir, exeName, libraries, marker,
+                                                             StageRoot, oldx, helperDir, args));
+            Process.Start(new ProcessStartInfo(InstallService.PowerShellExe)
             {
-                FileName = InstallService.PowerShellExe,
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\"",
+                ArgumentList = { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ps1 },
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WorkingDirectory = Path.GetTempPath(),      // not ours: see the class comment
@@ -400,20 +455,69 @@ public static class UpdateService
         }
         else
         {
-            // In a private folder of its own, for the same reason as the staging folder.
-            var sh = Path.Combine(Directory.CreateTempSubdirectory("albumwall-apply-").FullName, "apply-update.sh");
-            File.WriteAllText(sh, UpdateApplyScript.Unix(pid, stagedExe, target, marker, targetDir,
-                                                         StageRoot, InstallService.OwnExtractionDir, sh, args, Supervised));
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "/bin/sh",
-                ArgumentList = { sh },
-                UseShellExecute = false,
-                WorkingDirectory = Path.GetTempPath(),
-            });
+            var sh = Path.Combine(helperDir, "apply-update.sh");
+            File.WriteAllText(sh, UpdateApplyScript.Unix + "\n");
+            var start = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, WorkingDirectory = Path.GetTempPath() };
+            foreach (var a in UpdateApplyScript.UnixArguments(sh, pid, from, targetDir, exeName, libraries, marker,
+                                                              StageRoot, oldx, helperDir, args))
+                start.ArgumentList.Add(a);
+            Process.Start(start);
         }
-        Console.WriteLine($"[update] helper started; swapping {target} once pid {pid} has gone; "
-                        + $"then removing {InstallService.OwnExtractionDir ?? "(nothing unpacked)"}");
+        Console.WriteLine($"[update] helper started; installing {exeName}{(libraries.Count > 0 ? " and " + string.Join(", ", libraries) : "")} "
+                        + $"into {targetDir} once pid {pid} has gone; then removing {oldx ?? "(nothing unpacked)"}");
+    }
+
+    /// <summary>Where a supervised update keeps the build it replaced, beside the program.</summary>
+    public const string PreviousFolder = "previous";
+
+    /// <summary>
+    /// A supervised update, done by the app itself before it exits: the files it will replace are
+    /// copied into previous/ (a file not there before is noted as name.absent, so putting the old
+    /// build back removes it), then the libraries and last the program are copied in, each beside
+    /// itself and renamed over the old one. Anything failing puts the old files back and throws,
+    /// and the app keeps running the build it has.
+    /// </summary>
+    private static void InstallBeside(string from, string to, IReadOnlyList<string> names, string exeName)
+    {
+        var previous = Path.Combine(to, PreviousFolder);
+        if (Directory.Exists(previous)) Directory.Delete(previous, recursive: true);
+        Directory.CreateDirectory(previous);
+        foreach (var n in names)
+        {
+            var t = Path.Combine(to, n);
+            if (File.Exists(t)) File.Copy(t, Path.Combine(previous, n));
+            else File.WriteAllText(Path.Combine(previous, n + ".absent"), "");
+        }
+
+        void Put(string source, string n)
+        {
+            var fresh = Path.Combine(to, "." + n + ".new");
+            File.Copy(source, fresh, overwrite: true);
+            if (n == exeName)
+                File.SetUnixFileMode(fresh, File.GetUnixFileMode(fresh) | UnixFileMode.UserExecute
+                                           | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+            File.Move(fresh, Path.Combine(to, n), overwrite: true);
+        }
+
+        try
+        {
+            foreach (var n in names) Put(Path.Combine(from, n), n);     // the program is last in names
+        }
+        catch
+        {
+            foreach (var n in names)
+            {
+                try
+                {
+                    var t = Path.Combine(to, n);
+                    if (File.Exists(Path.Combine(previous, n + ".absent"))) File.Delete(t);
+                    else if (File.Exists(Path.Combine(previous, n))) Put(Path.Combine(previous, n), n);
+                    File.Delete(Path.Combine(to, "." + n + ".new"));
+                }
+                catch { /* the rest still goes back */ }
+            }
+            throw;
+        }
     }
 
     /// <summary>Set by a kiosk's launcher: something restarts the app when it exits.</summary>

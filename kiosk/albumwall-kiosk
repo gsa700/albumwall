@@ -12,7 +12,8 @@
 # protocol error under it, a buffer not divisible by the scale.
 CONF="$HOME/.config/albumwall-kiosk/kiosk.conf"
 [ -f "$CONF" ] && . "$CONF"
-APP="$HOME/.local/share/albumwall/AlbumWall"
+APP="${ALBUMWALL_KIOSK_APP:-$HOME/.local/share/albumwall/AlbumWall}"   # overridable for tools/update-check.cs
+DIR=$(dirname "$APP")
 
 if [ "$1" = "--inside" ]; then
     # labwc has no screen settings of its own here; set them as a desktop's kanshi would.
@@ -37,12 +38,41 @@ if [ "$1" = "--inside" ]; then
 
     # Closed or crashed: start it again. Three quick exits in a row means something is
     # wrong, so stop rather than spin, and leave the log to say why.
-    quick=0
+    #
+    # ROLLBACK (his call, 2026-10-27). An update here is put in place by the app itself before
+    # it exits, and the build it replaced is kept in previous/ beside it (UpdateService). If
+    # the new build then exits quickly twice in a row, the previous one goes back, the marker
+    # tells the app to say so, and it gets one more try; after that, the three quick exits
+    # stop it as before. previous/ goes once a build has run 20 s, so an old one is never
+    # brought back for some later, unrelated trouble; except after the run that installed it,
+    # which was long too: previous/ newer than that run's start is the update it just made.
+    quick=0 rolled=0
+    stamp="$DIR/.kiosk-run-start"
     while [ $quick -lt 3 ]; do
         started=$(date +%s)
+        : > "$stamp"
         "$APP" $ARGS
         echo "[kiosk] AlbumWall exited with $? after $(( $(date +%s) - started )) s"
-        if [ $(( $(date +%s) - started )) -lt 20 ]; then quick=$((quick + 1)); else quick=0; fi
+        if [ $(( $(date +%s) - started )) -lt 20 ]; then
+            quick=$((quick + 1))
+        else
+            quick=0
+            if [ -d "$DIR/previous" ] && ! [ "$DIR/previous" -nt "$stamp" ]; then rm -rf "$DIR/previous"; fi
+        fi
+        if [ $quick -ge 2 ] && [ $rolled -eq 0 ] && [ -e "$DIR/previous/AlbumWall" ]; then
+            echo "[kiosk] two quick exits since an update: putting the previous build back"
+            for f in "$DIR/previous"/* "$DIR/previous"/.[!.]*; do
+                [ -e "$f" ] || continue
+                name=$(basename "$f")
+                case "$name" in
+                    *.absent) rm -f "$DIR/${name%.absent}" ;;
+                    *) cp -p "$f" "$DIR/.$name.new" && mv -f "$DIR/.$name.new" "$DIR/$name" ;;
+                esac
+            done
+            : > "$DIR/.albumwall-update-failed"
+            rm -rf "$DIR/previous"
+            rolled=1 quick=0
+        fi
         sleep 1
     done
     echo "[kiosk] three quick exits in a row, not restarting"

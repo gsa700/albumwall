@@ -131,6 +131,14 @@ is ahead, the history is for what is behind.
      launcher sets ALBUMWALL_SUPERVISED=1, the program is replaced in place
      before it exits and the supervisor restarts it). A start check there needs
      its own design, or a bad build restarts for ever. His call before building.
+     HIS CALL (2026-10-27): ROLLBACK. Built: UpdateService installs a package
+     (InstallLayout.NativeLibraries; prefers AlbumWall-<rid>-aot.zip; the
+     libraries first, the program last; back up, start check, put back);
+     supervised, the app puts it in place itself and keeps previous/, and
+     albumwall-kiosk puts that back after two quick exits. tools/update-check.cs
+     runs the Linux helper and the launcher for real (PASS on Control and
+     Techbench). Not yet: the Windows helper run on Windows, an end-to-end
+     update to a real AOT package, and the release itself.
   5. Self-update 0.7.x -> 0.8 proven on every system, the kiosk included, before
      Stable; then measure start-up, memory and size for the notes.
 

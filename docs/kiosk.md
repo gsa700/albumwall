@@ -105,6 +105,14 @@ restart to the loop. Without it the updater starts one copy and the loop another
 The loop gives up after three exits within 20 seconds of starting, rather than
 spinning; the log says why.
 
+**Rollback.** An update keeps the build it replaced in `previous/` beside the
+program (from the bridge release on). If the new build then exits within
+20 seconds twice in a row, the loop puts the previous build back, leaves the marker
+that makes AlbumWall say the update failed, and gives it one more try. `previous/`
+goes once a build has run 20 seconds, so an old build is never brought back for
+some later trouble. The launcher in `/usr/local/bin` is a copy: run `install.sh`
+again to give an installed kiosk this.
+
 **Media keys** from a keyboard or a remote are bound in `rc.xml` and sent to
 AlbumWall over MPRIS, whether or not it has the focus. Volume keys set the
 output's volume, capped at 100%.

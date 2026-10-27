@@ -227,6 +227,11 @@ public static class InstallService
         {
             try
             {
+                // The native libraries first (a Native AOT build has them beside the program;
+                // a single file, none), and only the listed ones: a loose copy may be sitting
+                // in Downloads among everything else there.
+                foreach (var lib in InstallLayout.NativeLibrariesIn(ExeDirectory))
+                    File.Copy(Path.Combine(ExeDirectory, lib), Path.Combine(InstallDirectory, lib), overwrite: true);
                 File.Copy(ExePath, target, overwrite: true);
             }
             catch (IOException ex)
@@ -681,12 +686,13 @@ public static class InstallService
             // FlexPad carries the fix. This installer was ported from Shack Power, which does not.
             lines.AddRange(toDelete.Select(p =>
             {
-                var q = p.Replace("'", "''");
-                return $"for ($i = 0; $i -lt 40 -and (Test-Path -LiteralPath '{q}'); $i++) {{ " +
-                       $"Remove-Item -LiteralPath '{q}' -Recurse -Force -ErrorAction SilentlyContinue; " +
-                       $"if (Test-Path -LiteralPath '{q}') {{ Start-Sleep -Milliseconds 250 }} }}";
+                // Curly quotes doubled too (PowerShellText; security review 2026-10-26, INFO).
+                var q = Domain.PowerShellText.Quote(p);
+                return $"for ($i = 0; $i -lt 40 -and (Test-Path -LiteralPath {q}); $i++) {{ " +
+                       $"Remove-Item -LiteralPath {q} -Recurse -Force -ErrorAction SilentlyContinue; " +
+                       $"if (Test-Path -LiteralPath {q}) {{ Start-Sleep -Milliseconds 250 }} }}";
             }));
-            lines.Add($"Remove-Item -LiteralPath '{script.Replace("'", "''")}' -Force -ErrorAction SilentlyContinue");
+            lines.Add($"Remove-Item -LiteralPath {Domain.PowerShellText.Quote(script)} -Force -ErrorAction SilentlyContinue");
             File.WriteAllText(script, string.Join("\n", lines) + "\n");
 
             Process.Start(new ProcessStartInfo
