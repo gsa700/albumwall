@@ -5,6 +5,9 @@
 #   scripts/make-macos-app.sh --install  and copy it to /Applications (replacing one there)
 #   scripts/make-macos-app.sh --notarize also have Apple notarize it and staple the ticket
 #                                        (needs the Developer ID; options combine)
+#   scripts/make-macos-app.sh --aot      the program compiled ahead of time (Native AOT), not the
+#                                        single file: no JIT, so no exception to the hardened
+#                                        runtime (docs/roadmap.md, the road to it; a trial until then)
 #   scripts/make-macos-app.sh --dmg      also dist/AlbumWall.dmg, the download for people: a window
 #                                        with the app and an Applications folder to drag it to
 #                                        (signed; notarized and stapled too with --notarize)
@@ -53,13 +56,14 @@ set -euo pipefail
 
 [ "$(uname -s)" = Darwin ] || { echo "make-macos-app.sh: on a Mac only" >&2; exit 1; }
 
-INSTALL=no NOTARIZE=no DMG=no
+INSTALL=no NOTARIZE=no DMG=no AOT=no
 for arg in "$@"; do
     case "$arg" in
         --install) INSTALL=yes ;;
         --notarize) NOTARIZE=yes ;;
         --dmg) DMG=yes ;;
-        *) echo "usage: $0 [--install] [--notarize] [--dmg]" >&2; exit 2 ;;
+        --aot) AOT=yes ;;
+        *) echo "usage: $0 [--install] [--notarize] [--dmg] [--aot]" >&2; exit 2 ;;
     esac
 done
 
@@ -75,10 +79,16 @@ APP="$OUT/AlbumWall.app"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-echo "== publish $RID $VERSION"
-# The native libraries stay files of their own, for the bundle (above).
-dotnet publish "$PROJECT" -c Release -r "$RID" -p:IncludeNativeLibrariesForSelfExtract=false \
-    -o "$WORK/pub" -nologo -v quiet
+# The native libraries stay files of their own, for the bundle (above); a
+# Native AOT program has them beside it the same way.
+if [ "$AOT" = yes ]; then
+    echo "== publish $RID $VERSION (Native AOT)"
+    dotnet publish "$PROJECT" -c Release -r "$RID" -p:PublishAot=true -o "$WORK/pub" -nologo -v quiet
+else
+    echo "== publish $RID $VERSION"
+    dotnet publish "$PROJECT" -c Release -r "$RID" -p:IncludeNativeLibrariesForSelfExtract=false \
+        -o "$WORK/pub" -nologo -v quiet
+fi
 ls "$WORK/pub"/*.dylib >/dev/null 2>&1 || { echo "the publish left no .dylib beside the program" >&2; exit 1; }
 
 echo "== icon"
@@ -157,8 +167,11 @@ else
 fi
 # A Developer ID signature gets the hardened runtime, which notarization
 # requires, with the one exception .NET needs (scripts/macos/AlbumWall.entitlements:
-# JIT; without it CoreCLR does not start), and Apple's timestamp. Each library
-# is signed first, the same way, and the bundle last, which seals them in.
+# JIT; without it CoreCLR does not start), and Apple's timestamp. A Native AOT
+# program generates no code at run time and gets no exception at all. Each
+# library is signed first, the same way, and the bundle last, which seals them in.
+ENTITLEMENTS=(--entitlements "$ROOT/scripts/macos/AlbumWall.entitlements")
+[ "$AOT" = yes ] && ENTITLEMENTS=()
 if security find-identity -p codesigning | grep -qF -e "\"$SIGN_ID\"" -e ") $SIGN_ID "; then
     LABEL=$(security find-identity -p codesigning | grep -F -e "\"$SIGN_ID\"" -e ") $SIGN_ID " | head -1 | sed 's/^[^"]*"\([^"]*\)".*/\1/')
     echo "== sign ($LABEL)"
@@ -167,8 +180,7 @@ if security find-identity -p codesigning | grep -qF -e "\"$SIGN_ID\"" -e ") $SIG
             for lib in "$APP/Contents/MacOS/"*.dylib; do
                 codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$lib"
             done
-            codesign --force --options runtime --timestamp \
-                --entitlements "$ROOT/scripts/macos/AlbumWall.entitlements" --sign "$SIGN_ID" "$APP" ;;
+            codesign --force --options runtime --timestamp ${ENTITLEMENTS[@]+"${ENTITLEMENTS[@]}"} --sign "$SIGN_ID" "$APP" ;;
         *)
             [ "$NOTARIZE" = yes ] && { echo "--notarize needs a Developer ID certificate, not \"$LABEL\"" >&2; exit 1; }
             for lib in "$APP/Contents/MacOS/"*.dylib; do codesign --force --sign "$SIGN_ID" "$lib"; done
