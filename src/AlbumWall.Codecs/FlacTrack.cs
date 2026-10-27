@@ -143,7 +143,19 @@ public sealed class FlacTrack : IAudioTrack
         var end = Readable;
         if (_at + 16 > end && end < _data.Length) return false;     // the header has not all arrived, and will not
         if (!FlacDecoder.TryReadHeader(_data, _at, Info, out _, out _)) { _at = _data.Length; return false; }
+        // Every frame must be what STREAMINFO says the stream is: its channel
+        // count (the header's channel code, read before the frame is decoded)
+        // and no longer than its largest block. Here a mismatch gave wrong audio
+        // rather than a read out of range (DecodeFrame grows its buffers, Read
+        // takes Info.Channels), but it is a broken file all the same, refused as
+        // Deadwax refuses it (security review 2026-10-26, L14; Deadwax L2).
+        var code = _data[_at + 3] >> 4;
+        if ((code < 8 ? code + 1 : 2) != Info.Channels)
+            throw new FlacDecodeException($"The frame at byte {_at} has a different number of channels from STREAMINFO.");
+        var at = _at;
         _at += FlacDecoder.DecodeFrame(_data, _at, end, Info, ref _channels, out _frameLength);
+        if (Info.MaxBlockSize > 0 && _frameLength > Info.MaxBlockSize)
+            throw new FlacDecodeException($"The frame at byte {at} is longer than STREAMINFO's largest block.");
         _frameOffset = 0;
         return true;
     }

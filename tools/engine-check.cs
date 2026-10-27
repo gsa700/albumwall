@@ -300,6 +300,31 @@ static int Hostile()
             bad += Refused(name, () => AudioTracks.Open(path, path), TimeSpan.FromSeconds(5));
         }
 
+        // FLAC (the review's L14 and STREAMINFO): two stereo frames of 192 samples,
+        // made by hand, under a STREAMINFO that tells the truth or lies. The true one
+        // must play, every sample: else the frames are wrong and a refusal proves
+        // nothing. The frames are read to the end, which is where a frame is checked.
+        var stereo = Flac(channels: 2, maxBlock: 192, infoSize: 34);
+        var truth = Path.Combine(dir, "true.flac");
+        File.WriteAllBytes(truth, stereo);
+        {
+            var t = AudioTracks.Open(truth, truth);
+            var n = ReadAll(t);
+            Console.WriteLine(n == 384 ? "ok    FLAC made here: plays, 384 samples" : $"FAIL  FLAC made here: {n} samples, not 384");
+            if (n != 384) bad++;
+        }
+        foreach (var (name, bytes) in new (string, byte[])[]
+        {
+            ("STREAMINFO mono, frames stereo.flac", Flac(channels: 1, maxBlock: 192, infoSize: 34)),
+            ("STREAMINFO largest block 64, frames 192.flac", Flac(channels: 2, maxBlock: 64, infoSize: 34)),
+            ("STREAMINFO 20 bytes.flac", Flac(channels: 2, maxBlock: 192, infoSize: 20)),
+        })
+        {
+            var path = Path.Combine(dir, name);
+            File.WriteAllBytes(path, bytes);
+            bad += Refused(name, () => { var t = AudioTracks.Open(path, path); ReadAll(t); return t; }, TimeSpan.FromSeconds(5));
+        }
+
         // A server on 127.0.0.1: what it does with each request is the request's path.
         var listener = new System.Net.HttpListener();
         var port = Random.Shared.Next(20000, 60000);
@@ -348,6 +373,51 @@ static int Hostile()
 
     // Opening must fail with an IOException (what a broken track throws, and the engine
     // passes over) within `limit`.
+    static int ReadAll(IAudioTrack t)
+    {
+        var buf = new float[1024 * t.Channels];
+        int n, total = 0;
+        while ((n = t.Read(buf)) > 0) total += n;
+        return total;
+    }
+
+    // fLaC, a STREAMINFO saying `channels` and `maxBlock` (`infoSize` bytes of it
+    // claimed, 34 true), then two frames: stereo, 192 samples of 16 bits, each
+    // channel a constant subframe. CRC-8 over the header, CRC-16 over the frame.
+    static byte[] Flac(int channels, int maxBlock, int infoSize)
+    {
+        var f = new List<byte>("fLaC"u8.ToArray()) { 0x80, 0, 0, (byte)infoSize };
+        var info = new byte[34];
+        info[0] = 0; info[1] = 192; info[2] = (byte)(maxBlock >> 8); info[3] = (byte)maxBlock;
+        var packed = (ulong)44100 << 44 | (ulong)(channels - 1) << 41 | (ulong)15 << 36 | 384;
+        for (var i = 0; i < 8; i++) info[10 + i] = (byte)(packed >> (56 - 8 * i));
+        f.AddRange(info.Take(infoSize));
+        for (var frame = 0; frame < 2; frame++)
+        {
+            // fixed blocking; 192 samples, 44.1 kHz; independent stereo, 16 bits; frame number
+            var h = new List<byte> { 0xFF, 0xF8, 0x19, 0x18, (byte)frame };
+            h.Add(Crc8(h));
+            h.AddRange(new byte[] { 0x00, 0x10, 0x00, 0x00, 0xF0, 0x00 });   // constant 0x1000, then -0x1000
+            var crc = Crc16(h);
+            h.Add((byte)(crc >> 8)); h.Add((byte)crc);
+            f.AddRange(h);
+        }
+        return f.ToArray();
+
+        static byte Crc8(List<byte> d)
+        {
+            byte c = 0;
+            foreach (var b in d) { c ^= b; for (var i = 0; i < 8; i++) c = (byte)((c & 0x80) != 0 ? (c << 1) ^ 0x07 : c << 1); }
+            return c;
+        }
+        static ushort Crc16(List<byte> d)
+        {
+            ushort c = 0;
+            foreach (var b in d) { c ^= (ushort)(b << 8); for (var i = 0; i < 8; i++) c = (ushort)((c & 0x8000) != 0 ? (c << 1) ^ 0x8005 : c << 1); }
+            return c;
+        }
+    }
+
     static int Refused(string what, Func<IAudioTrack> open, TimeSpan limit)
     {
         var sw = Stopwatch.StartNew();

@@ -117,6 +117,21 @@ internal sealed class AacDecoder
     /// interleaved, as floats from -1 to 1.
     public void DecodeFrame(byte[] data, int offset, int length, Span<float> pcm)
     {
+        // As ALAC: the spectral and Huffman code is a port, and one check it
+        // misses on a damaged frame must fail that track as a decode error, not
+        // escape as IndexOutOfRange (security review 2026-10-26).
+        try
+        {
+            Decode(data, offset, length, pcm);
+        }
+        catch (IndexOutOfRangeException)
+        {
+            throw new FlacDecodeException("A damaged AAC frame: it reads past its end.");
+        }
+    }
+
+    private void Decode(byte[] data, int offset, int length, Span<float> pcm)
+    {
         var ld = new BitReader(data, offset, length);
         var channels = 0;
         int id;
