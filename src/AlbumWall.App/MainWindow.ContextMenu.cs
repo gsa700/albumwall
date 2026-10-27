@@ -337,10 +337,17 @@ public partial class MainWindow
         return item;
     }
 
-    /// Opens the album's folder in whatever the desktop opens folders with.
+    /// Opens the album's folder in whatever the desktop opens folders with. On
+    /// the Mac it is shown in its own folder instead: opening a folder there
+    /// runs one that is laid out as an app (Domain/FileManager.cs).
     private void OpenFolder(string folder)
     {
         Console.WriteLine($"[menu] open {folder}");
+        if (!Domain.FileManager.MayOpenFolders)
+        {
+            _ = Task.Run(() => Domain.FileManager.Show(folder));
+            return;
+        }
         _ = Launcher.LaunchUriAsync(new Uri(folder));
     }
 
@@ -352,51 +359,8 @@ public partial class MainWindow
         var folder = Path.GetDirectoryName(file);
         _ = Task.Run(() =>
         {
-            if (Selected(file) || folder is null) return;
+            if (Domain.FileManager.Show(file) || folder is null || !Domain.FileManager.MayOpenFolders) return;
             Avalonia.Threading.Dispatcher.UIThread.Post(() => OpenFolder(folder));
         });
-    }
-
-    /// Asks the file manager to show one file selected. False if there was
-    /// nobody to ask.
-    private static bool Selected(string file)
-    {
-        try
-        {
-            var start = new ProcessStartInfo { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
-            if (OperatingSystem.IsWindows())
-            {
-                start.FileName = "explorer.exe";
-                start.Arguments = $"/select,\"{file}\"";
-                using var explorer = Process.Start(start);
-                return explorer is not null;        // its exit code says nothing either way
-            }
-            if (OperatingSystem.IsMacOS())
-            {
-                start.FileName = "open";
-                start.ArgumentList.Add("-R");
-                start.ArgumentList.Add(file);
-            }
-            else
-            {
-                // The freedesktop way, which Files, Dolphin, Nemo and COSMIC Files
-                // all answer. dbus-send splits an array on commas, and a song is
-                // allowed one in its name.
-                start.FileName = "dbus-send";
-                foreach (var arg in new[]
-                {
-                    "--session", "--print-reply", "--dest=org.freedesktop.FileManager1", "--type=method_call",
-                    "/org/freedesktop/FileManager1", "org.freedesktop.FileManager1.ShowItems",
-                    "array:string:" + new Uri(file).AbsoluteUri.Replace(",", "%2C"), "string:",
-                })
-                    start.ArgumentList.Add(arg);
-            }
-            using var p = Process.Start(start);
-            return p is not null && p.WaitForExit(3000) && p.ExitCode == 0;
-        }
-        catch (Exception)
-        {
-            return false;       // no such program here: the folder alone will do
-        }
     }
 }
