@@ -85,16 +85,47 @@ public static class UpdateService
     /// <summary>
     /// Stable: the latest full release. Edge: the release list, newest app release taken
     /// (<see cref="ReleaseFeed"/>). ALBUMWALL_UPDATE_FEED replaces either and must serve the
-    /// matching shape (one release for Stable, a list for Edge).
+    /// matching shape (one release for Stable, a list for Edge), from a place <see cref="MayFetch"/>
+    /// allows: anything else is ignored.
     /// </summary>
     private static string FeedUrl(bool edge)
     {
+        var github = edge ? $"https://api.github.com/repos/{InstallService.Repo}/releases?per_page=30"
+                          : $"https://api.github.com/repos/{InstallService.Repo}/releases/latest";
         var other = Environment.GetEnvironmentVariable("ALBUMWALL_UPDATE_FEED");
-        if (string.IsNullOrWhiteSpace(other))
-            return edge ? $"https://api.github.com/repos/{InstallService.Repo}/releases?per_page=30"
-                        : $"https://api.github.com/repos/{InstallService.Repo}/releases/latest";
+        if (string.IsNullOrWhiteSpace(other)) return github;
+        if (!Uri.TryCreate(other, UriKind.Absolute, out var u) || !MayFetch(u))
+        {
+            Console.WriteLine($"[update] ALBUMWALL_UPDATE_FEED ignored (GitHub over https, or this computer, only): {other}");
+            return github;
+        }
         Console.WriteLine($"[update] FEED OVERRIDDEN by ALBUMWALL_UPDATE_FEED: {other}");
         return other;
+    }
+
+    /// <summary>
+    /// Where the updater may fetch from: GitHub over https (the API, the release pages, and
+    /// githubusercontent.com, where a download is redirected), or this computer, over http or
+    /// https, for a test feed. ALBUMWALL_UPDATE_FEED worked in every build and took any address,
+    /// and the asset links in a feed were followed wherever they pointed: an environment that
+    /// set it could point a copy at any server, which then only had to agree with itself
+    /// (security review 2026-10-26, INFO). SHA256SUMS comes from the same release, so GitHub
+    /// stays the root of trust.
+    /// </summary>
+    internal static bool MayFetch(Uri u)
+    {
+        if (u.IsLoopback) return u.Scheme is "http" or "https";
+        if (u.Scheme != "https") return false;
+        var host = u.IdnHost.ToLowerInvariant();
+        return host is "github.com" or "api.github.com"
+            || host.EndsWith(".githubusercontent.com", StringComparison.Ordinal);
+    }
+
+    /// <summary>Refuses a reply that a redirect brought from somewhere <see cref="MayFetch"/> does not allow.</summary>
+    private static void CheckLanded(HttpResponseMessage resp)
+    {
+        if (resp.RequestMessage?.RequestUri is { } u && !MayFetch(u))
+            throw new InvalidOperationException($"The download was redirected to {u.Host}, not GitHub. Nothing was installed.");
     }
 
     /// <summary>
@@ -218,6 +249,9 @@ public static class UpdateService
         if (info.SumsUrl is null)
             throw new InvalidOperationException("This release publishes no SHA256SUMS, so its download "
                                               + "cannot be checked. It has not been installed.");
+        // Both links checked before anything is made on disk, so a refusal leaves nothing behind.
+        Request(info.SumsUrl).Dispose();
+        Request(info.AssetUrl).Dispose();
 
         var tmp = Directory.CreateTempSubdirectory("AlbumWall-update-").FullName;
         _stageRoot = tmp;
@@ -229,6 +263,7 @@ public static class UpdateService
         using (var resp = await Http.SendAsync(req))
         {
             resp.EnsureSuccessStatusCode();
+            CheckLanded(resp);
             sums = await resp.Content.ReadAsStringAsync();
         }
         var expected = sums.Split('\n')
@@ -243,6 +278,7 @@ public static class UpdateService
         using (var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead))
         {
             resp.EnsureSuccessStatusCode();
+            CheckLanded(resp);
             var total = resp.Content.Headers.ContentLength ?? 0;
             await using var from = await resp.Content.ReadAsStreamAsync();
             await using var to = File.Create(zip);
@@ -288,6 +324,8 @@ public static class UpdateService
 
     private static HttpRequestMessage Request(string url)
     {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u) || !MayFetch(u))
+            throw new InvalidOperationException($"The release points its download at {url}, not at GitHub. Nothing was installed.");
         var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.UserAgent.Add(new ProductInfoHeaderValue("AlbumWall-UpdateInstall", "1.0"));
         return req;
