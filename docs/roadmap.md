@@ -86,7 +86,22 @@ is ahead, the history is for what is behind.
      it), which the engine passes over like an IOException, and the check now
      says so. SMTC: metadata, thumbnail, play/next/previous/toggle all work.
      The window in 0.266 s, the single file's 1.201 s. Not yet: his hands-on
-     use on Windows, the Pi.
+     use on Windows.
+     THE PI (Pi5-POE, Debian 13 trixie, 8 GB, 2026-10-27, HEADLESS: both HDMI
+     disconnected): needs clang (apt install clang; zlib1g-dev was there).
+     Built on the Pi in 136 s, 36 MB (single file 111 MB). Run inside cage
+     with WLR_BACKENDS=headless (no screen): the five-format library indexes
+     as the JIT build and the Mac do, every column; engine-check AOT passes
+     (FLAC MD5, ALAC = its FLAC, seeks, hostile, a muted play into PipeWire's
+     null sink; AAC samples match ffmpeg to 1.2e-8, but the Pi's ffmpeg 7.1
+     leaves 688 frames of encoder padding on the end that ffmpeg 8 trims, so
+     compare counts it NOT). The window in 0.121 s, the single file's 1.825 s,
+     about 15x. Not yet, needing the screens: 4K scrolling, touch, the front
+     panel, ALSA direct.
+     FOUND ON THE WAY, both builds: with no output at all (Wayland compositor
+     running, no screen connected) Avalonia aborts at start ("Expected at least
+     one wl_output"), so a kiosk whose screen is off at boot would be restarted
+     by its supervisor again and again. Worth a look before the kiosk moves.
   3. Releases from CI: each runner builds its own system (AOT cannot build for
      another); release.sh takes the run of the release commit (a push or a
      manual start only), checks the exact file list, the first bytes, and
