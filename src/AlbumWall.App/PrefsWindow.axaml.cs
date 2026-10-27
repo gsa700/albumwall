@@ -77,7 +77,7 @@ public partial class PrefsWindow : Window
             FillUpdate();
         };
 
-        // ReplayGain: the same setting as the RG button on the play controls.
+        // ReplayGain: the same setting as the RG button beside the volume.
         void ChooseGain(Playback.GainMode mode)
         {
             if (_filling) return;
@@ -86,6 +86,9 @@ public partial class PrefsWindow : Window
         GainAlbum.IsCheckedChanged += (_, _) => { if (GainAlbum.IsChecked == true) ChooseGain(Playback.GainMode.Album); };
         GainTrack.IsCheckedChanged += (_, _) => { if (GainTrack.IsChecked == true) ChooseGain(Playback.GainMode.Track); };
         GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Playback.GainMode.Off); };
+
+        BarMeters.IsCheckedChanged += (_, _) => { if (!_filling) host.BarMetersOn = BarMeters.IsChecked == true; };
+        MetersAfterGain.IsCheckedChanged += (_, _) => { if (!_filling) host.MetersAfterGain = MetersAfterGain.IsChecked == true; };
 
         UpdateButton.Click += async (_, _) => await OnUpdateButton();
         UpdateNotes.Click += async (_, _) =>
@@ -580,6 +583,8 @@ public partial class PrefsWindow : Window
         GainAlbum.IsChecked = gain == Playback.GainMode.Album;
         GainTrack.IsChecked = gain == Playback.GainMode.Track;
         GainOff.IsChecked = gain == Playback.GainMode.Off;
+        BarMeters.IsChecked = _host.BarMetersOn;
+        MetersAfterGain.IsChecked = _host.MetersAfterGain;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;
         TransportTop.IsChecked = _host.TransportAtTop;

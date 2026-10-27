@@ -39,7 +39,7 @@ the sleeve over to show.
   playback is **gapless** by construction: the last sample of one track is
   followed by the first of the next. Each file plays at its own sample rate,
   with ReplayGain by album, by track or off, chosen under Preferences ›
-  Playback or from the RG button on the play controls. Every decoder is
+  Playback or from the RG button beside the volume. Every decoder is
   checked sample for sample against ffmpeg (`tools/engine-check.cs`); FLAC,
   ALAC and WAV come out bit-exact. Nothing to install: it plays through
   CoreAudio on the Mac, WASAPI on Windows, and PulseAudio or PipeWire on Linux.
@@ -51,9 +51,14 @@ the sleeve over to show.
 - **The colors are your collection's.** The window has no theme of its own: it
   takes the hue your covers lean toward and builds itself from that. Preferences
   › Appearance decides how light it sits and how much of the hue it takes.
+- **Meters in the play controls**: the same VU pair, LED bars or 31-band
+  analyzer at the end of the play bar, a click to change them, kept apart from
+  compact mode's choice. Preferences › Playback turns them off, and says whether
+  every meter reads the record as mastered or after ReplayGain.
 - **Compact mode** (Ctrl+M, or the button beside full screen): the window
   becomes a strip showing what is playing — cover, track, format, progress —
-  with a pair of analog VU meters that swing like real ones. Hover it for the
+  with a pair of analog VU meters that swing like real ones; click them for LED
+  bars or a 31-band analyzer. Hover it for the
   play controls and the way back; Esc or Ctrl+M returns to the wall exactly as
   you left it. After two minutes paused it shows a clock instead. On a Linux
   Wayland desktop the strip and the wall share one window position; see

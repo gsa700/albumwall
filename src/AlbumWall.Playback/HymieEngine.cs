@@ -319,7 +319,9 @@ internal sealed class HymieEngine : IDisposable
             _afterBreak = null;
             Array.Fill(_levelBlock, -1);
             _levelAt = at;
+            _levelFrom = at;
             _levelL = _levelR = 0;
+            _peakL = _peakR = 0;
             Prefetch(p.Index + 1);
         }
     }
@@ -345,7 +347,9 @@ internal sealed class HymieEngine : IDisposable
             _afterBreak = null;
             Array.Fill(_levelBlock, -1);
             _levelAt = 0;
+            _levelFrom = 0;
             _levelL = _levelR = 0;
+            _peakL = _peakR = 0;
             Prefetch(index + 1);
         }
 
@@ -531,50 +535,120 @@ internal sealed class HymieEngine : IDisposable
 
     // ---------------------------------------------------------------- levels
 
-    // RMS per block of 1024 frames of the output's timeline, measured BEFORE
-    // the gain as mpv's astats is (it sits ahead of the volume), and kept for a
-    // while so Levels can read the block that is sounding now, not the one
-    // being decoded. 512 blocks is 12 s at 44.1 kHz, far more than is buffered.
+    // RMS and peak per block of 1024 frames of the output's timeline, measured
+    // BEFORE the gain as mpv's astats is (it sits ahead of the volume), and kept
+    // for a while so the meters can read the block that is sounding now, not the
+    // one being decoded. 512 blocks is 12 s at 44.1 kHz, far more than is
+    // buffered. Each block keeps the gain it was decoded with too, so a meter
+    // can be asked for the level after ReplayGain without measuring twice (the
+    // setting, 2026-10-27: "before or after", one choice for every meter).
     private const int LevelShift = 10;
     private const int LevelBlocks = 512;
     private readonly long[] _levelBlock = new long[LevelBlocks];
     private readonly float[] _levelLeft = new float[LevelBlocks];
     private readonly float[] _levelRight = new float[LevelBlocks];
+    private readonly float[] _peakLeft = new float[LevelBlocks];
+    private readonly float[] _peakRight = new float[LevelBlocks];
+    private readonly float[] _levelGain = new float[LevelBlocks];
     private long _levelAt;          // the next frame to measure
+    private long _levelFrom;        // where the timeline last started over
     private double _levelL, _levelR;
+    private float _peakL, _peakR;
+
+    // THE SAMPLES THEMSELVES, for the 31-band analyzer: the last 2^18 frames
+    // (6 s at 44.1 kHz, 1.4 s at 192 kHz, either well past what is buffered),
+    // mixed to mono, by their place on the same timeline. Written as they are
+    // measured, read only while the analyzer is on screen (Spectrum), so a
+    // window without one pays for a store, not for a transform.
+    private const int RingShift = 18;
+    private readonly float[] _ring = new float[1 << RingShift];
 
     private void Measure(ReadOnlySpan<float> chunk, int channels)
     {
         var right = channels > 1 ? 1 : 0;
+        const int ringMask = (1 << RingShift) - 1;
         for (var i = 0; i < chunk.Length; i += channels)
         {
-            double l = chunk[i], r = chunk[i + right];
-            _levelL += l * l;
-            _levelR += r * r;
+            float l = chunk[i], r = chunk[i + right];
+            _ring[(int)(_levelAt & ringMask)] = (l + r) * 0.5f;
+            _levelL += (double)l * l;
+            _levelR += (double)r * r;
+            _peakL = Math.Max(_peakL, Math.Abs(l));
+            _peakR = Math.Max(_peakR, Math.Abs(r));
             if ((++_levelAt & ((1 << LevelShift) - 1)) != 0) continue;
             var block = (_levelAt >> LevelShift) - 1;
             var slot = (int)(block % LevelBlocks);
             _levelLeft[slot] = (float)(_levelL / (1 << LevelShift));
             _levelRight[slot] = (float)(_levelR / (1 << LevelShift));
+            _peakLeft[slot] = _peakL;
+            _peakRight[slot] = _peakR;
+            _levelGain[slot] = _decodingGain;
             _levelBlock[slot] = block;
             _levelL = _levelR = 0;
+            _peakL = _peakR = 0;
         }
     }
 
+    /// The RMS levels of the block sounding now, in dBFS, before the gain.
     public (double Left, double Right) Levels()
     {
-        if (!_lock.TryEnter(UiWait)) return _lastLevels;
+        var m = Meter(afterGain: false);
+        return (m.RmsLeft, m.RmsRight);
+    }
+
+    private MeterLevels _lastMeter = MeterLevels.Silent;
+
+    /// RMS and peak of the block sounding now, in dBFS: as the record was
+    /// mastered, or with its ReplayGain applied (what reaches the volume).
+    public MeterLevels Meter(bool afterGain)
+    {
+        if (!_lock.TryEnter(UiWait)) return _lastMeter;
         try
         {
-            if (_out is null) return _lastLevels = (double.NegativeInfinity, double.NegativeInfinity);
+            if (_out is null) return _lastMeter = MeterLevels.Silent;
             var block = _out.Played >> LevelShift;
             var slot = (int)(block % LevelBlocks);
-            if (_levelBlock[slot] != block) return _lastLevels = (double.NegativeInfinity, double.NegativeInfinity);
-            return _lastLevels = (Db(_levelLeft[slot]), Db(_levelRight[slot]));
+            if (_levelBlock[slot] != block) return _lastMeter = MeterLevels.Silent;
+            var g = afterGain ? _levelGain[slot] : 1f;
+            return _lastMeter = new MeterLevels(
+                Db(_levelLeft[slot] * g * g), Db(_levelRight[slot] * g * g),
+                Db(_peakLeft[slot] * _peakLeft[slot] * g * g), Db(_peakRight[slot] * _peakRight[slot] * g * g));
         }
         finally { _lock.Exit(); }
 
         static double Db(float meanSquare) => meanSquare > 0 ? 10 * Math.Log10(meanSquare) : double.NegativeInfinity;
+    }
+
+    private readonly float[] _window = new float[Spectrum.Size];
+
+    /// The 31 third-octave bands of what is sounding now, in dB (a full-scale sine
+    /// in a band reads 0), into `bands`. False, with nothing written, when there
+    /// is nothing to measure or the audio thread is busy: the caller keeps what
+    /// it showed last.
+    public bool Bands(Span<float> bands, bool afterGain)
+    {
+        int rate;
+        float g;
+        if (!_lock.TryEnter(UiWait)) return false;
+        try
+        {
+            if (_out is null) return false;
+            var end = _out.Played;
+            var block = end >> LevelShift;
+            var slot = (int)(block % LevelBlocks);
+            // The block sounding now must have been measured, and with it the
+            // samples before it: a seek or a new output starts the timeline over.
+            if (_levelBlock[slot] != block || end - Spectrum.Size < _levelFrom) return false;
+            rate = _out.SampleRate;
+            g = afterGain ? _levelGain[slot] : 1f;
+            const int ringMask = (1 << RingShift) - 1;
+            for (var i = 0; i < Spectrum.Size; i++)
+                _window[i] = _ring[(int)((end - Spectrum.Size + i) & ringMask)];
+        }
+        finally { _lock.Exit(); }
+
+        Spectrum.ThirdOctaves(_window, rate, g, bands);
+        return true;
     }
 
     // ---------------------------------------------------------------- watching

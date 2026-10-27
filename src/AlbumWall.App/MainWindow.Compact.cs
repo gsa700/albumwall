@@ -56,6 +56,8 @@ public partial class MainWindow
         _frontPanel = new FrontPanelWindow();
         _frontPanel.Show();
         Closing += (_, _) => _frontPanel?.Close();
+        _frontPanel.View.Meters.Show(CompactMeterStyle, flash: false);
+        _frontPanel.View.MetersCycled += CycleCompactMeter;
         StartMeters();
         CompactTick();
         Console.WriteLine($"[front-panel] open (\"{FrontPanelWindow.WindowTitle}\"; the compositor places it)");
@@ -78,7 +80,6 @@ public partial class MainWindow
     /// The compact window's title size, in the view's own 1480 x 320 units.
     private const double CompactTitleSize = 54;
 
-    private DispatcherTimer? _meterTimer;
     private DispatcherTimer? _aspectSnap;
 
     /// Paused for this long, the view gives way to the standby clock. Short
@@ -247,7 +248,8 @@ public partial class MainWindow
         _compact = false;
         _compactLeft = Environment.TickCount64;
 
-        if (_frontPanel is null) StopMeters();    // the panel still needs them
+        // The panel still needs them, and so does the play bar if the music is on.
+        if (_frontPanel is null && _player?.IsPlaying != true) StopMeters();
         _aspectSnap?.Stop();
         CompactHost.IsVisible = false;
         MainDock.IsVisible = true;
@@ -307,52 +309,6 @@ public partial class MainWindow
             ScheduleSave();
         };
         _aspectSnap.Start();
-    }
-
-    /// Reads the levels about thirty times a second while compact and playing,
-    /// and hands them to the view as read: Hymie measures the block sounding
-    /// now. (mpv measured where it decoded, 200 ms ahead of the speakers, and
-    /// the readings were held back that long until mpv went, 2026-10-22.)
-    ///
-    /// Whether there are meters at all is decided HERE, on every tick, not once
-    /// on entering: a window that opens straight into compact gets there before
-    /// the player exists (restored session, 2026-09-28: compact at 0.96 s, the
-    /// player at 1.01 s), and a decision taken then hid the meters all session.
-    private void StartMeters()
-    {
-        if (_meterTimer is not null) return;        // one reading, every live view
-        _meterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
-        var quietTicks = 0;
-        var clock = System.Diagnostics.Stopwatch.StartNew();
-        _meterTimer.Tick += (_, _) =>
-        {
-            var seconds = clock.Elapsed.TotalSeconds;
-            clock.Restart();
-            var metering = _player is not null;
-            var any = false;
-            foreach (var v in LiveViews())
-            {
-                any = true;
-                if (v.ShowMeters != metering) v.ShowMeters = metering;
-            }
-            if (!any || _player is null) return;
-            var playing = _player.IsPlaying;
-            var (l, r) = playing ? _player.Levels() : (double.NegativeInfinity, double.NegativeInfinity);
-            foreach (var v in LiveViews()) v.SetLevels(l, r, seconds);
-            // Paused, stopped or at the end: once the needles have had time to fall (they
-            // reach rest in well under a second), nothing changes until the music starts
-            // again, and thirty wake-ups a second were for nothing. On the kiosk, whose front
-            // panel never closes, that was every paused hour. OnPlaybackState starts it again.
-            quietTicks = playing ? 0 : quietTicks + 1;
-            if (quietTicks > 90) StopMeters();
-        };
-        _meterTimer.Start();
-    }
-
-    private void StopMeters()
-    {
-        _meterTimer?.Stop();
-        _meterTimer = null;
     }
 
     /// Four times a second while compact: the position always, the rest only

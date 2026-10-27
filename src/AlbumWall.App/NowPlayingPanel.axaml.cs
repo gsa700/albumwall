@@ -35,6 +35,12 @@ public partial class NowPlayingPanel : UserControl
     /// bars around it fills them to match.
     public event Action<IBrush>? GroundChanged;
 
+    /// A click on the meters: the owner moves their style on (Meters.cs).
+    public event Action? MetersCycled;
+
+    /// The meters, dark-ground ink. Which style shows is the owner's to say.
+    public MeterStrip Meters { get; } = new(MeterPlace.Panel) { Ink = MeterInk.OnDark };
+
     /// Whether the hover controls exist at all. On for the compact window, off
     /// for the front panel, where a remote does the driving.
     public bool Interactive { get; set; } = true;
@@ -70,6 +76,8 @@ public partial class NowPlayingPanel : UserControl
         PlayControl.Click += (_, _) => PlayPauseRequested?.Invoke();
         NextControl.Click += (_, _) => NextRequested?.Invoke();
         ExpandButton.Click += (_, _) => ExpandRequested?.Invoke();
+        MetersHost.Child = Meters;
+        Meters.Cycled += () => MetersCycled?.Invoke();
 
         ProgressTrack.PointerPressed += (_, e) =>
         {
@@ -206,19 +214,8 @@ public partial class NowPlayingPanel : UserControl
     /// Whether the meters are there at all: only when the player can measure.
     public bool ShowMeters
     {
-        get => Meters.IsVisible;
-        set => Meters.IsVisible = value;
-    }
-
-    /// The latest levels, in dBFS of RMS. The needles do their own moving.
-    /// The levels to chase, and how long since the last call: the needles move on by
-    /// that much (VuMeter.Step), so the meter timer's tick is their frame rate.
-    public void SetLevels(double left, double right, double seconds)
-    {
-        LeftMeter.SetLevel(left);
-        RightMeter.SetLevel(right);
-        LeftMeter.Step(seconds);
-        RightMeter.Step(seconds);
+        get => MetersHost.IsVisible;
+        set => MetersHost.IsVisible = value;
     }
 
     private void UpdateClock()

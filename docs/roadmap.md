@@ -302,7 +302,9 @@ is ahead, the history is for what is behind.
   labwc rule; `kiosk/`, `docs/kiosk.md`), and the vintage VU meters
   (`VuMeter.cs`). Still to do, each usable on its own:
   1. **Meter variant B**: album-tinted ground with 32-segment L/R LED bars (fast
-     attack, slow release, peak hold).
+     attack, slow release, peak hold). BUILT 2026-10-27 (`Meters.cs`, `LedMeter`),
+     on the view's own dark ground rather than an album tint, reading the peak of
+     each block, -30 to +3 dBFS.
   2. **Browse strip and open album on the panel**, with the remote. Needs the
      arrow-key navigation below, and settles its open question: on a remote the
      arrows must move, so seeking has to go somewhere else.
@@ -311,9 +313,13 @@ is ahead, the history is for what is behind.
      buttons (Flirc + the aluminium Apple Remote is the leading pick).
   4. **A 31-band spectrum display** (2026-10-04, "can we add a 31 spectrum
      display option for albumwalls compact mode?"): third-octave, 20 Hz to
-     20 kHz. Not designed. `astats` gives no per-band level, so it needs its own
-     tap (or the samples in hand, once our own engine plays), and the audio must
-     stay bit-exact with it in the chain.
+     20 kHz. BUILT 2026-10-27 (`RtaMeter`; `Playback/Spectrum.cs`): Hymie keeps
+     the last 2^18 frames as mono beside the levels, and the app takes a 4096-point
+     transform of what is sounding now, 30 times a second, only while an analyzer
+     is on screen (0.2 ms on Control). Nothing is added to the audio path: the
+     samples are copied as they are measured, so it stays bit-exact. The lowest
+     bands share bins at this size and read smoothed. Scale -60 to -6 dB per band,
+     set from his records (AC/DC, Amy Winehouse).
 
   With 1 or 4, a setting for where the meters read (2026-10-27, Hambench): **before
   ReplayGain or after it.** Today the VU reads before the gain, as mpv's astats
@@ -323,7 +329,7 @@ is ahead, the history is for what is behind.
   is for now. Before the gain is the record as mastered, after it is what reaches
   the volume control. The default and the setting's wording are still to be decided.
 
-  Two ways in, both agreed 2026-10-27 (Hambench), neither built:
+  Two ways in, both agreed 2026-10-27 (Hambench); the first BUILT the same day:
   - **Click the meters to change them**, Winamp's way: VU, LED, spectrum, and
     back to VU, kept like any other setting. The new style's name shows for a
     moment as it changes, so the click does not look like a fault. A tap does
@@ -341,7 +347,7 @@ is ahead, the history is for what is behind.
     rather than here as well, and the wall's album menu stays on the wall.
 
   **Meters on the wall, in the play controls** (agreed 2026-10-27 on Hambench,
-  to be built on Control). Mockup: https://claude.ai/artifact/4bE3KuLx29wzJbM5F4xKbv
+  BUILT the same day on Control: `Meters.cs`, `MainWindow.Meters.cs`). Mockup: https://claude.ai/artifact/4bE3KuLx29wzJbM5F4xKbv
   (boards "B · Play controls: LED / VU / 31-band RTA" and "B · RG beside the
   volume"). He chose the play bar over the open album's panel (A) and over the
   playing marker as a meter (C). What was agreed:
@@ -365,8 +371,11 @@ is ahead, the history is for what is behind.
      default** (a setting turns them off); the play bar and compact mode each
      **keep their own meter choice**, so cycling one leaves the other alone;
      and the **before-or-after-ReplayGain setting covers both**, one setting
-     for every meter.
-  The RTA needs Hymie's samples in hand (see 4 above).
+     for every meter. Both switches are in Preferences › Playback; the
+     compact right-click menu that was to hold the second is not built yet.
+  As built, the play bar's VU faces are 100 x 65 with a 14 px gap (214 wide),
+  and the play bar's title and progress columns hold their minimums (264, 260)
+  so a narrow window squeezes the slack, never the title over the cover.
 
   Later, maybe: a track list the compact view can drop open, as iTunes' mini
   player did ("lets not for now at least"). The "Next ..." line is gone and not

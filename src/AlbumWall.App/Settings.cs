@@ -151,6 +151,16 @@ public sealed class Settings
     public int? CompactX { get; set; }
     public int? CompactY { get; set; }
 
+    /// The meters (2026-10-27, his calls). Whether the play bar shows them: unset is
+    /// on. Which style each place shows, "vu", "led" or "rta": the play bar and
+    /// compact keep their own, so a click on one leaves the other alone; unset is
+    /// the VU. And where every meter reads: unset is before ReplayGain (the record
+    /// as mastered), true after it (what reaches the volume).
+    public bool? BarMeters { get; set; }
+    public string? BarMeter { get; set; }
+    public string? CompactMeter { get; set; }
+    public bool? MetersAfterGain { get; set; }
+
     /// ALBUMWALL_CONFIG_DIR moves the settings somewhere else, for test runs. A
     /// second instance pointed at the real file fights the first over window
     /// geometry and the library path, and whichever closes last wins — so

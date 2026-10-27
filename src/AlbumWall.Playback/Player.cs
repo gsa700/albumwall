@@ -73,6 +73,13 @@ public sealed class Player : IDisposable
     /// where the output is playing, so nothing needs holding back.
     public (double Left, double Right) Levels() => _hymie.Levels();
 
+    /// RMS and peak of the block sounding now, before ReplayGain or after it.
+    public MeterLevels Meter(bool afterGain) => _hymie.Meter(afterGain);
+
+    /// The 31-band analyzer's reading of what is sounding now (Spectrum); false
+    /// when there is none to take, and the caller keeps what it had.
+    public bool Bands(Span<float> bands, bool afterGain) => _hymie.Bands(bands, afterGain);
+
     /// ReplayGain. Album gain preserves the relative loudness the record was
     /// mastered with, which is what album playback wants; track gain flattens
     /// that out, which is what shuffle wants.

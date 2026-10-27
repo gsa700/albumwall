@@ -87,11 +87,9 @@
                                    Foreground="#C9C3B9" Margin="0,10,0,0"
                                    TextTrimming="CharacterEllipsis" MaxLines="1"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" x:Name="Meters" Orientation="Horizontal" Spacing="14"
-                                VerticalAlignment="Center" IsVisible="False">
-                        <app:VuMeter x:Name="LeftMeter"/>
-                        <app:VuMeter x:Name="RightMeter"/>
-                    </StackPanel>
+                    <!-- The strip (Meters.cs): the VU pair, the LED bars or the
+                         analyzer, all one size, a click to change them. Made in code. -->
+                    <Border Grid.Column="1" x:Name="MetersHost" VerticalAlignment="Center" IsVisible="False"/>
                 </Grid>
             </DockPanel>
         </Grid>

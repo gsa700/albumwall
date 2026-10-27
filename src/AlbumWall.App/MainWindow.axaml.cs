@@ -157,6 +157,7 @@ public partial class MainWindow : Window
         FollowInputKind();
         SetUpFullScreenReveal();
         SetUpCompact();
+        SetUpMeters();
         if (Program.FrontPanel) Opened += (_, _) => OpenFrontPanel();
         // Closed compact, opens compact: after the wall's own geometry is restored,
         // so leaving compact later has a wall size to go back to.
@@ -492,7 +493,7 @@ public partial class MainWindow : Window
             }
         }
 
-        _settings.Gain = (_player?.Gain ?? Playback.GainMode.Album).ToString();
+        _settings.Gain = GainMode.ToString();
         _settings.Volume = _volume;
         _settings.Lightness = _lightness;
         _settings.Tint = (int)Math.Round(Ground.Saturation * 100);
@@ -2067,6 +2068,7 @@ public partial class MainWindow : Window
             _gainChosen = true;
             _settings.Gain = value.ToString();
             _settings.Save();
+            UpdateGainButton();
             if (_player is null || _player.Gain == value) return;
             _player.Gain = value;
             if (_playingAlbum is not null) UpdateNowPlaying();
@@ -2777,6 +2779,16 @@ public partial class MainWindow : Window
         if (text.Equals("expand", StringComparison.OrdinalIgnoreCase)) { ExitCompact(); return; }
         if (text.Equals("fullscreen", StringComparison.OrdinalIgnoreCase)) { ToggleFullScreen(); return; }
         if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
+        // The meters' click, on the play bar's strip or compact's (MainWindow.Meters.cs).
+        if (text.Equals("meter bar", StringComparison.OrdinalIgnoreCase)) { _barMeters.Cycle(); return; }
+        if (text.Equals("meter compact", StringComparison.OrdinalIgnoreCase)) { CycleCompactMeter(); return; }
+        if (text.Equals("bands", StringComparison.OrdinalIgnoreCase))
+        {
+            var b = new float[Playback.Spectrum.BandCount];
+            var ok = _player?.Bands(b, MetersAfterGain) == true;
+            Console.WriteLine($"[meters] bands{(ok ? "" : " (none)")}: " + string.Join(" ", b.Select(v => v.ToString("0"))));
+            return;
+        }
         if (text.Equals("focus position", StringComparison.OrdinalIgnoreCase)) { PositionSlider.Focus(NavigationMethod.Tab); return; }
         // Where the keyboard is: the focused control, the album and track it is on,
         // and which side of its album the open panel is.
@@ -3742,7 +3754,7 @@ public partial class MainWindow : Window
             Classes.Set("paused", _player?.IsPlaying != true);
             Pulse();
             // The meters' timer sleeps through a pause (StartMeters); playing wakes it.
-            if (_player?.IsPlaying == true && LiveViews().Any()) StartMeters();
+            if (_player?.IsPlaying == true && (LiveViews().Any() || BarMetersLive)) StartMeters();
         });
 
     /// A slow breath on the playing marker: long and shallow deliberately, it should read
@@ -3961,19 +3973,20 @@ public partial class MainWindow : Window
         NextButton.Click += (_, _) => _player?.Next();
         PlayPauseButton.Click += (_, _) => _player?.TogglePause();
 
+        // On the top bar since 2026-10-27, so it can be pressed before anything has
+        // played: the setting changes, and the player takes it when there is one.
         GainButton.Click += (_, _) =>
         {
-            if (_player is null) return;
-            _gainChosen = true;
-            _player.Gain = _player.Gain switch
+            GainMode = GainMode switch
             {
                 Playback.GainMode.Album => Playback.GainMode.Track,
                 Playback.GainMode.Track => Playback.GainMode.Off,
                 _ => Playback.GainMode.Album
             };
-            UpdateNowPlaying();
+            UpdateGainButton();
             _prefs?.Fill();     // Playback shows the same choice
         };
+        UpdateGainButton();
 
         // A drag must not fight the position updates coming from the player, so
         // the ticker stops writing to the slider while the handle is held.
@@ -4293,6 +4306,24 @@ public partial class MainWindow : Window
         }
     }
 
+    /// The RG button says the mode in force, playing or not.
+    private void UpdateGainButton()
+    {
+        var gain = GainMode;
+        GainButton.Content = gain switch
+        {
+            Playback.GainMode.Album => "RG ALBUM",
+            Playback.GainMode.Track => "RG TRACK",
+            _ => "RG OFF"
+        };
+        AutomationProperties.SetName(GainButton, gain switch
+        {
+            Playback.GainMode.Album => "ReplayGain: by album. Press to change",
+            Playback.GainMode.Track => "ReplayGain: by track. Press to change",
+            _ => "ReplayGain: off. Press to change"
+        });
+    }
+
     private void UpdateNowPlaying()
     {
         if (_player is null || _playingAlbum is null) { ShowTransport(false); RefreshMprisState(); return; }
@@ -4311,18 +4342,7 @@ public partial class MainWindow : Window
 
         SetPlayGlyph(_player.IsPlaying);
 
-        GainButton.Content = _player.Gain switch
-        {
-            Playback.GainMode.Album => "RG ALBUM",
-            Playback.GainMode.Track => "RG TRACK",
-            _ => "RG OFF"
-        };
-        AutomationProperties.SetName(GainButton, _player.Gain switch
-        {
-            Playback.GainMode.Album => "ReplayGain: by album. Press to change",
-            Playback.GainMode.Track => "ReplayGain: by track. Press to change",
-            _ => "ReplayGain: off. Press to change"
-        });
+        UpdateGainButton();
 
         // The transport takes a LIGHT tone from the playing album's art. It both
         // ties the bar to what is playing and breaks the window out of being one
@@ -4339,9 +4359,7 @@ public partial class MainWindow : Window
         foreach (var b in new[] { PrevButton, PlayPauseButton, NextButton })
             b.Foreground = palette.OnLight;
 
-        GainButton.Foreground = palette.OnLight;
-        GainButton.Background = new SolidColorBrush(Color.Parse("#18000000"));
-        GainButton.BorderBrush = new SolidColorBrush(Color.Parse("#33000000"));
+        _barMeters.Ink = MeterInk.OnLight(palette.OnLight, palette.OnLightDim);
 
         // The glyphs are Paths whose stroke was fixed at build time; they have to
         // be recolored for the light bar.

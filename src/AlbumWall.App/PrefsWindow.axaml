@@ -145,14 +145,14 @@
                                Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
                 </StackPanel>
 
-                <!-- REPLAYGAIN, as three choices with the words the RG button on
-                     the play controls has no room for. The button and these are
+                <!-- REPLAYGAIN, as three choices with the words the RG button
+                     beside the volume has no room for. The button and these are
                      the same setting. Until one is chosen here or there, the
                      app picks by context: by album, and by track for a shuffle
                      (StartPlayback). -->
                 <TextBlock Text="Loudness" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
                 <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The RG button on the play controls is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
+                           Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The RG button beside the volume is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
                 <StackPanel Spacing="4">
                     <RadioButton x:Name="GainAlbum" GroupName="gain" Content="By album"/>
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
@@ -167,6 +167,23 @@
                     <RadioButton x:Name="GainOff" GroupName="gain" Content="Off"/>
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
                                Text="Everything plays at exactly the level it was encoded at."/>
+                </StackPanel>
+
+                <!-- THE METERS (2026-10-27): whether the play bar has them, and where
+                     every meter reads. Which style each place shows is changed by
+                     clicking the meters themselves, not here. -->
+                <TextBlock Text="Meters" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="BarMeters" Content="Show meters in the play controls"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="At the end of the play bar. Click them to change between the VU meters, LED bars and a 31-band analyzer; compact mode keeps a choice of its own."/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <CheckBox x:Name="MetersAfterGain" Content="Meters read after ReplayGain"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="Off, every meter shows the record as it was mastered, so a quiet master reads quiet. On, they show what ReplayGain sends on to the volume, closer to what you hear."/>
                 </StackPanel>
             </StackPanel>
         </TabItem>

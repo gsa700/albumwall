@@ -657,6 +657,18 @@
                         </Slider>
                     </StackPanel>
 
+                    <!-- ReplayGain must be VISIBLE, never silently applied. Click to
+                         cycle: album gain keeps a record's own dynamics, track gain
+                         levels everything, off is off. In the play bar until
+                         2026-10-27, when the meters took its place there; here it
+                         sits by the volume, the other lever on loudness, and shows
+                         whether or not anything is playing. -->
+                    <Button x:Name="GainButton" Classes="chrome" VerticalAlignment="Center"
+                            FontSize="10" Padding="10,5" MinWidth="84"
+                            Foreground="#F3EEE6" Background="#18FFFFFF" BorderBrush="#40FFFFFF"
+                            BorderThickness="1"
+                            ToolTip.Tip="ReplayGain — click to change"/>
+
                     <!-- Settings, straight to Preferences. Placed at the INNER
                          end of the bench rather than a fixed side: the window
                          buttons move between left and right depending on the
@@ -839,7 +851,19 @@
              the slack leaves a progress bar too short to seek in on a wide
              window. Proportions also survive resizing, which fixed widths
              do not. -->
-        <Grid ColumnDefinitions="Auto,*,Auto,1.6*,Auto" Margin="26,0">
+        <!-- The minimums are the COLUMNS', not only their contents': a StackPanel
+             wider than its star column spills out of both sides, and with the
+             meters at the end (2026-10-27) the title spilled over the cover on a
+             window of 1100. 264 is the title's 230 and its margins; 260 the
+             progress line's. -->
+        <Grid Margin="26,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*" MinWidth="264"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="1.6*" MinWidth="260"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
             <!-- THE WAY BACK TO WHAT IS PLAYING.
                  Nothing else in the app takes you there, and in a wall of a
@@ -900,13 +924,14 @@
                            FontSize="11" VerticalAlignment="Center" Width="52"/>
             </Grid>
 
-            <!-- ReplayGain must be VISIBLE, never silently applied. Click to
-                 cycle: album gain keeps a record's own dynamics, track gain
-                 levels everything, off is off. -->
-            <Button Grid.Column="4" x:Name="GainButton" Classes="chrome"
-                    Margin="20,0,0,0" VerticalAlignment="Center"
-                    FontSize="10" Padding="10,5"
-                    ToolTip.Tip="ReplayGain — click to change"/>
+            <!-- THE METERS (Meters.cs), at the end of the bar where ReplayGain's
+                 button was until 2026-10-27, which moved to the top bar beside the
+                 volume to make room: the VU pair, the LED bars or the analyzer,
+                 one width for all three so the title and slider never move, a
+                 click to change them. On unless turned off in Preferences. The
+                 strip is made in code (SetUpMeters). -->
+            <Border Grid.Column="4" x:Name="BarMetersHost" Margin="20,0,0,0"
+                    VerticalAlignment="Center"/>
         </Grid>
     </Border>
     </Border>
