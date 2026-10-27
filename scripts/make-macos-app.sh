@@ -115,6 +115,10 @@ cp "$WORK/pub/AlbumWall" "$APP/Contents/MacOS/AlbumWall"
 cp "$WORK/pub/"*.dylib "$APP/Contents/MacOS/"
 cp "$WORK/AlbumWall.icns" "$APP/Contents/Resources/AlbumWall.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+# NSLocalNetworkUsageDescription is the line macOS shows when it asks to let
+# AlbumWall reach the local network (a Navidrome server there). It asks again
+# for every new build: the permission follows the program's build UUID, not its
+# signature (seen with the AOT trial, 2026-10-27; Apple's TN3179).
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -146,6 +150,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>GPLv3. See What's inside, in the About tab.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>AlbumWall connects to your Navidrome server on this network to show and play its music.</string>
 </dict>
 </plist>
 EOF
