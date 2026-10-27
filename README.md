@@ -140,6 +140,11 @@ from a `cover.jpg`, `cover.png`, `folder.jpg` or `front.jpg` beside the tracks
 only if no track carries one. Art is never fetched from the internet: the files
 are the truth, and better art belongs in them.
 
+**The back of the sleeve** is a `back.jpg` beside the tracks: when the album
+opens, its cover turns over to show it. An album without one stays as it is. A
+server library has no backs, because a Navidrome server gives one cover per
+album, so its covers never turn.
+
 Albums are grouped by **album artist and album title**, and the year is taken
 from a `YEAR - Album` folder name where there is one, so a box set does not
 scatter itself across a decade and a reissue date does not misfile a record.
