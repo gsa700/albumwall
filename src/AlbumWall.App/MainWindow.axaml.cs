@@ -233,6 +233,12 @@ public partial class MainWindow : Window
 
     private int CoverPx { get; set; } = 185;
 
+    /// A tile's cover in device pixels, which is what a decode is sized for (ArtCache.BucketFor).
+    private int CoverPixels => (int)Math.Ceiling(CoverPx * RenderScaling);
+
+    /// The panel's and the play controls' cover (260 pt), in device pixels.
+    private int LargeCoverPixels => (int)Math.Ceiling(260 * RenderScaling);
+
     /// The size a cover would ideally be. Not a limit — the actual size is
     /// whatever divides the window evenly nearest to this.
     private const int TargetCover = 185;
@@ -1295,7 +1301,7 @@ public partial class MainWindow : Window
         if (Carry(_playingAlbum) is { } playing)
         {
             _playingAlbum = playing;
-            playing.EnsureCover(260);
+            playing.EnsureCover(LargeCoverPixels);
         }
 
         // The covers already decoded go to the albums' new view models (TakeCoverFrom), so
@@ -3557,7 +3563,7 @@ public partial class MainWindow : Window
             if (_playingAlbum == album) UpdateNowPlaying();
         }
         album.PropertyChanged += OnCover;
-        album.EnsureCover(260);
+        album.EnsureCover(LargeCoverPixels);
     }
 
     /// Fisher-Yates, in place. Returns the index to start from.
@@ -4841,7 +4847,7 @@ public partial class MainWindow : Window
     /// the moment we know a cover is about to be visible.
     private void OnElementPrepared(object? sender, WallElementEventArgs e)
     {
-        var px = CoverPx;
+        var px = CoverPixels;
         switch (e.Element.DataContext)
         {
             case AlbumRow row:
@@ -4850,7 +4856,7 @@ public partial class MainWindow : Window
             case PanelRow panel:
                 // The panel shows a 260 px cover, which needs the larger bucket
                 // even when the wall's tiles are tiny.
-                panel.Album.EnsureCover(260);
+                panel.Album.EnsureCover(LargeCoverPixels);
                 if (panel.MorphFrom is { } from && !panel.Unfolded) Morph(e.Element, panel, from);
                 else if (panel.Unfold && !panel.Unfolded) Unfold(e.Element, panel);
                 break;

@@ -28,7 +28,7 @@ public partial class MainWindow
         // Then whatever a search is hiding, for when it is cleared.
         var order = _visible.Skip(first).Concat(_visible.Take(first).Reverse())
                             .Concat(_all.Except(_visible)).ToList();
-        var px = CoverPx;
+        var px = CoverPixels;
 
         _ = Task.Run(async () =>
         {

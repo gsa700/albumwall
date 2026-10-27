@@ -70,9 +70,12 @@ public static class ArtCache
     public static long HeldBytes { get { lock (Gate) return _bytes; } }
 
     /// Decoding at exactly the display size would re-decode on every slider nudge.
-    /// Two buckets cover the whole range with at most one re-decode, and the GPU
-    /// scales the rest.
-    public static int BucketFor(int displayPx) => displayPx <= 256 ? 256 : 512;
+    /// A few buckets cover the whole range with at most one re-decode, and the GPU
+    /// scales the rest down. In DEVICE pixels (CoverPixels): asked in points, a 185 pt
+    /// tile on a Retina screen or the Pi at 200% (370 px) got 256 and was stretched
+    /// 1.45x, which is why covers looked soft there (interface pass, 2026-10-27). 384 is
+    /// for exactly that tile: sharp, at 576 KB a cover rather than 512's 1 MB.
+    public static int BucketFor(int displayPx) => displayPx <= 256 ? 256 : displayPx <= 384 ? 384 : 512;
 
     /// The album's FRONT.
     public static Task<Bitmap?> GetAsync(Domain.Album album, int displayPx) =>
