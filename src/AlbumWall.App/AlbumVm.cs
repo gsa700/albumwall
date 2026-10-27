@@ -368,6 +368,26 @@ public sealed class AlbumVm : INotifyPropertyChanged
 
     private int _coverGeneration;
 
+    /// What this album's art is: where it lives, its size and its last write, front and
+    /// back. The same for the same picture from one scan to the next.
+    public (string?, long, long, string?) ArtIdentity =>
+        (Album.ArtPath ?? Album.ArtEmbeddedIn, Album.ArtSize, Album.ArtModified, Album.BackPath);
+
+    /// After a rescan: what this album's last view model had already decoded, when its art
+    /// is the same picture. A rescan that found any change hands back a new view model for
+    /// every album, all with no cover yet, and every tile on screen dropped to its
+    /// placeholder and faded back in: the whole wall blinked because one album had been
+    /// copied in (interface pass, 2026-10-27).
+    public void TakeCoverFrom(AlbumVm old)
+    {
+        if (old.ArtIdentity != ArtIdentity) return;
+        _artFailed = old._artFailed;
+        _back = old._back;
+        if (old._cover is null) return;
+        _loadedBucket = old._loadedBucket;
+        Cover = old._cover;
+    }
+
     /// Lets the decoded cover go, for a tile the wall has scrolled well past
     /// (MainWindow.OnRowScrolledAway). The album held it for as long as the
     /// library was on the wall, whatever ArtCache evicted, so a desktop that

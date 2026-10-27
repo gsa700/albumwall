@@ -842,7 +842,6 @@ public partial class MainWindow : Window
             {
                 _trackCount = tracks;
                 _stats = stats;
-                Domain.LibraryStatsStore.Save(StatsPath(library), stats);
                 LibraryBack();
                 // Only a scan that finished says where the library is: one that
                 // could not reach it has seen the mount point, not the share.
@@ -861,6 +860,10 @@ public partial class MainWindow : Window
                     Console.WriteLine($"[watch] rescan in {sw.ElapsedMilliseconds} ms, nothing changed");
                     return;
                 }
+                // Written when something changed, and not on the UI thread: it was every
+                // watcher scan, before the check above (interface pass, 2026-10-27).
+                var statsPath = StatsPath(library);
+                _ = Task.Run(() => Domain.LibraryStatsStore.Save(statsPath, stats));
                 if (!asked)
                     Console.WriteLine($"[watch] rescan in {sw.ElapsedMilliseconds} ms, "
                                     + $"{_all.Count} -> {vms.Count} albums");
@@ -889,7 +892,15 @@ public partial class MainWindow : Window
 
                 // Ground hue comes from the art, so it can only be derived after
                 // the scan. Separate task: the wall must be on screen
-                // immediately, not waiting on 200 thumbnail decodes.
+                // immediately, not waiting on 200 thumbnail decodes. Not again for
+                // the same pictures: a rescan that found a new track, or one album
+                // copied in among the rest, read 200 covers again for the hue they
+                // already gave, and the ground's colors were set again with it.
+                var artSet = new HashCode();
+                foreach (var a in albums) artSet.Add((a.ArtPath ?? a.ArtEmbeddedIn, a.ArtSize, a.ArtModified));
+                var artKey = artSet.ToHashCode();
+                if (_hueFor == artKey) return;
+                _hueFor = artKey;
                 _ = Task.Run(() =>
                 {
                     var gsw = Stopwatch.StartNew();
@@ -911,6 +922,9 @@ public partial class MainWindow : Window
             });
         });
     }
+
+    /// The art the ground's hue was last derived from (a hash of every album's art identity).
+    private int? _hueFor;
 
     // ---- A Navidrome server as the library -----------------------------------
 
@@ -1283,6 +1297,19 @@ public partial class MainWindow : Window
             _playingAlbum = playing;
             playing.EnsureCover(260);
         }
+
+        // The covers already decoded go to the albums' new view models (TakeCoverFrom), so
+        // the tiles on screen do not blank and fade back in.
+        var before = new Dictionary<(string, string), AlbumVm>();
+        foreach (var old in _all) before.TryAdd((old.Artist, old.Title), old);
+        var carried = 0;
+        foreach (var vm in vms)
+            if (before.TryGetValue((vm.Artist, vm.Title), out var old) && !ReferenceEquals(old, vm))
+            {
+                vm.TakeCoverFrom(old);
+                if (vm.Cover is not null) carried++;
+            }
+        if (carried > 0) Console.WriteLine($"[watch] {carried} decoded covers kept across the rescan");
 
         _all = vms;
         _chunkKey = "";      // same count and columns is still a different library
