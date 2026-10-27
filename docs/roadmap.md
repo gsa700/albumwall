@@ -382,6 +382,28 @@ is ahead, the history is for what is behind.
   and the warm-up time from its log line. The kiosk files must be reinstalled
   there for `--kiosk`, though ALBUMWALL_SUPERVISED already turns it on.
 
+- **A touch app for the kiosk, separate from the desktop app** (his idea,
+  2026-10-27, dogfooding the Pi kiosk with touch only: "the interface is still
+  very mouse centric, touch will require a lot of changes, maybe that is better
+  done on its own?"). PARKED TO MULL OVER: "lets mull it over for a while ...
+  for now just let it buck"; he is using the kiosk as it is and noting ideas.
+  WHY SEPARATE: the desktop UI is mouse-first throughout (hover hints,
+  right-click menus, 23 px track rows where touch wants about 44, small window
+  buttons, drag-resize, Preferences in a window, shortcuts), and the kiosk
+  wants its own things (full screen held, no windows, the front panel, every
+  cover kept, supervised updates and rollback), today spread through AlbumWall
+  as Program.Kiosk branches. Unlike the Apple TV app it can stay Avalonia (the
+  Pi runs Linux), sharing AlbumWall.Domain, .Codecs and .Playback as they are,
+  and the cover cache, palette and ground once they move out of the app (the
+  main preparatory work). Same repo, same release, same updater. FOUND THAT
+  DAY, in the meantime: in the kiosk the app is the desktop app made full
+  screen by a labwc rule, so Esc, the full-screen button or compact un-kiosk
+  it (a window over black); a small "kiosk lock" (full screen held, no window
+  or compact buttons) was offered and not taken. The front panel should also
+  open and close as its screen is plugged in and out (the launcher now skips
+  it when HDMI-A-2 is not connected, 9901f8f). Name, if it happens: perhaps
+  "AlbumWall Jukebox", after his "Pi jukebox" of 2026-09-19.
+
 - **An Apple TV app, as another kind of kiosk** (his question 2026-10-25,
   "could this be adapted to an Apple TV app?"). LOWER PRIORITY THAN THE MAIN
   PLAYER: a note, nothing to build before the road to Native AOT is done. What
