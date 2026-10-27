@@ -275,11 +275,11 @@
         <TabItem Header="Updates">
             <StackPanel Spacing="14">
                 <TextBlock Text="Newer versions" FontSize="14" FontWeight="SemiBold"/>
-                <!-- The Mac does not update itself until it can check what it
-                     installs (UpdateService.CanUpdate): it says so instead of
-                     offering options that do nothing. -->
-                <TextBlock x:Name="UpdateMacNote" IsVisible="False" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="On the Mac, AlbumWall does not update itself yet: that comes with Apple's notarization, so that an update can be checked as signed by AlbumWall's developer before it replaces this one. New versions are on GitHub, at github.com/gsa700/albumwall/releases."/>
+                <!-- A Mac copy that cannot replace itself (run from the disk image
+                     or Downloads, or from a folder this account cannot write;
+                     UpdateService.MacBlocker) says why instead of offering
+                     options that do nothing. -->
+                <TextBlock x:Name="UpdateMacNote" IsVisible="False" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
                 <StackPanel x:Name="UpdateChoices" Spacing="14">
                 <StackPanel Spacing="4">
                     <CheckBox x:Name="CheckUpdates" Content="Look for a newer version when AlbumWall opens"/>

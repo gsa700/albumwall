@@ -65,13 +65,17 @@ public static class UpdateService
     /// Only a single-file build can be updated: the update IS one file, swapped for another. A
     /// development build is a folder of assemblies and says so instead of offering.
     ///
-    /// Not on the Mac yet (security review 2026-10-26, finding 6). There the program is one file
-    /// inside a signed bundle: swapping it breaks the signature, and nothing here checks that a
-    /// download is signed by the team. Only the ELF check stood in the way, and a genuine Mac build
-    /// could never pass it. It comes back with notarization: the whole bundle swapped, after its
-    /// signature and team are checked, as Deadwax does.
+    /// On the Mac, by replacing AlbumWall.app whole (MacUpdate), since 0.7.12: the program sits
+    /// inside a signed bundle, and swapping only it broke the seal, which is why the Mac did not
+    /// update itself from 0.7.9 (security review 2026-10-26, finding 6). Not from the disk image,
+    /// from Downloads, or where this account cannot write: <see cref="MacBlocker"/> says which.
     /// </summary>
-    public static bool CanUpdate => InstallService.IsSingleFile && !OperatingSystem.IsMacOS();
+    public static bool CanUpdate => InstallService.IsSingleFile && MacBlocker is null;
+
+    /// <summary>Why a Mac copy cannot update itself, as a sentence; null when it can, and on every
+    /// other system.</summary>
+    public static string? MacBlocker =>
+        OperatingSystem.IsMacOS() && InstallService.IsSingleFile ? MacUpdate.Blocker(InstallService.ExePath) : null;
 
     /// <summary>Runtime identifier used in the release asset name: win-x64, linux-x64, linux-arm64.</summary>
     public static string Rid()
@@ -305,6 +309,14 @@ public static class UpdateService
         Console.WriteLine($"[update] {info.AssetName} matches SHA256SUMS ({actual[..12]}...)");
 
         var unpacked = Path.Combine(tmp, "ex");
+        if (OperatingSystem.IsMacOS())
+        {
+            // The whole bundle, checked for our signature, Apple's notarization and its version.
+            var app = MacUpdate.UnpackAndVerify(zip, unpacked, info.LatestTag, CurrentVersion);
+            File.Delete(zip);
+            Console.WriteLine($"[update] {app}: signed by {MacUpdate.TeamId}, notarized, version {info.LatestTag}");
+            return app;
+        }
         ZipFile.ExtractToDirectory(zip, unpacked, overwriteFiles: true);
         File.Delete(zip);
 
@@ -343,6 +355,15 @@ public static class UpdateService
         var pid = Environment.ProcessId;
         // Relaunch as launched: a kiosk's copy runs with --front-panel and must come back with it.
         var args = Environment.GetCommandLineArgs().Skip(1).ToArray();
+
+        // The Mac: the whole bundle, by renames, in a helper of its own (MacUpdate).
+        if (OperatingSystem.IsMacOS())
+        {
+            var app = MacUpdate.AppBundle(target) ?? throw new InvalidOperationException("This copy is not inside AlbumWall.app.");
+            MacUpdate.Start(pid, stagedExe, app, marker, StageRoot, Directory.CreateTempSubdirectory("albumwall-apply-").FullName);
+            Console.WriteLine($"[update] helper started; replacing {app} once pid {pid} has gone");
+            return;
+        }
 
         // SUPERVISED (ALBUMWALL_SUPERVISED=1, set by a kiosk's launcher): something else restarts the
         // app when it exits, so the helper must not, or two copies run - which is what the Pi kiosk
@@ -398,8 +419,11 @@ public static class UpdateService
     /// <summary>Set by a kiosk's launcher: something restarts the app when it exits.</summary>
     public static bool Supervised => Environment.GetEnvironmentVariable("ALBUMWALL_SUPERVISED") == "1";
 
-    private static string FailedMarkerPath(string targetExe) =>
-        Path.Combine(Path.GetDirectoryName(targetExe) ?? ".", ".albumwall-update-failed");
+    /// <summary>Beside the program; on the Mac beside the settings instead, since a file put inside
+    /// the signed bundle would break its seal.</summary>
+    private static string FailedMarkerPath(string targetExe) => OperatingSystem.IsMacOS()
+        ? Path.Combine(InstallService.DataDir, ".albumwall-update-failed")
+        : Path.Combine(Path.GetDirectoryName(targetExe) ?? ".", ".albumwall-update-failed");
 
     /// <summary>
     /// True, once, if the last helper could not swap the exe (it relaunched the old one). Clears the

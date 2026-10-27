@@ -242,8 +242,10 @@ public partial class PrefsWindow : Window
     private void FillUpdate()
     {
         UpdateSection.IsVisible = Install.UpdateService.CanUpdate;
-        UpdateMacNote.IsVisible = OperatingSystem.IsMacOS();
-        UpdateChoices.IsVisible = !OperatingSystem.IsMacOS();
+        var blocker = Install.UpdateService.MacBlocker;
+        UpdateMacNote.Text = blocker is null ? "" : blocker + " New versions are on GitHub, at github.com/gsa700/albumwall/releases.";
+        UpdateMacNote.IsVisible = blocker is not null;
+        UpdateChoices.IsVisible = blocker is null;
         if (!UpdateSection.IsVisible || _updating) return;
 
         var have = Install.UpdateService.CurrentVersion;

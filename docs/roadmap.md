@@ -328,8 +328,11 @@ is ahead, the history is for what is behind.
      Apple notarize and staple it.
   2. THE UPDATER replacing a signed bundle rather than a loose exe, without
      breaking its signature (installing is OFF in the app on macOS; the script
-     makes the .app).
-  3. A macOS zip in `release.sh`, once (1) and (2) exist.
+     makes the .app). DONE 2026-10-27 for 0.7.12: MacUpdate.cs, Deadwax's.
+  3. A macOS zip in `release.sh`, once (1) and (2) exist. DONE 2026-10-27:
+     AlbumWall-osx-arm64.zip (the updater's) and AlbumWall.dmg in every
+     release. Copies of 0.7.11 or before do not update themselves on the Mac:
+     they take the 0.7.12 dmg once.
   HARD RULE (2026-10-10): a release carries its own engine; Homebrew's libmpv
   was a bridge for his Mac only. (Moot since 0.7.0: the engine is the app's C#.)
   Decided 2026-10-18, the media keys after a launch: the first press of Play

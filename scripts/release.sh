@@ -17,11 +17,11 @@
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
 # AlbumWall-<rid>.zip for linux-x64, linux-arm64 and win-x64 - each zip holding
-# the single-file program - AlbumWall.dmg, the Mac download (AlbumWall.app,
-# signed and notarized, both stapled; scripts/make-macos-app.sh), and
-# SHA256SUMS listing them all. The updater takes only a zip, and a Mac copy
-# does not update itself yet (no osx zip until the bundle updater exists:
-# docs/roadmap.md, macOS); a Mac copy is updated from a newer dmg. Two channels
+# the single-file program - AlbumWall-osx-arm64.zip (AlbumWall.app whole, made
+# with ditto so its signature and stapled ticket survive: what a Mac copy's
+# updater installs, MacUpdate.cs), AlbumWall.dmg (the same app, the Mac
+# download for people; scripts/make-macos-app.sh), and SHA256SUMS listing them
+# all. Two channels
 # (AlbumWall.Domain/ReleaseFeed.cs): Stable reads /releases/latest, which never
 # returns a pre-release; Edge reads the release list and takes the newest vX.Y.Z
 # (never a libmpv-* engine release). Both refuse a download SHA256SUMS does not
@@ -155,8 +155,10 @@ if [ $MAC -eq 1 ]; then
         spctl --assess --type open --context context:primary-signature "$ROOT/dist/AlbumWall.dmg" 2>/dev/null \
             || die "Gatekeeper does not accept AlbumWall.dmg"
     fi
+    case "$(uname -m)" in arm64) macrid=osx-arm64 ;; *) macrid=osx-x64 ;; esac
+    ditto -c -k --keepParent "$ROOT/dist/AlbumWall.app" "$WORK/AlbumWall-$macrid.zip"
     cp "$ROOT/dist/AlbumWall.dmg" "$WORK/AlbumWall.dmg"
-    echo "   AlbumWall.dmg  $(du -h "$WORK/AlbumWall.dmg" | cut -f1)"
+    echo "   AlbumWall-$macrid.zip  $(du -h "$WORK/AlbumWall-$macrid.zip" | cut -f1)    AlbumWall.dmg  $(du -h "$WORK/AlbumWall.dmg" | cut -f1)"
 fi
 
 (cd "$WORK" && sha256sum AlbumWall-*.zip $([ -f "$WORK/AlbumWall.dmg" ] && echo AlbumWall.dmg) > SHA256SUMS)
@@ -181,7 +183,7 @@ if [ -z "$NOTES" ]; then
         echo "AlbumWall $VERSION.$([ $EDGE -eq 1 ] && echo " An Edge build: offered to copies set to Edge until it is promoted to Stable.")"
         echo
         if [ $MAC -eq 1 ]; then
-            echo "Mac: open AlbumWall.dmg and drag AlbumWall to Applications. Signed with a Developer ID and notarized by Apple, so it opens with no warning. A Mac copy does not update itself yet: a newer version is a newer dmg."
+            echo "Mac: open AlbumWall.dmg and drag AlbumWall to Applications. Signed with a Developer ID and notarized by Apple, so it opens with no warning. In Applications it updates itself from the Updates tab in Preferences (since 0.7.12; a copy of 0.7.11 or before needs this dmg once)."
             echo
             echo "Linux and Windows: download the zip for your system, unpack it and run the program: it offers to install itself."
         else
