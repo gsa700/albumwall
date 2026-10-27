@@ -24,10 +24,16 @@ if [ "$1" = "--inside" ]; then
     # (it decodes every cover up front). ALBUMWALL_SUPERVISED below says the same to
     # a copy older than the flag.
     ARGS="--kiosk"
-    if [ -n "$PANEL_OUTPUT" ]; then
+    # Only when its screen is there: with HDMI-A-2 unplugged, labwc could not move the panel's
+    # window to it, and the next rule made it full screen on the wall's screen instead, over
+    # the wall (seen 2026-10-27, the Pi with its bar display disconnected). wlr-randr lists
+    # the outputs that are connected.
+    if [ -n "$PANEL_OUTPUT" ] && wlr-randr 2>/dev/null | grep -q "^$PANEL_OUTPUT "; then
         # --on: a desktop session may keep the panel switched off; the kiosk wants it.
         wlr-randr --output "$PANEL_OUTPUT" --on --transform "${PANEL_TRANSFORM:-normal}" 2>/dev/null || true
         ARGS="$ARGS --front-panel"
+    elif [ -n "$PANEL_OUTPUT" ]; then
+        echo "[kiosk] $PANEL_OUTPUT is not connected: no front panel this session"
     fi
 
     # SUPERVISED: this loop restarts AlbumWall whenever it exits, so its updater must not
