@@ -429,7 +429,10 @@ static int Hostile()
             return 1;
         }
         var ex = run.Exception?.GetBaseException();
-        if (ex is IOException)
+        // What the engine passes over as a broken track (HymieEngine.TryOpen): an IOException,
+        // or an HttpRequestException where the connection is reset before any headers, as
+        // Windows' http.sys does with the claimed 2 GB reply (Mobilenode, 2026-10-27).
+        if (ex is IOException or System.Net.Http.HttpRequestException)
         {
             Console.WriteLine($"ok    {what}: {ex.GetType().Name} in {sw.Elapsed.TotalSeconds:0.0} s ({ex.Message})");
             return 0;

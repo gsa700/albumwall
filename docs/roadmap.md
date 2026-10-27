@@ -75,6 +75,18 @@ is ahead, the history is for what is behind.
      files, a muted play through PulseAudio; Wayland app_id and MPRIS answer
      (Identity, DesktopEntry, PlaybackStatus). The window in 0.074 s, the
      single file's 0.780 s. Not yet: Windows, the Pi, and a listen on Linux.
+     WINDOWS X64 (Mobilenode's session, 2026-10-27, at d2fc4e3): needs the
+     MSVC linker (VS 2022 Build Tools, VCTools; installed with his OK) and a
+     shell started after that install, or ILC's link fails (exit 3: vswhere not
+     on PATH). 34.9 MB (single file 129 MB), with av_libglesv2, e_sqlite3,
+     HarfBuzz and Skia beside it; no new warning, CsWinRT and Smtc.cs included.
+     Five formats: the AOT index = the JIT index, all 16 columns. engine-check
+     AOT passes (decode, compare, same, seek, play through WASAPI); hostile's
+     2 GB reply comes back as an HttpRequestException there (http.sys resets
+     it), which the engine passes over like an IOException, and the check now
+     says so. SMTC: metadata, thumbnail, play/next/previous/toggle all work.
+     The window in 0.266 s, the single file's 1.201 s. Not yet: his hands-on
+     use on Windows, the Pi.
   3. Releases from CI: each runner builds its own system (AOT cannot build for
      another); release.sh takes the run of the release commit (a push or a
      manual start only), checks the exact file list, the first bytes, and
