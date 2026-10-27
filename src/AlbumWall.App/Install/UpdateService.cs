@@ -64,8 +64,14 @@ public static class UpdateService
     /// <summary>
     /// Only a single-file build can be updated: the update IS one file, swapped for another. A
     /// development build is a folder of assemblies and says so instead of offering.
+    ///
+    /// Not on the Mac yet (security review 2026-10-26, finding 6). There the program is one file
+    /// inside a signed bundle: swapping it breaks the signature, and nothing here checks that a
+    /// download is signed by the team. Only the ELF check stood in the way, and a genuine Mac build
+    /// could never pass it. It comes back with notarization: the whole bundle swapped, after its
+    /// signature and team are checked, as Deadwax does.
     /// </summary>
-    public static bool CanUpdate => InstallService.IsSingleFile;
+    public static bool CanUpdate => InstallService.IsSingleFile && !OperatingSystem.IsMacOS();
 
     /// <summary>Runtime identifier used in the release asset name: win-x64, linux-x64, linux-arm64.</summary>
     public static string Rid()
