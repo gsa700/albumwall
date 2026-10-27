@@ -272,6 +272,9 @@ APPLESCRIPT
         cp "$WORK/AlbumWall.icns" "$MNT/.VolumeIcon.icns"
         SetFile -a C "$MNT"
         SetFile -a V "$MNT/.background" "$MNT/.VolumeIcon.icns"
+        # "AlbumWall", not "AlbumWall.app": Finder's "extension hidden" above did
+        # not stay (seen 2026-10-27); the file's own flag does.
+        SetFile -a E "$MNT/AlbumWall.app"
     fi
     sync
     hdiutil detach -quiet "$MNT" || { sleep 2; hdiutil detach -force -quiet "$MNT"; }
