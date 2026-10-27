@@ -86,6 +86,9 @@ Check(win.Contains(@"*\AbC123\*") && win.Contains("$inUse"), "windows: the unpac
 Check(!win.Contains(@"-LiteralPath 'C:\Temp\.net\AlbumWall' "), "windows: never removes the unpacking ROOT");
 Check(win.Contains("-ArgumentList '--front-panel \"a b\"'"), "windows: relaunches with its arguments, one with a space kept whole");
 Check(win.Contains("-WorkingDirectory $to"), "windows: the relaunch is given the install folder to start in");
+// Written as UTF-8 WITH its byte-order mark: Windows PowerShell 5.1 reads a file without one as
+// ANSI, and a curly apostrophe in the path came out as three characters (Mobilenode, 2026-10-27).
+Check(PowerShellText.FileEncoding.GetPreamble() is [0xEF, 0xBB, 0xBF], "windows: a .ps1 is written with the UTF-8 byte-order mark");
 var none = UpdateApplyScript.Windows(1, "a", "b", "c", [], "d", "e", null, "f", []);
 Check(!none.Contains("$inUse") && !none.Contains(".net") && !none.Contains("-ArgumentList"), "windows: unpacked nothing, removes nothing; no arguments, passes none");
 

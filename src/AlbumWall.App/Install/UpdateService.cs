@@ -444,7 +444,7 @@ public static class UpdateService
         {
             var ps1 = Path.Combine(helperDir, "apply-update.ps1");
             File.WriteAllText(ps1, UpdateApplyScript.Windows(pid, from, targetDir, exeName, libraries, marker,
-                                                             StageRoot, oldx, helperDir, args));
+                                                             StageRoot, oldx, helperDir, args), Domain.PowerShellText.FileEncoding);
             Process.Start(new ProcessStartInfo(InstallService.PowerShellExe)
             {
                 ArgumentList = { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ps1 },

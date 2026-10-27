@@ -693,7 +693,7 @@ public static class InstallService
                        $"if (Test-Path -LiteralPath {q}) {{ Start-Sleep -Milliseconds 250 }} }}";
             }));
             lines.Add($"Remove-Item -LiteralPath {Domain.PowerShellText.Quote(script)} -Force -ErrorAction SilentlyContinue");
-            File.WriteAllText(script, string.Join("\n", lines) + "\n");
+            File.WriteAllText(script, string.Join("\n", lines) + "\n", Domain.PowerShellText.FileEncoding);   // with its BOM: PowerShellText
 
             Process.Start(new ProcessStartInfo
             {
