@@ -242,6 +242,8 @@ public partial class PrefsWindow : Window
     private void FillUpdate()
     {
         UpdateSection.IsVisible = Install.UpdateService.CanUpdate;
+        UpdateMacNote.IsVisible = OperatingSystem.IsMacOS();
+        UpdateChoices.IsVisible = !OperatingSystem.IsMacOS();
         if (!UpdateSection.IsVisible || _updating) return;
 
         var have = Install.UpdateService.CurrentVersion;
