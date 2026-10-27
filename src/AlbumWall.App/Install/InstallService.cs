@@ -570,14 +570,16 @@ public static class InstallService
     /// Linux always would, and that copy breaks the first time it does.
     /// A lone copy can only be running from its own folder; the next lone start sweeps what a
     /// second copy kept alive. Nothing for a development build, which unpacks nothing.
+    /// AlbumWall.app unpacks nothing either since 0.7.10 (its libraries are in the bundle), and
+    /// sweeps them all: what a Mac copy of 0.7.9 or before unpacked was otherwise left for ever.
     /// </summary>
     public static void SweepStaleExtractions()
     {
         try
         {
             var mine = OwnExtractionDir;
-            if (mine is null) return;
-            var root = Path.GetDirectoryName(mine)!;
+            if (mine is null && !InAppBundle) return;
+            var root = mine is null ? ExtractionRoot : Path.GetDirectoryName(mine)!;
             if (!Directory.Exists(root)) return;
             if (Process.GetProcessesByName("AlbumWall").Length > 1)
             {
@@ -585,7 +587,7 @@ public static class InstallService
                 return;
             }
             var cmp = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-            var mineName = Path.GetFileName(mine.TrimEnd(Path.DirectorySeparatorChar));
+            var mineName = mine is null ? null : Path.GetFileName(mine.TrimEnd(Path.DirectorySeparatorChar));
             int removed = 0, kept = 0;
             foreach (var dir in Directory.EnumerateDirectories(root))
             {
@@ -596,9 +598,16 @@ public static class InstallService
             if (removed + kept > 0)
                 Console.WriteLine($"[install] unpacked folders of older builds: {removed} removed"
                                 + (kept > 0 ? $", {kept} could not be" : "") + $" ({root})");
+            if (mine is null && !Directory.EnumerateFileSystemEntries(root).Any())
+                Directory.Delete(root);
         }
         catch { /* a cache; nothing depends on it being tidy */ }
     }
+
+    /// <summary>Running as the program inside AlbumWall.app (Contents/MacOS).</summary>
+    private static bool InAppBundle =>
+        OperatingSystem.IsMacOS()
+        && AppContext.BaseDirectory.TrimEnd('/').EndsWith(".app/Contents/MacOS", StringComparison.Ordinal);
 
     internal static string ExtractionRoot
     {
