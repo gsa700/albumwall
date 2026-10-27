@@ -22,6 +22,12 @@ public sealed class TrackBytes
 {
     private static readonly TimeSpan Answer = TimeSpan.FromSeconds(10);    // for the server to start sending
     private static readonly TimeSpan Stall = TimeSpan.FromSeconds(30);     // with nothing more arriving
+    private static readonly TimeSpan Whole = TimeSpan.FromMinutes(2);      // for all of a track with no length
+
+    /// The most a server's track may be (a 24-bit/192 kHz FLAC of an hour is
+    /// a third of this): a length is made into one array, so a claimed one is
+    /// held to this before it is (security review 2026-10-26, finding 5).
+    public const int MaxServerBytes = 1 << 30;
 
     private static readonly HttpClient Http = new(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(5) })
     {
@@ -87,13 +93,18 @@ public sealed class TrackBytes
                 throw new IOException("the server answered with an error, not the file");
 
             var body = response.Content.ReadAsStream(answer.Token);
-            if (response.Content.Headers.ContentLength is not { } length || length > int.MaxValue)
+            if (response.Content.Headers.ContentLength is { } claimed && claimed > MaxServerBytes)
+                throw new IOException($"the server offered {claimed:N0} bytes, more than a track can be");
+            if (response.Content.Headers.ContentLength is not { } length)
             {
                 // No length to make the array from: all of it first, then play.
-                using var all = new MemoryStream();
-                body.CopyTo(all);
+                // This is the caller's thread (the app's, at a click or at
+                // launch), so it is held to the same stall as Fill, to a time
+                // for the whole of it, and to a size: unbounded, one reply that
+                // trickled froze the app, at every launch once the session
+                // named it, and an endless one took 3.4 GB.
+                var data = ReadAll(body);
                 response.Dispose();
-                var data = all.ToArray();
                 return new TrackBytes(data, data.Length);
             }
 
@@ -106,6 +117,34 @@ public sealed class TrackBytes
             response.Dispose();
             throw;
         }
+    }
+
+    /// A reply with no length, all of it, within Stall per read, Whole in all
+    /// and MaxServerBytes in size.
+    private static byte[] ReadAll(Stream body)
+    {
+        using var whole = new CancellationTokenSource(Whole);
+        using var stall = CancellationTokenSource.CreateLinkedTokenSource(whole.Token);
+        using var all = new MemoryStream();
+        var buffer = new byte[256 * 1024];
+        try
+        {
+            while (true)
+            {
+                stall.CancelAfter(Stall);
+                var n = body.ReadAsync(buffer, stall.Token).AsTask().GetAwaiter().GetResult();
+                if (n == 0) return all.ToArray();
+                if (all.Length + n > MaxServerBytes) throw new IOException("the server sent more than a track can be");
+                all.Write(buffer, 0, n);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw new IOException(whole.IsCancellationRequested
+                ? $"the server took more than {Whole.TotalMinutes:0} minutes for the track"
+                : $"nothing from the server for {Stall.TotalSeconds:0} s");
+        }
+        finally { body.Dispose(); }
     }
 
     /// `response` is the server's, or null for a file.

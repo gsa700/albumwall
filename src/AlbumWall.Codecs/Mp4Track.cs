@@ -177,6 +177,15 @@ public sealed class Mp4Track : IAudioTrack
         return (size, type, header);
     }
 
+    /// A full box's entry count (after its version and flags), when that many
+    /// entries of `entry` bytes fit in the box; a broken file otherwise.
+    private int Count(long body, long bodyEnd, int entry)
+    {
+        var count = Be32(body + 4);
+        if (8 + (ulong)count * (ulong)entry > (ulong)(bodyEnd - body)) throw new FlacDecodeException("A broken MP4 sample table.");
+        return (int)count;
+    }
+
     private uint Be32(long i) => (uint)(_data[i] << 24 | _data[i + 1] << 16 | _data[i + 2] << 8 | _data[i + 3]);
     private ulong Be64(long i) => (ulong)Be32(i) << 32 | Be32(i + 4);
     private int Be16(long i) => _data[i] << 8 | _data[i + 1];
@@ -273,7 +282,7 @@ public sealed class Mp4Track : IAudioTrack
                     var count = Be32(body + 4);
                     var e = body + 8;
                     var found = false;
-                    for (var i = 0; i < count && e < bodyEnd; i++)
+                    for (var i = 0; i < count && e + (version == 1 ? 20 : 12) <= bodyEnd; i++)
                     {
                         long segment, mediaTime;
                         if (version == 1) { segment = (long)Be64(e); mediaTime = (long)Be64(e + 8); e += 20; }
@@ -296,12 +305,23 @@ public sealed class Mp4Track : IAudioTrack
                 }
                 case "stsz" when trak is not null:
                 {
-                    trak.FixedSize = (int)Be32(body + 4);
-                    trak.SampleCount = (int)Be32(body + 8);
+                    // Every count in the sample tables is held to the bytes
+                    // there are before anything is made from it (security
+                    // review 2026-10-26, finding 3): a 148-byte file claiming
+                    // 2^31 samples asked for 8 GB, and stco and stsc read on
+                    // past their box and the file.
+                    var fixedSize = Be32(body + 4);
+                    var sampleCount = Be32(body + 8);
+                    if (fixedSize > int.MaxValue || sampleCount > (ulong)_data.Length
+                        || (fixedSize == 0 && 12 + 4 * (ulong)sampleCount > (ulong)(bodyEnd - body))
+                        || (ulong)sampleCount * fixedSize > (ulong)_data.Length)
+                        throw new FlacDecodeException("A broken MP4 sample size table.");
+                    trak.FixedSize = (int)fixedSize;
+                    trak.SampleCount = (int)sampleCount;
                     if (trak.FixedSize == 0)
                     {
                         var sizes = new int[trak.SampleCount];
-                        for (var i = 0; i < sizes.Length && body + 12 + i * 4 + 4 <= bodyEnd; i++) sizes[i] = (int)Be32(body + 12 + i * 4);
+                        for (var i = 0; i < sizes.Length; i++) sizes[i] = (int)Be32(body + 12 + i * 4);
                         trak.Sizes = sizes;
                     }
                     else
@@ -312,7 +332,7 @@ public sealed class Mp4Track : IAudioTrack
                 }
                 case "stsc" when trak is not null:
                 {
-                    var count = (int)Be32(body + 4);
+                    var count = Count(body, bodyEnd, 12);
                     var stsc = new (int, int)[count];
                     for (var i = 0; i < count; i++) stsc[i] = ((int)Be32(body + 8 + i * 12), (int)Be32(body + 12 + i * 12));
                     trak.Stsc = stsc;
@@ -321,7 +341,7 @@ public sealed class Mp4Track : IAudioTrack
                 case "stco" when trak is not null:
                 case "co64" when trak is not null:
                 {
-                    var count = (int)Be32(body + 4);
+                    var count = Count(body, bodyEnd, type == "stco" ? 4 : 8);
                     var offsets = new long[count];
                     for (var i = 0; i < count; i++) offsets[i] = type == "stco" ? Be32(body + 8 + i * 4) : (long)Be64(body + 8 + i * 8);
                     trak.ChunkOffsets = offsets;

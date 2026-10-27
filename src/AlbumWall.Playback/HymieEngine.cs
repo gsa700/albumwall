@@ -174,8 +174,7 @@ internal sealed class HymieEngine : IDisposable
                         + $"{(paused ? ", held" : "")}: {System.IO.Path.GetFileName(track.Name)} "
                         + $"({track.SampleRate} Hz, {(track.BitsPerSample > 0 ? $"{track.BitsPerSample}-bit" : "lossy")}, {track.Channels} ch, "
                         + $"gain x{track.Gain.Multiplier(_gain):0.###})");
-        Begin(index, track, frame, play: !paused);
-        SetState(!paused);
+        if (Begin(index, track, frame, play: !paused)) SetState(!paused);
     }
 
     public void PlayIndex(int index) => JumpTo(index, play: true);
@@ -203,7 +202,7 @@ internal sealed class HymieEngine : IDisposable
         if (!Restart(index, track, 0, play))
         {
             Discard();
-            Begin(index, track, 0, play);
+            if (!Begin(index, track, 0, play)) return;
         }
         SetState(play);
     }
@@ -300,8 +299,11 @@ internal sealed class HymieEngine : IDisposable
         }
     }
 
-    /// A new output, starting with `track` at `frame`.
-    private void Begin(int index, IAudioTrack track, long frame, bool play)
+    /// A new output, starting with `track` at `frame`. False, with nothing
+    /// playing, when the system would not make one for its format: said so,
+    /// never thrown, as it is called from the watch thread too, where a throw
+    /// ended the app (finding 4).
+    private bool Begin(int index, IAudioTrack track, long frame, bool play)
     {
         Discard();
         int generation;
@@ -322,14 +324,23 @@ internal sealed class HymieEngine : IDisposable
             Prefetch(index + 1);
         }
 
-        var output = Output.Open(track.SampleRate, track.Channels, into => Source(into, generation));
+        IOutput output;
+        try { output = Output.Open(track.SampleRate, track.Channels, into => Source(into, generation)); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[engine] no output for {track.SampleRate} Hz, {track.Channels} ch: {ex.Message}");
+            Discard();
+            SetState(false);
+            return false;
+        }
         output.SetVolume(Cube(_volume));
         lock (_lock)
         {
-            if (generation != _generation) { output.Dispose(); return; }
+            if (generation != _generation) { output.Dispose(); return true; }
             _out = output;
         }
         if (play) output.Start();
+        return true;
     }
 
     /// The output thrown away, immediately. Outside the lock: disposing waits
@@ -357,7 +368,11 @@ internal sealed class HymieEngine : IDisposable
         // A server's track may still be arriving: what this asks for is
         // waited for here, before the lock, so that nothing else waits with it.
         // Only the output's thread reads a track, so this is safe unlocked.
-        if (_decoding is { } track) track.Prepare(into.Length / track.Channels);
+        if (_decoding is { } track)
+        {
+            try { track.Prepare(into.Length / track.Channels); }
+            catch (Exception ex) { Console.WriteLine($"[engine] {System.IO.Path.GetFileName(track.Name)}: {ex.Message}"); }
+        }
 
         lock (_lock)
         {
@@ -369,9 +384,10 @@ internal sealed class HymieEngine : IDisposable
             {
                 int n;
                 try { n = _decoding.Read(into[(done * channels)..(want * channels)]); }
-                catch (FlacDecodeException ex)
+                catch (Exception ex)
                 {
-                    // mpv goes on to the next track after a broken one; so does this.
+                    // mpv goes on to the next track after a broken one; so does
+                    // this, whatever the decoder threw (findings 3 and 4).
                     Console.WriteLine($"[engine] {System.IO.Path.GetFileName(_decoding.Name)}: {ex.Message}");
                     n = 0;
                 }
@@ -476,6 +492,16 @@ internal sealed class HymieEngine : IDisposable
             Console.WriteLine($"[engine] cannot play {System.IO.Path.GetFileName(name)}: {why}");
             return null;
         }
+        catch (Exception ex)
+        {
+            // Anything else a file or a server can make a decoder throw is a
+            // broken track too, passed over like one (security review
+            // 2026-10-26, findings 3 and 4). Before, an IndexOutOfRange from a
+            // 144-byte .m4a escaped: from the prefetch it stalled the output,
+            // from Next it reached the app's thread.
+            Console.WriteLine($"[engine] cannot play {System.IO.Path.GetFileName(name)}: the file is broken ({ex.GetType().Name})");
+            return null;
+        }
     }
 
     // ---------------------------------------------------------------- levels
@@ -566,7 +592,11 @@ internal sealed class HymieEngine : IDisposable
             if (afterBreak is not null)
             {
                 Console.WriteLine($"[engine] new output for {breakIndex}: {afterBreak.SampleRate} Hz, {afterBreak.Channels} ch");
-                Begin(breakIndex, afterBreak, 0, _playing);
+                if (!Begin(breakIndex, afterBreak, 0, _playing))
+                {
+                    Finished?.Invoke(this, EventArgs.Empty);
+                    _index = -1;
+                }
             }
             else if (drained)
             {

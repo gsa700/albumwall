@@ -9,6 +9,7 @@
 //   dotnet run tools/engine-check.cs -- seek <file>             seeks land on the exact sample
 //   dotnet run tools/engine-check.cs -- same <file.m4a> <file.flac>   an ALAC file plays its FLAC source's samples
 //   dotnet run tools/engine-check.cs -- play <file>...          plays MUTED, and says what the engine reports
+//   dotnet run tools/engine-check.cs -- hostile                 crafted files and server replies fail as broken tracks
 //
 // decode: FLAC stores an MD5 of its audio. Every sample is decoded the way
 // the engine decodes it, to floats, turned back into integers and hashed, so
@@ -28,6 +29,13 @@
 // play: the engine at volume 0 (the output still runs, so its timeline and
 // the levels are real), with a jump near the end of each track to watch the
 // boundary pass.
+// hostile: the security review of 2026-10-26 (findings 3, 4 and 5), made here
+// in memory and on 127.0.0.1: MP4 sample tables claiming more than their box
+// holds, a WAV claiming 3,221,225,472 Hz, a server that sends headers and then
+// trickles, one that claims a length no array can have. Each must fail as a
+// broken track does (an IOException, which the engine passes over) and in
+// bounded time; before, they threw IndexOutOfRange, Overflow and OutOfMemory,
+// or never returned. About 35 s, most of it the stalled server.
 
 using System.Diagnostics;
 using System.Security.Cryptography;
@@ -43,7 +51,8 @@ switch (mode)
     case "seek": return SeekCheck(files[0]);
     case "same": return Same(files[0], files[1]);
     case "play": return PlayCheck(files);
-    default: Console.WriteLine("usage: engine-check.cs decode|compare|seek|same|play <file>..."); return 2;
+    case "hostile": return Hostile();
+    default: Console.WriteLine("usage: engine-check.cs decode|compare|seek|same|play <file>... | hostile"); return 2;
 }
 
 /// Everything the track plays, straight through.
@@ -230,4 +239,132 @@ static int PlayCheck(List<string> files)
     while (!finished && DateTime.UtcNow < stop) Thread.Sleep(20);
     Console.WriteLine(finished ? "played to the end" : "DID NOT FINISH");
     return finished ? 0 : 1;
+}
+
+static int Hostile()
+{
+    var bad = 0;
+    var dir = Directory.CreateTempSubdirectory("engine-check-hostile-").FullName;
+    try
+    {
+        // What the review's files were: an ftyp and a moov holding one audio trak whose
+        // sample table has one lying box.
+        static byte[] Box(string type, params byte[][] body)
+        {
+            var inner = body.SelectMany(b => b).ToArray();
+            var b = new byte[8 + inner.Length];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(b, (uint)b.Length);
+            System.Text.Encoding.ASCII.GetBytes(type).CopyTo(b, 4);
+            inner.CopyTo(b, 8);
+            return b;
+        }
+        static byte[] U32(params uint[] v) => v.SelectMany(x => { var b = new byte[4]; System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(b, x); return b; }).ToArray();
+        static byte[] Mp4(byte[] table) =>
+        [
+            .. Box("ftyp", "M4A \0\0\0\0M4A mp42isom"u8.ToArray()),
+            .. Box("moov", Box("trak", Box("mdia",
+                Box("mdhd", U32(0, 0, 0, 44100, 44100, 0)),
+                Box("hdlr", U32(0, 0), "soun"u8.ToArray(), new byte[12]),
+                Box("minf", Box("stbl", table))))),
+        ];
+        var cases = new (string Name, byte[] Bytes)[]
+        {
+            ("stco count 100000, no entries.m4a", Mp4(Box("stco", U32(0, 100_000)))),
+            ("stsc count 100000, no entries.m4a", Mp4(Box("stsc", U32(0, 100_000)))),
+            ("stsz count 0x80000000.m4a", Mp4(Box("stsz", U32(0, 0, 0x8000_0000)))),
+            ("stsz count 0x7FFFFFF0.m4a", Mp4(Box("stsz", U32(0, 0, 0x7FFF_FFF0)))),
+            ("co64 count 100000, no entries.m4a", Mp4(Box("co64", U32(0, 100_000)))),
+            ("stsz fixed size, count 0x7FFFFFF0.m4a", Mp4(Box("stsz", U32(0, 1024, 0x7FFF_FFF0)))),
+            ("rate 3221225472.wav", Wav(3_221_225_472)),
+        };
+        static byte[] Wav(uint rate)
+        {
+            var w = new byte[44 + 4];
+            "RIFF"u8.CopyTo(w); System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(w.AsSpan(4), (uint)w.Length - 8);
+            "WAVEfmt "u8.CopyTo(w.AsSpan(8));
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(w.AsSpan(16), 16);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(w.AsSpan(20), 1);      // PCM
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(w.AsSpan(22), 2);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(w.AsSpan(24), rate);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(w.AsSpan(28), rate * 4);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(w.AsSpan(32), 4);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(w.AsSpan(34), 16);
+            "data"u8.CopyTo(w.AsSpan(36));
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(w.AsSpan(40), 4);
+            return w;
+        }
+        foreach (var (name, bytes) in cases)
+        {
+            var path = Path.Combine(dir, name);
+            File.WriteAllBytes(path, bytes);
+            bad += Refused(name, () => AudioTracks.Open(path, path), TimeSpan.FromSeconds(5));
+        }
+
+        // A server on 127.0.0.1: what it does with each request is the request's path.
+        var listener = new System.Net.HttpListener();
+        var port = Random.Shared.Next(20000, 60000);
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+        listener.Start();
+        _ = Task.Run(async () =>
+        {
+            while (listener.IsListening)
+            {
+                System.Net.HttpListenerContext c;
+                try { c = await listener.GetContextAsync(); } catch (Exception) { return; }
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        c.Response.ContentType = "audio/flac";
+                        if (c.Request.Url!.AbsolutePath == "/trickle")
+                        {
+                            // Headers, one byte, then nothing: no length (chunked).
+                            c.Response.SendChunked = true;
+                            await c.Response.OutputStream.WriteAsync("f"u8.ToArray());
+                            await c.Response.OutputStream.FlushAsync();
+                            await Task.Delay(TimeSpan.FromSeconds(90));
+                        }
+                        else
+                        {
+                            c.Response.ContentLength64 = int.MaxValue;     // claimed, never sent
+                            await c.Response.OutputStream.FlushAsync();
+                            await Task.Delay(TimeSpan.FromSeconds(5));
+                        }
+                        c.Response.Abort();
+                    }
+                    catch (Exception) { }
+                });
+            }
+        });
+        bad += Refused("server: headers, one byte, then a stall (no length)",
+            () => AudioTracks.Open("Trickle.flac", $"http://127.0.0.1:{port}/trickle"), TimeSpan.FromSeconds(40));
+        bad += Refused("server: Content-Length 2147483647",
+            () => AudioTracks.Open("Huge.flac", $"http://127.0.0.1:{port}/huge"), TimeSpan.FromSeconds(5));
+        listener.Stop();
+    }
+    finally { Directory.Delete(dir, recursive: true); }
+    Console.WriteLine(bad == 0 ? "hostile: all refused as broken tracks" : $"hostile: {bad} FAILED");
+    return bad == 0 ? 0 : 1;
+
+    // Opening must fail with an IOException (what a broken track throws, and the engine
+    // passes over) within `limit`.
+    static int Refused(string what, Func<IAudioTrack> open, TimeSpan limit)
+    {
+        var sw = Stopwatch.StartNew();
+        var run = Task.Run(open);
+        Task.WhenAny(run, Task.Delay(limit + TimeSpan.FromSeconds(1))).Wait();
+        if (!run.IsCompleted)
+        {
+            Console.WriteLine($"FAIL  {what}: still opening after {sw.Elapsed.TotalSeconds:0} s");
+            return 1;
+        }
+        var ex = run.Exception?.GetBaseException();
+        if (ex is IOException)
+        {
+            Console.WriteLine($"ok    {what}: {ex.GetType().Name} in {sw.Elapsed.TotalSeconds:0.0} s ({ex.Message})");
+            return 0;
+        }
+        Console.WriteLine($"FAIL  {what}: {(ex is null ? "it opened" : ex.GetType().Name + ": " + ex.Message)}");
+        return 1;
+    }
 }

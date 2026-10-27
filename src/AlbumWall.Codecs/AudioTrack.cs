@@ -59,14 +59,27 @@ public static class AudioTracks
         || name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase)
         || name.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
 
+    /// The most a track may claim, and the fewest: what an output is made for.
+    public const int MaxSampleRate = 768_000, MaxChannels = 8;
+
     /// A track by name, from where it is: a file, or a server's address
     /// (http or https), which is fetched and not kept. The decoder is chosen
     /// by the name's extension, as the scanner chose the file by it.
-    public static IAudioTrack Open(string name, string source) =>
-        name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ? Mp3Track.Open(name, source)
-        : name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) ? Mp4Track.Open(name, source)
-        : name.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ? WavTrack.Open(name, source)
-        : FlacTrack.Open(name, source);
+    ///
+    /// Its rate and channels are held to what an output can be made for, here
+    /// for every format (security review 2026-10-26, finding 4): a WAV header
+    /// claiming 3,221,225,472 Hz reached an output as -1,073,741,824 Hz and
+    /// took the whole app down from the engine's watch thread.
+    public static IAudioTrack Open(string name, string source)
+    {
+        IAudioTrack track = name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ? Mp3Track.Open(name, source)
+            : name.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) ? Mp4Track.Open(name, source)
+            : name.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ? WavTrack.Open(name, source)
+            : FlacTrack.Open(name, source);
+        if (track.SampleRate is < 1 or > MaxSampleRate || track.Channels is < 1 or > MaxChannels)
+            throw new FlacDecodeException($"{track.SampleRate} Hz, {track.Channels} channels: no output plays that.");
+        return track;
+    }
 
     public static bool IsAddress(string source) =>
         source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || source.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
