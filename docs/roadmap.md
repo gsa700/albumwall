@@ -50,10 +50,20 @@ is ahead, the history is for what is behind.
   THE STEPS (Deadwax's, with AlbumWall's own wrinkles):
   1. Clean the warnings while the single file still ships; IsAotCompatible on
      the libraries so new ones show at build time; tests and a listen unchanged.
+     DONE 2026-10-27 (bfc30a5); "a listen" is still his.
   2. The AOT build proven on each system: Mac (Control), Windows (Hambench or
      Mobilenode), Linux x64 (Techbench), and the Pi kiosk (linux-arm64): launch,
      scan a library (tags from every format), play every codec Hymie has,
      gapless, Navidrome, Now Playing / MPRIS / SMTC, the kiosk's front panel.
+     MAC SO FAR (2026-10-27, Control): launches; TagLibSharp had to be kept
+     whole (1c65537), then a five-format library indexes exactly as the JIT
+     build does; engine-check published AOT: FLAC MD5s, ALAC = its FLAC, AAC
+     and WAV against ffmpeg, seeks, the hostile files, a muted play across
+     three formats with the track changes. Not yet: Navidrome, Now Playing and
+     the media keys by hand, an MP3 (none on Control), a listen. An AAC that
+     ffmpeg encoded with PNS (its default) never matches ffmpeg or a seek: the
+     noise is random by design, JIT and AOT alike; engine-check's AAC files
+     want -aac_pns 0 or afconvert.
   3. Releases from CI: each runner builds its own system (AOT cannot build for
      another); release.sh takes the run of the release commit (a push or a
      manual start only), checks the exact file list, the first bytes, and
