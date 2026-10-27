@@ -69,6 +69,16 @@ public partial class MainWindow
         }
     }
 
+    /// The analyzer's green follows the wall's hue: set with the ground (ApplyGround),
+    /// and on a front panel as it opens.
+    private void ApplyMeterGreen()
+    {
+        _barMeters.Green = Palette.MeterGreen(_ramp.Hue, onLight: true);
+        var dark = Palette.MeterGreen(_ramp.Hue, onLight: false);
+        Compact.Meters.Green = dark;
+        if (_frontPanel is { } panel) panel.View.Meters.Green = dark;
+    }
+
     /// Preferences > Playback: the held peaks on the LED bars and the analyzer,
     /// on unless turned off, for every strip.
     internal bool MeterPeakHold

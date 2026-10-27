@@ -63,10 +63,8 @@ public static class MeterStyles
 }
 
 /// The colors the LED bars and the analyzer are drawn in. The VU keeps its own
-/// yellow faces wherever it is. The analyzer's bars are a FIXED GREEN, not the
-/// bar's ink ("a fixed green for the rta", 2026-10-27): bright on the dark view,
-/// deeper on the light play bar so it holds on every album's tint.
-public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red, IBrush Label, IBrush Green)
+/// yellow faces wherever it is, and the analyzer its own green (MeterStrip.Green).
+public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red, IBrush Label)
 {
     /// On the dark now-playing view.
     public static readonly MeterInk OnDark = new(
@@ -74,8 +72,7 @@ public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red
         new ImmutableSolidColorBrush(Color.Parse("#22FFFFFF")),
         new ImmutableSolidColorBrush(Color.Parse("#E8A23A")),
         new ImmutableSolidColorBrush(Color.Parse("#E0533F")),
-        new ImmutableSolidColorBrush(Color.Parse("#9C968C")),
-        new ImmutableSolidColorBrush(Color.Parse("#4CC75E")));
+        new ImmutableSolidColorBrush(Color.Parse("#9C968C")));
 
     /// On the play bar's light tone: the bar's own dark text, its unlit segments the
     /// same ink faint, the mockup's amber and red at the top.
@@ -84,8 +81,7 @@ public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red
         var c = (ink as ISolidColorBrush)?.Color ?? Color.Parse("#15202B");
         return new MeterInk(ink, new ImmutableSolidColorBrush(Color.FromArgb(0x24, c.R, c.G, c.B)),
                             new ImmutableSolidColorBrush(Color.Parse("#A35F00")),
-                            new ImmutableSolidColorBrush(Color.Parse("#B0302A")), dim,
-                            new ImmutableSolidColorBrush(Color.Parse("#1E7A36")));
+                            new ImmutableSolidColorBrush(Color.Parse("#B0302A")), dim);
     }
 }
 
@@ -187,6 +183,13 @@ public sealed class MeterStrip : Panel
     public MeterInk Ink
     {
         set { _led.Ink = value; _rta.Ink = value; }
+    }
+
+    /// The analyzer's bars: a green, not the ink ("a fixed green for the rta", then
+    /// "a shade of green derived from the wall hue", 2026-10-27; Palette.MeterGreen).
+    public IBrush Green
+    {
+        set { _rta.GreenBrush = value; _rta.InvalidateVisual(); }
     }
 
     /// The held peaks on the LED bars and the analyzer's caps: one switch for both
@@ -353,6 +356,10 @@ public sealed class RtaMeter : Control
         set { _ink = value; _labels = null; InvalidateVisual(); }
     }
 
+    /// The bars' color (MeterStrip.Green); until it is given, the ink.
+    public IBrush? GreenBrush { get; set; }
+    private IBrush Green => GreenBrush ?? _ink.Lit;
+
     /// Whether the peak caps show (Settings.MeterPeakHold).
     public bool PeakHold { get; set; } = true;
 
@@ -386,7 +393,7 @@ public sealed class RtaMeter : Control
             var x = b * (w + _gap);
             ctx.FillRectangle(_ink.Unlit, new Rect(x, floor - 1, w, 1));
             var h = Math.Round(_h[b] * room);
-            if (h > 0) ctx.FillRectangle(_ink.Green, new Rect(x, floor - h, w, h));
+            if (h > 0) ctx.FillRectangle(Green, new Rect(x, floor - h, w, h));
             var p = Math.Round(_peak[b] * room);
             if (p > 0 && PeakHold) ctx.FillRectangle(_peak[b] > 0.92 ? _ink.Red : _ink.Amber, new Rect(x, floor - p - _capH, w, _capH));
         }

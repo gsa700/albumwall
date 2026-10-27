@@ -2444,6 +2444,7 @@ public partial class MainWindow : Window
 
     private void ApplyGround()
     {
+        ApplyMeterGreen();
         Surface.Background = SolidColorBrush.Parse(_ramp.GroundHex);
         TopBar.Background = BottomBar.Background = SolidColorBrush.Parse(_ramp.BarHex);
         TopBar.BorderBrush = BottomBar.BorderBrush = SolidColorBrush.Parse(_ramp.EdgeHex);

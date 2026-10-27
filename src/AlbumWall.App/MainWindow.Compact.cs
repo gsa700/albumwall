@@ -58,6 +58,7 @@ public partial class MainWindow
         Closing += (_, _) => _frontPanel?.Close();
         _frontPanel.View.Meters.Show(CompactMeterStyle, flash: false);
         _frontPanel.View.Meters.PeakHold = MeterPeakHold;
+        ApplyMeterGreen();
         _frontPanel.View.MetersCycled += CycleCompactMeter;
         StartMeters();
         CompactTick();

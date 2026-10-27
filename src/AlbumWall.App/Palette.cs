@@ -153,6 +153,19 @@ public static class Palette
     /// held below the point where light text on it would stop being readable.
     private static double Lit(double l) => Math.Clamp(l + Lift, 0.05, 0.42);
 
+    /// The analyzer's green, leaned toward the wall's hue ("a shade of green derived
+    /// from the wall hue", 2026-10-27): a third of the way from green (130) toward
+    /// it, never more than 25 degrees, so a warm wall gives an olive green and a
+    /// blue one a teal and both still read as green. Bright on the dark now-playing
+    /// view, deep on the light play bar so it holds on every album's tint.
+    public static IBrush MeterGreen(double wallHue, bool onLight)
+    {
+        const double green = 130;
+        var delta = ((wallHue - green) % 360 + 540) % 360 - 180;     // -180..180, the short way
+        var h = green + Math.Clamp(delta / 3, -25, 25);
+        return onLight ? Solid(h, 0.60, 0.30) : Solid(h, 0.52, 0.54);
+    }
+
     private static IBrush Solid(double h, double s, double l) =>
         new ImmutableSolidColorBrush(FromHsl(h, s, l));
 
