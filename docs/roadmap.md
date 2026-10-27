@@ -361,10 +361,12 @@ is ahead, the history is for what is behind.
   4. On the light play bar the meters are dark ink: LED and RTA bars in the
      bar's dark text color, the top segments and the RTA's peak caps amber and
      red. The VU keeps its yellow faces.
-  Still open: whether the meters are on by default, whether the play bar and
-  compact mode share one meter choice or keep their own, and whether the
-  before-or-after-ReplayGain setting covers both. The RTA needs Hymie's
-  samples in hand (see 4 above).
+  5. Decided by Dave 2026-10-27 on Control: the play-bar meters are **on by
+     default** (a setting turns them off); the play bar and compact mode each
+     **keep their own meter choice**, so cycling one leaves the other alone;
+     and the **before-or-after-ReplayGain setting covers both**, one setting
+     for every meter.
+  The RTA needs Hymie's samples in hand (see 4 above).
 
   Later, maybe: a track list the compact view can drop open, as iTunes' mini
   player did ("lets not for now at least"). The "Next ..." line is gone and not
