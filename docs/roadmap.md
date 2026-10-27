@@ -147,6 +147,12 @@ is ahead, the history is for what is behind.
      helper run on Windows, and the release itself.
   5. Self-update 0.7.x -> 0.8 proven on every system, the kiosk included, before
      Stable; then measure start-up, memory and size for the notes.
+     THE ORDER, agreed 2026-10-27 (Control): 0.7.16 (the bridge plus the
+     meters) runs about a day on Edge, then is PROMOTED TO STABLE, so Stable
+     copies (on 0.7.7, which has no bridge and cannot install an -aot package)
+     reach a bridge first; then 0.8.0, the first AOT release, goes out on Edge
+     and the update to it is proven on every system. 0.7.16 is meant to be the
+     last single-file release.
 
   LESSONS FROM DEADWAX'S ROAD: a test copy started as a systemd SERVICE takes
   the update helper down with it (use a scope, as the desktop does); a copy
