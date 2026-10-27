@@ -246,10 +246,10 @@
                      is why the tab is no longer called Colors. -->
                 <StackPanel Spacing="4">
                     <TextBlock Text="Layout" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                    <CheckBox x:Name="TransportBottom" Content="Play controls along the bottom"/>
+                    <CheckBox x:Name="TransportTop" Content="Play controls along the top"/>
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                Margin="28,0,0,0"
-                               Text="Off, they sit at the top, above the wall. In full screen they float at the bottom either way, and the search box and the library counts stay at the bottom."/>
+                               Text="Off, they sit at the bottom, below the wall. In full screen they float at the bottom either way, and the search box and the library counts stay at the bottom."/>
                 </StackPanel>
 
                 <!-- LAST on the tab, because it resets the whole tab. It used to

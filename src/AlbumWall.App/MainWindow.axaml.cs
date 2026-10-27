@@ -1600,9 +1600,10 @@ public partial class MainWindow : Window
     }
 
     /// Whether the play controls sit above the wall or below it, as chosen.
-    /// ABOVE by default since 2026-10-21 (his call: "make the controls position
-    /// at the top by default. Make it the option to place them at the bottom");
-    /// unset reads as above, and a "false" saved by choosing the bottom stays.
+    /// BELOW by default again since 2026-10-27 (his call: "lets return to the
+    /// controls on the bottom by default"; above had been the default since
+    /// 2026-10-21); unset reads as below, and a "true" saved by choosing the top
+    /// stays.
     /// Full screen puts them at the bottom whatever is chosen: ControlsOnTop.
     ///
     /// The DockPanel does the work: docking the transport Top while it still sits
@@ -1615,7 +1616,7 @@ public partial class MainWindow : Window
     /// transport ends up with a line on the side facing nothing.
     public bool TransportAtTop
     {
-        get => _settings.TransportAtTop != false;
+        get => _settings.TransportAtTop == true;
         set
         {
             if (TransportAtTop == value) return;
