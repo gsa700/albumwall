@@ -45,6 +45,10 @@
          on every build. This one acts only during publish. -->
     <PublishSelfContained>true</PublishSelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- No DOTNET_STARTUP_HOOKS: it runs managed code from any assembly named
+         in the environment inside this process, signed or not, hardened
+         runtime or not (security review 2026-10-26, M2; Deadwax's M1). -->
+    <StartupHookSupport>false</StartupHookSupport>
     <Nullable>enable</Nullable>
     <!-- MacNowPlaying.cs: function pointers handed to the Objective-C runtime. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

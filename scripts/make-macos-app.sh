@@ -3,14 +3,26 @@
 #
 #   scripts/make-macos-app.sh            dist/AlbumWall.app, for the machine's own arch
 #   scripts/make-macos-app.sh --install  and copy it to /Applications (replacing one there)
+#   scripts/make-macos-app.sh --notarize also have Apple notarize it and staple the ticket
+#                                        (needs the Developer ID; options combine)
 #
-# WHAT IS IN IT: the same single-file program every platform publishes (the
-# audio engine, Hymie, is C# inside it, as on Linux and Windows), in the folder
-# layout macOS expects of an application:
+# WHAT IS IN IT: the single-file program every platform publishes (the audio
+# engine, Hymie, is C# inside it, as on Linux and Windows), in the folder
+# layout macOS expects of an application, with its native libraries (Avalonia's,
+# Skia's, HarfBuzz's, SQLite's) beside it in the bundle, each signed with the
+# app's own certificate:
 #
 #   AlbumWall.app/Contents/Info.plist          name, version, identity, icon
 #   AlbumWall.app/Contents/MacOS/AlbumWall     the program
+#   AlbumWall.app/Contents/MacOS/*.dylib       its native libraries
 #   AlbumWall.app/Contents/Resources/AlbumWall.icns
+#
+# NOT UNPACKED INTO ~/.net, as the builds for the other platforms are
+# (IncludeNativeLibrariesForSelfExtract): that folder is the user's to write,
+# the runtime reuses what it finds there, and the unpacked libraries were not
+# signed by our team, so any library put there ran inside the signed app with
+# its Music-folder permission (security review 2026-10-26, M2). Inside the
+# sealed bundle, signed by our team, library validation stays on.
 #
 # Installing on a Mac IS putting that folder in /Applications: Finder,
 # Launchpad, Spotlight and the Dock find it there, and Now Playing and the
@@ -18,9 +30,8 @@
 #
 # SIGNED WITH APPLE'S DEVELOPER ID when this Mac has that certificate (since
 # 2026-10-23, team 4QX5GG2276), else with a local certificate, else AD HOC.
-# Not yet notarized, and without the hardened runtime: a DOWNLOADED copy still
-# doesn't get past Gatekeeper. Notarization comes next (roadmap, macOS point 3);
-# until then this is for building at home, not for a release.
+# With the Developer ID it gets the hardened runtime, and --notarize has Apple
+# notarize it, which a DOWNLOADED copy needs to get past Gatekeeper.
 #
 # Why a certificate at all: macOS remembers a permission (the Music folder,
 # first of all) against the app's signature. An ad hoc signature IS the build's
@@ -39,11 +50,12 @@ set -euo pipefail
 
 [ "$(uname -s)" = Darwin ] || { echo "make-macos-app.sh: on a Mac only" >&2; exit 1; }
 
-INSTALL=no
+INSTALL=no NOTARIZE=no
 for arg in "$@"; do
     case "$arg" in
         --install) INSTALL=yes ;;
-        *) echo "usage: $0 [--install]" >&2; exit 2 ;;
+        --notarize) NOTARIZE=yes ;;
+        *) echo "usage: $0 [--install] [--notarize]" >&2; exit 2 ;;
     esac
 done
 
@@ -60,7 +72,10 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "== publish $RID $VERSION"
-dotnet publish "$PROJECT" -c Release -r "$RID" -o "$WORK/pub" -nologo -v quiet
+# The native libraries stay files of their own, for the bundle (above).
+dotnet publish "$PROJECT" -c Release -r "$RID" -p:IncludeNativeLibrariesForSelfExtract=false \
+    -o "$WORK/pub" -nologo -v quiet
+ls "$WORK/pub"/*.dylib >/dev/null 2>&1 || { echo "the publish left no .dylib beside the program" >&2; exit 1; }
 
 echo "== icon"
 # Rendered from icon.svg by macOS itself (sips reads SVG), every size drawn at
@@ -83,6 +98,7 @@ echo "== bundle"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$WORK/pub/AlbumWall" "$APP/Contents/MacOS/AlbumWall"
+cp "$WORK/pub/"*.dylib "$APP/Contents/MacOS/"
 cp "$WORK/AlbumWall.icns" "$APP/Contents/Resources/AlbumWall.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 cat > "$APP/Contents/Info.plist" <<EOF
@@ -135,14 +151,51 @@ else
            security find-identity -v -p codesigning | grep "Developer ID Application" >&2; exit 1 ;;
     esac
 fi
+# A Developer ID signature gets the hardened runtime, which notarization
+# requires, with the one exception .NET needs (scripts/macos/AlbumWall.entitlements:
+# JIT; without it CoreCLR does not start), and Apple's timestamp. Each library
+# is signed first, the same way, and the bundle last, which seals them in.
 if security find-identity -p codesigning | grep -qF -e "\"$SIGN_ID\"" -e ") $SIGN_ID "; then
-    echo "== sign ($(security find-identity -p codesigning | grep -F -e "\"$SIGN_ID\"" -e ") $SIGN_ID " | head -1 | sed 's/^[^"]*"\([^"]*\)".*/\1/'))"
-    codesign --force --sign "$SIGN_ID" "$APP"
+    LABEL=$(security find-identity -p codesigning | grep -F -e "\"$SIGN_ID\"" -e ") $SIGN_ID " | head -1 | sed 's/^[^"]*"\([^"]*\)".*/\1/')
+    echo "== sign ($LABEL)"
+    case $LABEL in
+        "Developer ID Application:"*)
+            for lib in "$APP/Contents/MacOS/"*.dylib; do
+                codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$lib"
+            done
+            codesign --force --options runtime --timestamp \
+                --entitlements "$ROOT/scripts/macos/AlbumWall.entitlements" --sign "$SIGN_ID" "$APP" ;;
+        *)
+            [ "$NOTARIZE" = yes ] && { echo "--notarize needs a Developer ID certificate, not \"$LABEL\"" >&2; exit 1; }
+            for lib in "$APP/Contents/MacOS/"*.dylib; do codesign --force --sign "$SIGN_ID" "$lib"; done
+            codesign --force --sign "$SIGN_ID" "$APP" ;;
+    esac
 else
+    [ "$NOTARIZE" = yes ] && { echo "--notarize needs a Developer ID certificate" >&2; exit 1; }
     echo "== sign (ad hoc: no \"$SIGN_ID\" certificate on this Mac, so macOS will ask for the Music folder again)"
+    for lib in "$APP/Contents/MacOS/"*.dylib; do codesign --force --sign - "$lib"; done
     codesign --force --sign - "$APP"
 fi
-codesign --verify --strict "$APP"
+codesign --verify --deep --strict "$APP"
+
+# NOTARIZE: Apple checks the signed app and issues a ticket; stapling puts the
+# ticket inside the app, so a Mac that downloads it can check it offline.
+# Credentials are a notarytool keychain profile (made once with `xcrun notarytool
+# store-credentials`), named in ALBUMWALL_NOTARY_PROFILE, "notary" by default.
+if [ "$NOTARIZE" = yes ]; then
+    echo "== notarize (Apple; usually a few minutes)"
+    ditto -c -k --keepParent "$APP" "$WORK/notarize.zip"
+    xcrun notarytool submit "$WORK/notarize.zip" --keychain-profile "${ALBUMWALL_NOTARY_PROFILE:-notary}" --wait \
+        | tee "$WORK/notary.txt"
+    if ! grep -q "status: Accepted" "$WORK/notary.txt"; then
+        id=$(sed -n 's/^ *id: //p' "$WORK/notary.txt" | head -1)
+        [ -n "$id" ] && xcrun notarytool log "$id" --keychain-profile "${ALBUMWALL_NOTARY_PROFILE:-notary}" >&2
+        echo "notarization was not accepted" >&2; exit 1
+    fi
+    xcrun stapler staple "$APP"
+    xcrun stapler validate "$APP"
+    spctl --assess --type execute -vv "$APP"
+fi
 
 echo "== $APP"
 du -sh "$APP" | cut -f1

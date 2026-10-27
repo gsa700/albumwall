@@ -319,6 +319,11 @@ is ahead, the history is for what is behind.
      Program is $99 a year and shows his legal name. A signed `.app` in a
      `.dmg`; not the Mac App Store, whose sandbox fights a player that reads
      arbitrary folders and shares.
+     DONE 2026-10-27 apart from the .dmg (security review 2026-10-26, M2):
+     the Developer ID signs with the hardened runtime (allow-jit only), the
+     native libraries are signed inside the bundle rather than unpacked into
+     ~/.net, startup hooks are off, and `make-macos-app.sh --notarize` has
+     Apple notarize and staple it.
   2. THE UPDATER replacing a signed bundle rather than a loose exe, without
      breaking its signature (installing is OFF in the app on macOS; the script
      makes the .app).
