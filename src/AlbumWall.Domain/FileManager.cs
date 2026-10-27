@@ -27,7 +27,7 @@ public static class FileManager
             var start = new ProcessStartInfo { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
             if (OperatingSystem.IsWindows())
             {
-                start.FileName = "explorer.exe";
+                start.FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
                 start.Arguments = $"/select,\"{path}\"";
                 using var explorer = Process.Start(start);
                 return explorer is not null;        // its exit code says nothing either way
@@ -43,7 +43,8 @@ public static class FileManager
                 // The freedesktop way, which Files, Dolphin, Nemo and COSMIC Files
                 // all answer. dbus-send splits an array on commas, and a song is
                 // allowed one in its name.
-                start.FileName = "dbus-send";
+                if (ToolPath.Find("dbus-send") is not { } dbusSend) return false;
+                start.FileName = dbusSend;
                 foreach (var arg in new[]
                 {
                     "--session", "--print-reply", "--dest=org.freedesktop.FileManager1", "--type=method_call",

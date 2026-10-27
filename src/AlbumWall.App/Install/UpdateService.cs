@@ -332,7 +332,7 @@ public static class UpdateService
                                                              StageRoot, InstallService.OwnExtractionDir, ps1, args));
             Process.Start(new ProcessStartInfo
             {
-                FileName = "powershell.exe",
+                FileName = InstallService.PowerShellExe,
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,

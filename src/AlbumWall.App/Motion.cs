@@ -78,7 +78,8 @@ public static class Motion
 
     private static bool GnomeReduced()
     {
-        using var p = Process.Start(new ProcessStartInfo("gsettings", "get org.gnome.desktop.interface enable-animations")
+        if (Domain.ToolPath.Find("gsettings") is not { } gsettings) return false;
+        using var p = Process.Start(new ProcessStartInfo(gsettings, "get org.gnome.desktop.interface enable-animations")
         {
             RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
         });

@@ -269,6 +269,18 @@ public partial class App : Application
     /// </param>
     public static async Task RunUninstallAsync(Avalonia.Controls.Window owner, bool asked = false)
     {
+        // No installer here (the Mac): say how this system removes an app, and remove nothing.
+        if (!Install.InstallService.CanInstall)
+        {
+            await new ConfirmWindow($"Uninstall {DisplayName}",
+                $"Drag {DisplayName} from Applications to the Bin.",
+                affirmative: "OK", negative: null,
+                detail: "That removes the program. Your music and your settings stay.")
+                .ShowDialog<bool>(owner);
+            if (!asked) owner.Close();
+            return;
+        }
+
         var dialog = new ConfirmWindow(
             $"Uninstall {DisplayName}",
             $"Remove {DisplayName} from this computer?",

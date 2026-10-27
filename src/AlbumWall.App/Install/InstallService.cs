@@ -98,9 +98,30 @@ public static class InstallService
     {
         get
         {
-            var b = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            // DoNotVerify: on a fresh Linux account ~/.local/share does not exist yet, and without
+            // it the answer was "", which made the install folder the relative "albumwall", in
+            // whatever folder it was run from (security review 2026-10-26, L10). Still "" with no
+            // home at all (HOME unset AND no passwd entry; .NET falls back to the second): Install
+            // and Uninstall refuse that (RequireProgramsDirectory); Mode, asked at every start,
+            // just finds nothing installed there.
+            var b = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,
+                Environment.SpecialFolderOption.DoNotVerify);
             return OperatingSystem.IsWindows() ? Path.Combine(b, "Programs") : b;
         }
+    }
+
+    /// <summary>Install and Uninstall write and delete under <see cref="ProgramsDirectory"/>: never
+    /// under a relative one, which is whatever folder the program was started from, and never
+    /// under one with a control character, which no menu entry can name (DesktopEntry.QuoteExec)
+    /// and which is refused here before anything is copied.</summary>
+    private static void RequireProgramsDirectory()
+    {
+        if (!Path.IsPathFullyQualified(ProgramsDirectory))
+            throw new InstallBlockedException(
+                "This account has no home folder to install into, so nothing was changed.");
+        if (ProgramsDirectory.Any(char.IsControl))
+            throw new InstallBlockedException(
+                "The install folder's path holds a control character, so nothing was changed.");
     }
 
     private static string HomeDirectory =>
@@ -194,6 +215,7 @@ public static class InstallService
             throw new InstallBlockedException(
                 "This is a development build, which is many files, and installing copies only one. "
                 + "Publish a release build and install that instead.");
+        RequireProgramsDirectory();
 
         Directory.CreateDirectory(InstallDirectory);
 
@@ -597,6 +619,13 @@ public static class InstallService
     /// </summary>
     public static void Uninstall(UninstallOptions options)
     {
+        // Where there is no installer (the Mac: AlbumWall.app, dragged to Applications) there is
+        // nothing of its to undo, and --uninstall deleted the index and the unpacked libraries and
+        // aimed the Linux menu deletes at Application Support, saying nothing (security review
+        // 2026-10-26, L8).
+        if (!CanInstall)
+            throw new InstallBlockedException("On a Mac, AlbumWall is removed by dragging AlbumWall.app from Applications to the Bin.");
+        RequireProgramsDirectory();
         Unregister();
 
         var toDelete = new List<string>();
@@ -608,8 +637,15 @@ public static class InstallService
         toDelete.AddRange(DataFilesToRemove(options));
 
         // The single-file build unpacks its native libraries here. It is a cache and would be
-        // recreated, so it goes with the program whatever was decided about the settings.
-        if (Directory.Exists(ExtractionRoot)) toDelete.Add(ExtractionRoot);
+        // recreated, so it goes with the program whatever was decided about the settings. All of
+        // it only when no other copy is running: another copy's folder holds the libraries it has
+        // loaded (security review 2026-10-26, L7); otherwise this copy's own folder, and the next
+        // lone start sweeps the rest (SweepStaleExtractions).
+        if (Process.GetProcessesByName("AlbumWall").Length <= 1)
+        {
+            if (Directory.Exists(ExtractionRoot)) toDelete.Add(ExtractionRoot);
+        }
+        else if (OwnExtractionDir is { } own && Directory.Exists(own)) toDelete.Add(own);
 
         var pid = Environment.ProcessId;
 
@@ -643,7 +679,7 @@ public static class InstallService
 
             Process.Start(new ProcessStartInfo
             {
-                FileName = "powershell.exe",
+                FileName = PowerShellExe,
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{script}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -788,9 +824,21 @@ public static class InstallService
 
     private static string RegExe => Path.Combine(Environment.SystemDirectory, "reg.exe");
 
+    /// <summary>Windows PowerShell by its full path. By bare name, .NET looks in this program's
+    /// own folder first, so a powershell.exe beside a copy in Downloads would have run the
+    /// uninstall and update scripts (security review 2026-10-26, INFO; Deadwax M4).</summary>
+    internal static string PowerShellExe =>
+        Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
+
     /// <summary>Run a console tool with no window and return its exit code (-1 if it wouldn't start).</summary>
     private static int Run(string fileName, IEnumerable<string> arguments)
     {
+        // A bare name is looked up on PATH only (ToolPath; security review 2026-10-26, L9).
+        if (!Path.IsPathFullyQualified(fileName))
+        {
+            if (Domain.ToolPath.Find(fileName) is not { } found) return -1;
+            fileName = found;
+        }
         var psi = new ProcessStartInfo
         {
             FileName = fileName,

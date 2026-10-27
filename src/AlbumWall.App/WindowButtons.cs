@@ -48,9 +48,10 @@ public static class WindowButtons
     {
         try
         {
+            if (Domain.ToolPath.Find("gsettings") is not { } gsettings) return null;
             using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "gsettings",
+                FileName = gsettings,
                 Arguments = "get org.gnome.desktop.wm.preferences button-layout",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
