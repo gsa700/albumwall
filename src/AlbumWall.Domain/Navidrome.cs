@@ -573,10 +573,13 @@ public sealed class Navidrome
             throw;
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException
-                                      or InvalidOperationException or UriFormatException)
+                                      or InvalidOperationException or UriFormatException or NotSupportedException)
         {
             // The message of the innermost exception is the useful one ("Connection
             // refused"), and none of them carries the address with the sign-in on it.
+            // NotSupported is an address typed with another scheme (ftp://, file://),
+            // which got out of the sign-in and ended the app (security review
+            // 2026-10-26, finding 12).
             throw new NavidromeException(ex.GetBaseException().Message, unreachable: true, ex);
         }
     }
