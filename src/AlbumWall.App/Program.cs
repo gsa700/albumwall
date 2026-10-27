@@ -82,6 +82,7 @@ class Program
         }
 
         WindowsShell.ClaimIdentity();       // before any window exists, or it does not take
+        if (NativeWayland) WaylandScreens.WaitForOne();     // Avalonia aborts with no screen at all
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
