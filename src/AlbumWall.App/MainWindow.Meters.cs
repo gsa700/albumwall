@@ -28,6 +28,7 @@ public partial class MainWindow
         Compact.Meters.Show(CompactMeterStyle, flash: false);
         Compact.MetersCycled += CycleCompactMeter;
         BarMetersHost.IsVisible = BarMetersOn;
+        _barMeters.PeakHold = Compact.Meters.PeakHold = MeterPeakHold;
     }
 
     /// Compact's choice, which the front panel shares: it is the same view.
@@ -65,6 +66,20 @@ public partial class MainWindow
         {
             _settings.MetersAfterGain = value ? true : null;
             _settings.Save();
+        }
+    }
+
+    /// Preferences > Playback: the held peaks on the LED bars and the analyzer,
+    /// on unless turned off, for every strip.
+    internal bool MeterPeakHold
+    {
+        get => _settings.MeterPeakHold != false;
+        set
+        {
+            _settings.MeterPeakHold = value ? null : false;
+            _settings.Save();
+            _barMeters.PeakHold = Compact.Meters.PeakHold = value;
+            if (_frontPanel is { } panel) panel.View.Meters.PeakHold = value;
         }
     }
 

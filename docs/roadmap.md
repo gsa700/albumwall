@@ -373,6 +373,10 @@ is ahead, the history is for what is behind.
      and the **before-or-after-ReplayGain setting covers both**, one setting
      for every meter. Both switches are in Preferences › Playback; the
      compact right-click menu that was to hold the second is not built yet.
+  After living with 0.7.15 (2026-10-27, "that hits the spot"): the analyzer's
+  bars a fixed green rather than the bar's ink, bright on the dark view and
+  deeper on the light bar, and a Peak hold switch in Preferences › Playback,
+  one for the LED's held segment and the analyzer's caps both.
   As built, the play bar's VU faces are 100 x 65 with a 14 px gap (214 wide),
   and the play bar's title and progress columns hold their minimums (264, 260)
   so a narrow window squeezes the slack, never the title over the cover.

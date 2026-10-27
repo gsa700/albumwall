@@ -180,6 +180,12 @@
                                Text="At the end of the play bar. Click them to change between the VU meters, LED bars and a 31-band analyzer; compact mode keeps a choice of its own."/>
                 </StackPanel>
                 <StackPanel Spacing="4">
+                    <CheckBox x:Name="MeterPeakHold" Content="Peak hold"/>
+                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                               Margin="28,0,0,0"
+                               Text="The LED bars keep their highest segment lit a moment, and the analyzer's bands wear a cap that waits before it falls. Off, both show only the level now."/>
+                </StackPanel>
+                <StackPanel Spacing="4">
                     <CheckBox x:Name="MetersAfterGain" Content="Meters read after ReplayGain"/>
                     <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                Margin="28,0,0,0"

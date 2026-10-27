@@ -88,6 +88,7 @@ public partial class PrefsWindow : Window
         GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Playback.GainMode.Off); };
 
         BarMeters.IsCheckedChanged += (_, _) => { if (!_filling) host.BarMetersOn = BarMeters.IsChecked == true; };
+        MeterPeakHold.IsCheckedChanged += (_, _) => { if (!_filling) host.MeterPeakHold = MeterPeakHold.IsChecked == true; };
         MetersAfterGain.IsCheckedChanged += (_, _) => { if (!_filling) host.MetersAfterGain = MetersAfterGain.IsChecked == true; };
 
         UpdateButton.Click += async (_, _) => await OnUpdateButton();
@@ -585,6 +586,7 @@ public partial class PrefsWindow : Window
         GainOff.IsChecked = gain == Playback.GainMode.Off;
         BarMeters.IsChecked = _host.BarMetersOn;
         MetersAfterGain.IsChecked = _host.MetersAfterGain;
+        MeterPeakHold.IsChecked = _host.MeterPeakHold;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;
         TransportTop.IsChecked = _host.TransportAtTop;

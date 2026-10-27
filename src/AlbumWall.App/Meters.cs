@@ -63,8 +63,10 @@ public static class MeterStyles
 }
 
 /// The colors the LED bars and the analyzer are drawn in. The VU keeps its own
-/// yellow faces wherever it is.
-public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red, IBrush Label)
+/// yellow faces wherever it is. The analyzer's bars are a FIXED GREEN, not the
+/// bar's ink ("a fixed green for the rta", 2026-10-27): bright on the dark view,
+/// deeper on the light play bar so it holds on every album's tint.
+public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red, IBrush Label, IBrush Green)
 {
     /// On the dark now-playing view.
     public static readonly MeterInk OnDark = new(
@@ -72,7 +74,8 @@ public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red
         new ImmutableSolidColorBrush(Color.Parse("#22FFFFFF")),
         new ImmutableSolidColorBrush(Color.Parse("#E8A23A")),
         new ImmutableSolidColorBrush(Color.Parse("#E0533F")),
-        new ImmutableSolidColorBrush(Color.Parse("#9C968C")));
+        new ImmutableSolidColorBrush(Color.Parse("#9C968C")),
+        new ImmutableSolidColorBrush(Color.Parse("#4CC75E")));
 
     /// On the play bar's light tone: the bar's own dark text, its unlit segments the
     /// same ink faint, the mockup's amber and red at the top.
@@ -81,7 +84,8 @@ public sealed record MeterInk(IBrush Lit, IBrush Unlit, IBrush Amber, IBrush Red
         var c = (ink as ISolidColorBrush)?.Color ?? Color.Parse("#15202B");
         return new MeterInk(ink, new ImmutableSolidColorBrush(Color.FromArgb(0x24, c.R, c.G, c.B)),
                             new ImmutableSolidColorBrush(Color.Parse("#A35F00")),
-                            new ImmutableSolidColorBrush(Color.Parse("#B0302A")), dim);
+                            new ImmutableSolidColorBrush(Color.Parse("#B0302A")), dim,
+                            new ImmutableSolidColorBrush(Color.Parse("#1E7A36")));
     }
 }
 
@@ -185,6 +189,18 @@ public sealed class MeterStrip : Panel
         set { _led.Ink = value; _rta.Ink = value; }
     }
 
+    /// The held peaks on the LED bars and the analyzer's caps: one switch for both
+    /// (his call, 2026-10-27), on unless turned off.
+    public bool PeakHold
+    {
+        set
+        {
+            _led.PeakHold = _rta.PeakHold = value;
+            _led.InvalidateVisual();
+            _rta.InvalidateVisual();
+        }
+    }
+
     /// Whether the analyzer is up, and so whether there is any point in taking bands.
     public bool WantsBands => IsEffectivelyVisible && _style == MeterStyle.Rta;
 
@@ -222,7 +238,7 @@ public sealed class LedMeter : Control
     private const double FloorDb = -30, TopDb = 3;
     private const int AmberFrom = 23, RedFrom = 29;
     private const double Release = 20;          // segments a second
-    private const double PeakHold = 0.9;        // seconds
+    private const double HoldFor = 0.9;        // seconds
     private const double PeakFall = 12.5;       // segments a second
 
     private readonly double _rowH, _rowGap, _labelW;
@@ -242,7 +258,7 @@ public sealed class LedMeter : Control
             var (level, peak) = (Level, Peak);
             Level = target > Level ? target : Math.Max(target, Level - Release * seconds);
             if (Level >= Peak) { Peak = Level; Held = 0; }
-            else if ((Held += seconds) > PeakHold) Peak = Math.Max(Level, Peak - PeakFall * seconds);
+            else if ((Held += seconds) > HoldFor) Peak = Math.Max(Level, Peak - PeakFall * seconds);
             return Lit(level) != Lit(Level) || Lit(peak) != Lit(Peak);
         }
 
@@ -260,6 +276,9 @@ public sealed class LedMeter : Control
     {
         set { _ink = value; _lText = _rText = null; InvalidateVisual(); }
     }
+
+    /// Whether the held peak shows (Settings.MeterPeakHold).
+    public bool PeakHold { get; set; } = true;
 
     public void Step(double leftDb, double rightDb, double seconds)
     {
@@ -290,7 +309,7 @@ public sealed class LedMeter : Control
         int lit = Bar.Lit(bar.Level), peak = Bar.Lit(bar.Peak) - 1;
         for (var i = 0; i < Segments; i++)
         {
-            var on = i < lit || i == peak;
+            var on = i < lit || (i == peak && PeakHold);
             var brush = !on ? _ink.Unlit : i >= RedFrom ? _ink.Red : i >= AmberFrom ? _ink.Amber : _ink.Lit;
             ctx.FillRectangle(brush, new Rect(x0 + i * (w + gap), y, w, _rowH));
         }
@@ -309,7 +328,7 @@ public sealed class RtaMeter : Control
     /// with the loudest band near the top.
     private const double FloorDb = -60, TopDb = -6;
     private const double Release = 1.0;         // the bar's whole height a second
-    private const double PeakHold = 0.6;        // seconds
+    private const double HoldFor = 0.6;        // seconds
     private const double PeakFall = 0.55;       // of the height a second
 
     private static readonly (int Band, string Text)[] Marks = [(0, "20"), (7, "100"), (17, "1k"), (27, "10k")];
@@ -334,6 +353,9 @@ public sealed class RtaMeter : Control
         set { _ink = value; _labels = null; InvalidateVisual(); }
     }
 
+    /// Whether the peak caps show (Settings.MeterPeakHold).
+    public bool PeakHold { get; set; } = true;
+
     /// `bands` in dB, or null for none this tick (paused, or the reading was not
     /// to be had): the bars fall as they would to silence.
     public void Step(float[]? bands, double seconds)
@@ -346,7 +368,7 @@ public sealed class RtaMeter : Control
             var t = float.IsNegativeInfinity(db) || float.IsNaN(db) ? 0 : Math.Clamp((db - FloorDb) / (TopDb - FloorDb), 0, 1);
             _h[b] = t > _h[b] ? t : Math.Max(t, _h[b] - Release * seconds);
             if (_h[b] >= _peak[b]) { _peak[b] = _h[b]; _held[b] = 0; }
-            else if ((_held[b] += seconds) > PeakHold) _peak[b] = Math.Max(_h[b], _peak[b] - PeakFall * seconds);
+            else if ((_held[b] += seconds) > HoldFor) _peak[b] = Math.Max(_h[b], _peak[b] - PeakFall * seconds);
             moving |= _h[b] > 0 || _peak[b] > 0;
         }
         _resting = !moving;
@@ -364,9 +386,9 @@ public sealed class RtaMeter : Control
             var x = b * (w + _gap);
             ctx.FillRectangle(_ink.Unlit, new Rect(x, floor - 1, w, 1));
             var h = Math.Round(_h[b] * room);
-            if (h > 0) ctx.FillRectangle(_ink.Lit, new Rect(x, floor - h, w, h));
+            if (h > 0) ctx.FillRectangle(_ink.Green, new Rect(x, floor - h, w, h));
             var p = Math.Round(_peak[b] * room);
-            if (p > 0) ctx.FillRectangle(_peak[b] > 0.92 ? _ink.Red : _ink.Amber, new Rect(x, floor - p - _capH, w, _capH));
+            if (p > 0 && PeakHold) ctx.FillRectangle(_peak[b] > 0.92 ? _ink.Red : _ink.Amber, new Rect(x, floor - p - _capH, w, _capH));
         }
 
         _labels ??= Marks.Select(m => new FormattedText(m.Text, System.Globalization.CultureInfo.InvariantCulture,

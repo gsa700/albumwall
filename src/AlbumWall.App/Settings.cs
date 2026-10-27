@@ -160,6 +160,9 @@ public sealed class Settings
     public string? BarMeter { get; set; }
     public string? CompactMeter { get; set; }
     public bool? MetersAfterGain { get; set; }
+    /// The LED bars' held peak and the analyzer's peak caps, one switch for both:
+    /// unset is on.
+    public bool? MeterPeakHold { get; set; }
 
     /// ALBUMWALL_CONFIG_DIR moves the settings somewhere else, for test runs. A
     /// second instance pointed at the real file fights the first over window
