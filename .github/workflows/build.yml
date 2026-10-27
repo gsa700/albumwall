@@ -1,0 +1,136 @@
+# AlbumWall on every system it ships for: the Native AOT build on each one's own runner
+# (AOT cannot build for another system), checked and smoke-tested there, and kept as an
+# artifact (AlbumWall-aot-<rid>) for scripts/release.sh to take. The Mac's release build is
+# made on Control, where it is signed and notarized; the runner's only proves it builds and
+# starts. docs/roadmap.md, the road to Native AOT, step 3. Deadwax's build.yml is the model.
+#
+# Until the bridge release (step 4) releases still ship the single file, made by release.sh.
+name: Build
+
+on:
+  push:
+    branches: [master]
+    paths: ["src/**", "tools/engine-check.cs", "AlbumWall.slnx", ".github/workflows/build.yml"]
+  pull_request:
+    paths: ["src/**", "tools/engine-check.cs", "AlbumWall.slnx", ".github/workflows/build.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04, not latest: a Native AOT program needs the glibc of the machine that
+          # built it, so the oldest runner keeps Ubuntu 22.04, Debian 12 and the Pi's OS
+          # able to run it. The publish step checks the floor.
+          - os: ubuntu-22.04
+            rid: linux-x64
+          - os: ubuntu-22.04-arm      # the Pi kiosk's
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-15              # Apple silicon
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build src/AlbumWall.App -c Release -nologo -v quiet
+
+      # clang and zlib for the AOT link; Xvfb, a display for the smoke test.
+      - name: Native AOT tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y -q clang zlib1g-dev xvfb
+
+      # Fails on any trim or AOT warning (IL2xxx/IL3xxx) but TagLibSharp's own (IL2104):
+      # that assembly is kept whole (TrimmerRootAssembly, 1c65537), and its warnings are its
+      # analysis, not code we lose. Anything else may break only in the compiled build.
+      - name: Publish ${{ matrix.rid }} Native AOT
+        shell: bash
+        run: |
+          dotnet publish src/AlbumWall.App -c Release -r ${{ matrix.rid }} -p:PublishAot=true -o out-aot -nologo -v minimal 2>&1 | tee aot.log
+          test "${PIPESTATUS[0]}" -eq 0
+          if grep -E "warning IL[0-9]+" aot.log | grep -v "IL2104: Assembly 'TagLibSharp'"; then echo "trim/AOT warnings above"; exit 1; fi
+          ls -la out-aot
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            # The newest glibc any shipped file asks for is the oldest Linux it runs on.
+            for f in out-aot/AlbumWall out-aot/*.so; do
+              floor=$(objdump -T "$f" | grep -oE 'GLIBC_2\.[0-9]+' | sort -t. -k2 -n -u | tail -1)
+              echo "glibc floor of $(basename "$f"): $floor"
+              [ "${floor#GLIBC_2.}" -le 35 ] || { echo "$(basename "$f") needs $floor; Ubuntu 22.04 has 2.35"; exit 1; }
+            done
+          fi
+
+      # Hymie compiled ahead of time against what a broken file or a hostile server sends:
+      # every case must fail as a broken track, in bounded time (security review 2026-10-26).
+      - name: engine-check hostile (Native AOT)
+        shell: bash
+        run: |
+          dotnet publish tools/engine-check.cs -o ec -nologo -v quiet
+          ./ec/engine-check hostile
+
+      # Alive after ten seconds = the compiled program, Avalonia and its native libraries all
+      # loaded, the window up. A scratch config, so it opens its welcome screen.
+      - name: Smoke test Native AOT (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          export ALBUMWALL_CONFIG_DIR="$RUNNER_TEMP/aw-config"
+          set +e
+          perl -e 'alarm 10; exec @ARGV' ./out-aot/AlbumWall > smoke-aot.log 2>&1
+          rc=$?
+          set -e
+          echo "exit code $rc (124, 137 or 142 = killed by the timer = alive = pass)"
+          cat smoke-aot.log
+          test "$rc" -eq 142 -o "$rc" -eq 124 -o "$rc" -eq 137
+
+      - name: Smoke test Native AOT (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          export ALBUMWALL_CONFIG_DIR="$RUNNER_TEMP/aw-config"
+          # No Wayland here: under Xvfb Avalonia takes X11.
+          set +e
+          xvfb-run -a perl -e 'alarm 10; exec @ARGV' ./out-aot/AlbumWall > smoke-aot.log 2>&1
+          rc=$?
+          set -e
+          echo "exit code $rc (124, 137 or 142 = killed by the timer = alive = pass)"
+          cat smoke-aot.log
+          test "$rc" -eq 142 -o "$rc" -eq 124 -o "$rc" -eq 137
+
+      - name: Smoke test Native AOT (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:ALBUMWALL_CONFIG_DIR = Join-Path $env:RUNNER_TEMP 'aw-config'
+          $p = Start-Process -FilePath .\out-aot\AlbumWall.exe -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { Write-Host "exited early with $($p.ExitCode)"; exit 1 }
+          Write-Host "alive after ten seconds = pass"
+          Stop-Process -Id $p.Id -Force
+
+      - name: Package Native AOT
+        shell: bash
+        run: |
+          rm -rf out-aot/*.pdb out-aot/*.dbg out-aot/*.dSYM
+          cd out-aot
+          if [ "${{ runner.os }}" = "Windows" ]; then 7z a -bd ../AlbumWall-aot-${{ matrix.rid }}.zip . >/dev/null; else zip -9 -q -r ../AlbumWall-aot-${{ matrix.rid }}.zip .; fi
+          cd ..
+          ls -la AlbumWall-aot-${{ matrix.rid }}.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlbumWall-aot-${{ matrix.rid }}
+          path: |
+            AlbumWall-aot-${{ matrix.rid }}.zip
+            smoke-aot.log
+          if-no-files-found: ignore
+          retention-days: 30
