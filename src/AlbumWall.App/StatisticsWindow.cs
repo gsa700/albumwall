@@ -52,7 +52,7 @@ public sealed class StatisticsWindow : Window
         Resources["SheetBg"] = SolidColorBrush.Parse("#E4E4E2");
         Resources["SheetField"] = SolidColorBrush.Parse("#F6F6F4");
         Resources["SheetEdge"] = SolidColorBrush.Parse("#C2C2C6");
-        Resources["WordmarkInk"] = Ink;
+        Resources["WordmarkInk"] = BarInk();
         Style Restyle<T>(Func<Selector?, Selector> which, params (AvaloniaProperty Property, object Value)[] set) where T : Control
         {
             var style = new Style(which);
@@ -79,8 +79,21 @@ public sealed class StatisticsWindow : Window
         if (want > 0 && Math.Abs(Height - want) > 0.5) Height = want;
     }
 
+    /// The bars' color: the wall's own accent (WordmarkInk, from the hue of his covers), as they
+    /// were on the Statistics tab they came from, made only as much darker as it takes to stand
+    /// out at 3:1 on this window's light sheet (WCAG's floor for graphics). Overriding it with the
+    /// sheet's ink when the numbers moved into this window (fdaa283) turned every bar gray-black,
+    /// which he noticed (2026-10-27: "we somehow lost the color in the bars").
+    private static IBrush BarInk()
+    {
+        var accent = Application.Current?.Resources.TryGetResource("WordmarkInk", null, out var value) == true
+                     && value is ISolidColorBrush brush ? brush.Color : (Color?)null;
+        return accent is { } c ? Contrast.Brush(Contrast.Floor(c, Color.Parse("#E4E4E2"), 3.0)) : Ink;
+    }
+
     public void Refill(Library library, LibraryStats? s, string asOf)
     {
+        Resources["WordmarkInk"] = BarInk();     // the wall's colors may have changed since
         Title = $"{App.DisplayName} — {library.Name}: the numbers";
         var page = new StackPanel { Spacing = 10, Margin = new Thickness(18, 14, 18, 18) };
         page.Children.Add(new TextBlock { Text = $"{library.Name}  —  {asOf}", FontSize = 15, FontWeight = FontWeight.SemiBold });
