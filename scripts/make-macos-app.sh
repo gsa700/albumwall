@@ -5,6 +5,9 @@
 #   scripts/make-macos-app.sh --install  and copy it to /Applications (replacing one there)
 #   scripts/make-macos-app.sh --notarize also have Apple notarize it and staple the ticket
 #                                        (needs the Developer ID; options combine)
+#   scripts/make-macos-app.sh --dmg      also dist/AlbumWall.dmg, the download for people: a window
+#                                        with the app and an Applications folder to drag it to
+#                                        (signed; notarized and stapled too with --notarize)
 #
 # WHAT IS IN IT: the single-file program every platform publishes (the audio
 # engine, Hymie, is C# inside it, as on Linux and Windows), in the folder
@@ -50,12 +53,13 @@ set -euo pipefail
 
 [ "$(uname -s)" = Darwin ] || { echo "make-macos-app.sh: on a Mac only" >&2; exit 1; }
 
-INSTALL=no NOTARIZE=no
+INSTALL=no NOTARIZE=no DMG=no
 for arg in "$@"; do
     case "$arg" in
         --install) INSTALL=yes ;;
         --notarize) NOTARIZE=yes ;;
-        *) echo "usage: $0 [--install] [--notarize]" >&2; exit 2 ;;
+        --dmg) DMG=yes ;;
+        *) echo "usage: $0 [--install] [--notarize] [--dmg]" >&2; exit 2 ;;
     esac
 done
 
@@ -195,6 +199,102 @@ if [ "$NOTARIZE" = yes ]; then
     xcrun stapler staple "$APP"
     xcrun stapler validate "$APP"
     spctl --assess --type execute -vv "$APP"
+fi
+
+# THE DMG, for people: opening it shows AlbumWall.app beside a link to
+# /Applications, to drag it across. (Run from the disk image or from
+# Downloads, macOS starts it from a randomised read-only copy, App
+# Translocation, which also cannot update itself.)
+# The image is signed like the app, and notarized and stapled with --notarize,
+# so it opens with no Gatekeeper warning even offline.
+#
+# THE WINDOW: a background with an arrow from the app to Applications
+# (scripts/macos/dmg-background.svg, drawn at 1x and 2x into one TIFF), the
+# icons placed on it, no toolbar, the disk with AlbumWall's icon. Finder lays
+# it out, told through AppleScript, on the image mounted read-write; it keeps
+# that in the image's .DS_Store, and the image is then compressed. The first
+# time, macOS asks whether this terminal may control Finder. Without Finder
+# (refused, or no one logged in) the dmg is made as before, a plain window,
+# and the script says so: a release never fails on the decoration.
+if [ "$DMG" = yes ]; then
+    echo "== dmg"
+    DMGSRC="$WORK/dmg"
+    VOLNAME="AlbumWall $VERSION"
+    rm -rf "$DMGSRC"; mkdir -p "$DMGSRC/.background"
+    ditto "$APP" "$DMGSRC/AlbumWall.app"
+    ln -s /Applications "$DMGSRC/Applications"
+    sips -s format png -z 400 660 "$ROOT/scripts/macos/dmg-background.svg" --out "$WORK/bg.png" >/dev/null
+    sips -s format png -z 800 1320 "$ROOT/scripts/macos/dmg-background.svg" --out "$WORK/bg@2x.png" >/dev/null
+    tiffutil -cathidpicheck "$WORK/bg.png" "$WORK/bg@2x.png" -out "$DMGSRC/.background/background.tiff" 2>/dev/null
+    rm -f "$OUT/AlbumWall.dmg"
+    hdiutil create -quiet -volname "$VOLNAME" -srcfolder "$DMGSRC" -fs HFS+ -format UDRW -ov "$WORK/rw.dmg"
+    MNT=$(hdiutil attach -readwrite -noverify -noautoopen "$WORK/rw.dmg" | awk -F'\t' '/\/Volumes\//{print $NF}' | tail -1)
+    [ -d "$MNT" ] || { echo "the read-write image did not mount" >&2; exit 1; }
+    trap 'hdiutil detach -force -quiet "$MNT" 2>/dev/null; rm -rf "$WORK"' EXIT   # never left mounted
+    # By its mount point, not its name: another disk of the same name (the
+    # dmg of the release before, still mounted) would be laid out instead.
+    if osascript - "$MNT" <<'APPLESCRIPT'
+on run argv
+    set mountPoint to (POSIX file (item 1 of argv)) as alias
+    tell application "Finder"
+        tell folder mountPoint
+            open
+            set current view of container window to icon view
+            set toolbar visible of container window to false
+            set statusbar visible of container window to false
+            set the bounds of container window to {200, 120, 860, 548}
+            set opts to the icon view options of container window
+            set arrangement of opts to not arranged
+            set icon size of opts to 128
+            set text size of opts to 13
+            set background picture of opts to file ".background:background.tiff"
+            set extension hidden of item "AlbumWall.app" to true
+            set position of item "AlbumWall.app" of container window to {170, 190}
+            set position of item "Applications" of container window to {490, 190}
+            update without registering applications
+            delay 1
+            close
+        end tell
+    end tell
+end run
+APPLESCRIPT
+    then
+        # Finder writes .DS_Store when it gets round to it.
+        for _ in 1 2 3 4 5 6 7 8 9 10; do [ -f "$MNT/.DS_Store" ] && break; sleep 0.5; done
+        [ -f "$MNT/.DS_Store" ] || echo "warning: Finder wrote no layout; the dmg opens as a plain window" >&2
+    else
+        echo "warning: Finder could not be asked to lay out the window (allow this terminal to control Finder in System Settings > Privacy & Security > Automation); the dmg opens as a plain window" >&2
+    fi
+    rm -rf "$MNT/.fseventsd" "$MNT/.Trashes"
+    # The disk's own icon, .VolumeIcon.icns: copied in here, since hdiutil's
+    # -srcfolder leaves it out, and flagged after Finder, which clears the flag.
+    if command -v SetFile >/dev/null; then
+        cp "$WORK/AlbumWall.icns" "$MNT/.VolumeIcon.icns"
+        SetFile -a C "$MNT"
+        SetFile -a V "$MNT/.background" "$MNT/.VolumeIcon.icns"
+    fi
+    sync
+    hdiutil detach -quiet "$MNT" || { sleep 2; hdiutil detach -force -quiet "$MNT"; }
+    trap 'rm -rf "$WORK"' EXIT
+    hdiutil convert -quiet "$WORK/rw.dmg" -format UDZO -imagekey zlib-level=9 -o "$OUT/AlbumWall.dmg"
+    if [ -n "${LABEL:-}" ]; then
+        codesign --force --timestamp --sign "$SIGN_ID" "$OUT/AlbumWall.dmg"
+        codesign --verify --strict "$OUT/AlbumWall.dmg"
+    fi
+    if [ "$NOTARIZE" = yes ]; then
+        echo "== notarize the dmg"
+        xcrun notarytool submit "$OUT/AlbumWall.dmg" --keychain-profile "${ALBUMWALL_NOTARY_PROFILE:-notary}" --wait \
+            | tee "$WORK/notary-dmg.txt"
+        if ! grep -q "status: Accepted" "$WORK/notary-dmg.txt"; then
+            id=$(sed -n 's/^ *id: //p' "$WORK/notary-dmg.txt" | head -1)
+            [ -n "$id" ] && xcrun notarytool log "$id" --keychain-profile "${ALBUMWALL_NOTARY_PROFILE:-notary}" >&2
+            echo "notarization of the dmg was not accepted" >&2; exit 1
+        fi
+        xcrun stapler staple "$OUT/AlbumWall.dmg"
+        xcrun stapler validate "$OUT/AlbumWall.dmg"
+        spctl --assess --type open --context context:primary-signature -vv "$OUT/AlbumWall.dmg"
+    fi
+    du -h "$OUT/AlbumWall.dmg" | cut -f1
 fi
 
 echo "== $APP"
