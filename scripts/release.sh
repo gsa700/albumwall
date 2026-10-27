@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AlbumWall - cut an app release: all three platforms, one GitHub release.
+# AlbumWall - cut an app release: every platform, one GitHub release. On a Mac (Control).
 #
 #   scripts/release.sh 0.2.0                     a DRAFT release, to look at first
 #   scripts/release.sh 0.2.0 --notes-file N.md   with the notes written by hand
@@ -11,12 +11,17 @@
 #                                                scripts/promote.sh X.Y.Z   (flag cleared, latest, notes say so)
 #   scripts/release.sh 0.2.0 --dry-run           build and zip only: no tag, no release,
 #                                                version/tree checks only warn. Leaves the
-#                                                zips in ./dist.
+#                                                zips in ./dist (and the dmg, not notarized).
+#   scripts/release.sh 0.2.0 --no-mac            without the Mac's dmg, on a machine that is not a Mac
 #
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
 # AlbumWall-<rid>.zip for linux-x64, linux-arm64 and win-x64 - each zip holding
-# the single-file program - and SHA256SUMS listing every zip. Two channels
+# the single-file program - AlbumWall.dmg, the Mac download (AlbumWall.app,
+# signed and notarized, both stapled; scripts/make-macos-app.sh), and
+# SHA256SUMS listing them all. The updater takes only a zip, and a Mac copy
+# does not update itself yet (no osx zip until the bundle updater exists:
+# docs/roadmap.md, macOS); a Mac copy is updated from a newer dmg. Two channels
 # (AlbumWall.Domain/ReleaseFeed.cs): Stable reads /releases/latest, which never
 # returns a pre-release; Edge reads the release list and takes the newest vX.Y.Z
 # (never a libmpv-* engine release). Both refuse a download SHA256SUMS does not
@@ -39,14 +44,15 @@ REPO=gsa700/albumwall
 CSPROJ="$ROOT/src/AlbumWall.App/AlbumWall.App.csproj"
 RIDS=(linux-x64 linux-arm64 win-x64)
 
-VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish]}
+VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish] [--dry-run] [--no-mac]}
 shift
-PUBLISH=0; NOTES=""; DRY=0; EDGE=0
+PUBLISH=0; NOTES=""; DRY=0; EDGE=0; MAC=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --publish) PUBLISH=1 ;;
         --edge) EDGE=1 ;;
         --dry-run) DRY=1 ;;
+        --no-mac) MAC=0 ;;
         --notes-file) NOTES=${2:?--notes-file needs a file}; shift ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -78,6 +84,9 @@ done
 [ -n "$PY" ] || die "Python 3 is needed (python3, or python on Windows)"
 command -v dotnet >/dev/null || die "dotnet is not on PATH (DOTNET_ROOT=\$HOME/.dotnet PATH=\$HOME/.dotnet:\$PATH)"
 [ -n "$NOTES" ] && [ ! -f "$NOTES" ] && die "no such notes file: $NOTES"
+if [ $MAC -eq 1 ]; then
+    [ "$(uname -s)" = Darwin ] || die "the Mac's dmg is made on a Mac: run this on Control, or pass --no-mac"
+fi
 
 cd "$ROOT"
 [ -z "$(git status --porcelain)" ] || must "the working tree is not clean"
@@ -127,13 +136,36 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
 PY
     echo "   AlbumWall-$rid.zip  $(du -h "$WORK/AlbumWall-$rid.zip" | cut -f1)"
 done
-(cd "$WORK" && sha256sum AlbumWall-*.zip > SHA256SUMS)
+
+# The Mac: scripts/make-macos-app.sh builds AlbumWall.app (its libraries signed
+# inside it) and AlbumWall.dmg, notarizes both and staples them; a dry run
+# skips Apple. Finder lays out the dmg's window, so this wants Control's
+# desktop session (without it the dmg is a plain window, and the log says so).
+if [ $MAC -eq 1 ]; then
+    say "AlbumWall.app and AlbumWall.dmg"
+    macflags=(--dmg); [ $DRY -eq 1 ] || macflags+=(--notarize)
+    "$HERE/make-macos-app.sh" "${macflags[@]}" > "$WORK/make-macos-app.log" 2>&1 \
+        || { tail -40 "$WORK/make-macos-app.log" >&2; die "make-macos-app.sh failed (above)"; }
+    grep -E '^warning: ' "$WORK/make-macos-app.log" >&2 || true
+    [ -d "$ROOT/dist/AlbumWall.app" ] && [ -f "$ROOT/dist/AlbumWall.dmg" ] || die "make-macos-app.sh made no app or dmg"
+    [ "$(defaults read "$ROOT/dist/AlbumWall.app/Contents/Info" CFBundleShortVersionString)" = "$VERSION" ] \
+        || must "the app's CFBundleShortVersionString is not $VERSION"
+    codesign --verify --deep --strict "$ROOT/dist/AlbumWall.app" || die "the app's signature does not verify"
+    if [ $DRY -eq 0 ]; then
+        spctl --assess --type open --context context:primary-signature "$ROOT/dist/AlbumWall.dmg" 2>/dev/null \
+            || die "Gatekeeper does not accept AlbumWall.dmg"
+    fi
+    cp "$ROOT/dist/AlbumWall.dmg" "$WORK/AlbumWall.dmg"
+    echo "   AlbumWall.dmg  $(du -h "$WORK/AlbumWall.dmg" | cut -f1)"
+fi
+
+(cd "$WORK" && sha256sum AlbumWall-*.zip $([ -f "$WORK/AlbumWall.dmg" ] && echo AlbumWall.dmg) > SHA256SUMS)
 cat "$WORK/SHA256SUMS"
 
 if [ $DRY -eq 1 ]; then
     mkdir -p "$ROOT/dist"; rm -f "$ROOT"/dist/AlbumWall-*.zip "$ROOT/dist/SHA256SUMS"
-    cp "$WORK"/AlbumWall-*.zip "$WORK/SHA256SUMS" "$ROOT/dist/"
-    echo; echo "DRY RUN: nothing tagged, nothing released. The zips are in dist/."
+    cp "$WORK"/AlbumWall-*.zip "$WORK/SHA256SUMS" "$ROOT/dist/"   # the dmg is there already
+    echo; echo "DRY RUN: nothing tagged, nothing released. The zips and the dmg (not notarized) are in dist/."
     exit 0
 fi
 
@@ -148,7 +180,13 @@ if [ -z "$NOTES" ]; then
     {
         echo "AlbumWall $VERSION.$([ $EDGE -eq 1 ] && echo " An Edge build: offered to copies set to Edge until it is promoted to Stable.")"
         echo
-        echo "Download the zip for your system, unpack it and run the program: it offers to install itself."
+        if [ $MAC -eq 1 ]; then
+            echo "Mac: open AlbumWall.dmg and drag AlbumWall to Applications. Signed with a Developer ID and notarized by Apple, so it opens with no warning. A Mac copy does not update itself yet: a newer version is a newer dmg."
+            echo
+            echo "Linux and Windows: download the zip for your system, unpack it and run the program: it offers to install itself."
+        else
+            echo "Download the zip for your system, unpack it and run the program: it offers to install itself."
+        fi
         echo "An installed copy updates itself from the Updates tab in Preferences."
         echo
         echo "Changes${prev:+ since $prev}:"
@@ -159,7 +197,7 @@ fi
 ARGS=(--repo "$REPO" --title "AlbumWall $VERSION" --notes-file "$NOTES" --verify-tag)
 [ $PUBLISH -eq 1 ] || ARGS+=(--draft)
 [ $EDGE -eq 1 ] && ARGS+=(--prerelease --latest=false)
-gh release create "$TAG" "${ARGS[@]}" "$WORK"/AlbumWall-*.zip "$WORK/SHA256SUMS"
+gh release create "$TAG" "${ARGS[@]}" "$WORK"/AlbumWall-*.zip $([ -f "$WORK/AlbumWall.dmg" ] && echo "$WORK/AlbumWall.dmg") "$WORK/SHA256SUMS"
 echo
 if [ $PUBLISH -eq 1 ]; then
     if [ $EDGE -eq 1 ]; then
