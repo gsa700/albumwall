@@ -101,13 +101,28 @@ is ahead, the history is for what is behind.
      FOUND ON THE WAY, both builds: with no output at all (Wayland compositor
      running, no screen connected) Avalonia aborts at start ("Expected at least
      one wl_output"), so a kiosk whose screen is off at boot would be restarted
-     by its supervisor again and again. Worth a look before the kiosk moves.
+     by its supervisor again and again. FIXED 32ed846 (waits for a screen;
+     seen live: "a screen appeared after 82 s"). The Pi's kiosk had in fact
+     done exactly that: booted headless, its installed 0.2.3 (!) aborted three
+     times, the launcher gave up, the session stayed black. Two kiosk gaps
+     left, for the next time kiosk/ is touched: albumwall-kiosk applies
+     MAIN_OUTPUT's mode and scale (and the panel's) once, at session start, so
+     a screen plugged in later runs at 100% (kanshi is the desktop's, not the
+     kiosk's); and the Pi's audio after a screenless boot had only PipeWire's
+     Dummy Output (fixed on that Pi by hand: a pipewire.conf.d sink on alsa's
+     hdmi:CARD=vc4hdmi0, since Debian's UCM has no vc4-hdmi profile and Pro
+     Audio is refused). Its installed copy is 0.2.3 and has not updated itself.
   3. Releases from CI: each runner builds its own system (AOT cannot build for
      another); release.sh takes the run of the release commit (a push or a
      manual start only), checks the exact file list, the first bytes, and
      "X.Y.Z+<commit>" in the program, and packs AlbumWall-<rid>-aot.zip; the Mac
      is made on Control. Linux builds on Ubuntu 22.04 (glibc 2.34 floor; the Pi
      OS bookworm has 2.36), and CI fails if the floor rises.
+     DONE 2026-10-27: build.yml (7a9281e) builds AOT on Ubuntu 22.04 x64 and
+     Arm, Windows and macOS 15, all green on its first run; release.sh --aot
+     --dry-run takes them (the exact files, their first bytes, "0.7.12+<commit>")
+     and packs AlbumWall-<rid>-aot.zip, 20-23 MB against the single file's
+     41-51. --aot is refused without --dry-run until the bridge (step 4).
   4. A BRIDGE release first, still single file: an updater that installs a
      package (the libraries first, the program last, a backup, a start check
      and a rollback), prefers the -aot name, and an installer that copies the

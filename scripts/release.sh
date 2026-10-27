@@ -13,6 +13,11 @@
 #                                                version/tree checks only warn. Leaves the
 #                                                zips in ./dist (and the dmg, not notarized).
 #   scripts/release.sh 0.2.0 --no-mac            without the Mac's dmg, on a machine that is not a Mac
+#   scripts/release.sh 0.2.0 --aot --dry-run     the Native AOT builds instead of the single file: Linux
+#                                                and Windows from CI's run of this commit (build.yml),
+#                                                the Mac made here; AlbumWall-<rid>-aot.zip. A trial
+#                                                only, refused without --dry-run until the bridge
+#                                                release (docs/roadmap.md, the road to Native AOT).
 #
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
@@ -44,15 +49,16 @@ REPO=gsa700/albumwall
 CSPROJ="$ROOT/src/AlbumWall.App/AlbumWall.App.csproj"
 RIDS=(linux-x64 linux-arm64 win-x64)
 
-VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish] [--dry-run] [--no-mac]}
+VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish] [--dry-run] [--no-mac] [--aot]}
 shift
-PUBLISH=0; NOTES=""; DRY=0; EDGE=0; MAC=1
+PUBLISH=0; NOTES=""; DRY=0; EDGE=0; MAC=1; AOT=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --publish) PUBLISH=1 ;;
         --edge) EDGE=1 ;;
         --dry-run) DRY=1 ;;
         --no-mac) MAC=0 ;;
+        --aot) AOT=1 ;;
         --notes-file) NOTES=${2:?--notes-file needs a file}; shift ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -87,6 +93,10 @@ command -v dotnet >/dev/null || die "dotnet is not on PATH (DOTNET_ROOT=\$HOME/.
 if [ $MAC -eq 1 ]; then
     [ "$(uname -s)" = Darwin ] || die "the Mac's dmg is made on a Mac: run this on Control, or pass --no-mac"
 fi
+# Every installed copy before the bridge looks for AlbumWall-<rid>.zip and installs one file:
+# an AOT release would tell them there is no build for them, or leave them a program without
+# its libraries. Until the bridge has shipped (step 4), --aot is for trying the path only.
+[ $AOT -eq 1 ] && [ $DRY -eq 0 ] && die "--aot works with --dry-run only until the bridge release (docs/roadmap.md, the road to Native AOT, step 4)"
 
 cd "$ROOT"
 [ -z "$(git status --porcelain)" ] || must "the working tree is not clean"
@@ -115,8 +125,83 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+# ---- the Native AOT builds CI made (--aot) -----------------------------------
+# AOT cannot build for another system, so each comes from its own runner in CI's run of this
+# very commit (.github/workflows/build.yml, artifact AlbumWall-aot-<rid>, kept 30 days); a
+# push starts one, and with none this starts it and waits. Deadwax's release.sh is the model.
+CI_RUN=""
+ci_run_line() {
+    gh run list -R "$REPO" --workflow build.yml --commit "$(git rev-parse HEAD)" -L 20 \
+        --json databaseId,headSha,status,conclusion,event \
+        -q '[.[] | select(.headSha=="'"$(git rev-parse HEAD)"'" and (.event=="push" or .event=="workflow_dispatch"))][0] | select(. != null) | "\(.databaseId) \(.status)"'
+}
+ci_run() {
+    [ -n "$CI_RUN" ] && return
+    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/master)" ] \
+        || die "CI builds only what is pushed, and HEAD is not origin/master: push first (a dry run too)"
+    local line; line=$(ci_run_line)
+    if [ -z "$line" ]; then
+        say "no CI run of $(git rev-parse --short HEAD) yet: starting one"
+        gh workflow run build.yml -R "$REPO" --ref master
+        for _ in $(seq 1 36); do sleep 5; line=$(ci_run_line); [ -n "$line" ] && break; done
+        [ -n "$line" ] || die "the CI run did not appear: https://github.com/$REPO/actions"
+    fi
+    CI_RUN=${line%% *}
+    if [ "${line#* }" != completed ]; then
+        say "waiting for CI run $CI_RUN (the Native AOT builds take about ten minutes)"
+        gh run watch "$CI_RUN" -R "$REPO" --interval 30 >/dev/null 2>&1 || true
+    fi
+    local conclusion; conclusion=$(gh run view "$CI_RUN" -R "$REPO" --json conclusion -q .conclusion)
+    [ "$conclusion" = success ] || die "CI run $CI_RUN did not pass ($conclusion): https://github.com/$REPO/actions/runs/$CI_RUN"
+}
+# ci_build RID DIR: that run's AlbumWall-aot-RID, unpacked into DIR/x.
+ci_build() {
+    ci_run
+    mkdir -p "$2"
+    gh run download "$CI_RUN" -R "$REPO" -n "AlbumWall-aot-$1" -D "$2" >/dev/null \
+        || die "$1: CI run $CI_RUN has no artifact AlbumWall-aot-$1 (kept 30 days)"
+    unzip -q "$2/AlbumWall-aot-$1.zip" -d "$2/x"
+}
+# The native libraries a Native AOT program has beside it, per system.
+native_libraries() {
+    case $1 in
+        win-*)   echo "libSkiaSharp.dll libHarfBuzzSharp.dll e_sqlite3.dll av_libglesv2.dll" ;;
+        linux-*) echo "libSkiaSharp.so libHarfBuzzSharp.so libe_sqlite3.so" ;;
+    esac
+}
+
 # ---- build ------------------------------------------------------------------
 for rid in "${RIDS[@]}"; do
+    if [ $AOT -eq 1 ]; then
+        say "$rid: the Native AOT build CI made of $(git rev-parse --short HEAD)"
+        ci_build "$rid" "$WORK/ci/$rid"
+        from="$WORK/ci/$rid/x"
+        # The program's name and first bytes per system, as the updater checks them: ELF or
+        # PE ("MZ"); the libraries too. Exactly these files, nothing missing, nothing more.
+        case $rid in win-*) exe=AlbumWall.exe; magic='^4d5a'; kind=PE ;; *) exe=AlbumWall; magic='^7f454c46'; kind=ELF ;; esac
+        libs=$(native_libraries "$rid")
+        want=$(printf '%s\n' $exe $libs | sort | paste -sd' ' -)
+        have=$(cd "$from" && find . -maxdepth 1 -type f ! -name '*.pdb' ! -name '*.dbg' | sed 's:^\./::' | sort | paste -sd' ' -)
+        [ "$have" = "$want" ] || die "$rid: CI's build holds [$have], expected [$want] (a library added or gone? update native_libraries here)"
+        for f in $exe $libs; do
+            head -c 4 "$from/$f" | od -An -tx1 | tr -d ' \n' | grep -qE "$magic" || die "$rid: $f is not a $kind binary"
+        done
+        # Built from this commit as this version: the informational version (X.Y.Z+<commit>)
+        # is in the program as plain text.
+        grep -qaF "$VERSION+$(git rev-parse HEAD)" "$from/$exe" || must "$rid: $exe does not say it is $VERSION+$(git rev-parse HEAD)"
+        "$PY" - "$WORK/AlbumWall-$rid-aot.zip" "$from" $exe $libs <<'PY'
+import sys, zipfile, os
+out, src, *files = sys.argv[1:]
+with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+    for name in files:                          # the program first, then its libraries
+        info = zipfile.ZipInfo.from_file(os.path.join(src, name), name)
+        info.external_attr = 0o755 << 16        # executable when unpacked on Linux
+        info.compress_type = zipfile.ZIP_DEFLATED
+        with open(os.path.join(src, name), "rb") as f: z.writestr(info, f.read())
+PY
+        echo "   AlbumWall-$rid-aot.zip  $(du -h "$WORK/AlbumWall-$rid-aot.zip" | cut -f1)"
+        continue
+    fi
     say "publish $rid"
     out="$WORK/pub/$rid"
     dotnet publish "$ROOT/src/AlbumWall.App" -c Release -r "$rid" -o "$out" -v quiet -nologo \
@@ -143,7 +228,7 @@ done
 # desktop session (without it the dmg is a plain window, and the log says so).
 if [ $MAC -eq 1 ]; then
     say "AlbumWall.app and AlbumWall.dmg"
-    macflags=(--dmg); [ $DRY -eq 1 ] || macflags+=(--notarize)
+    macflags=(--dmg); [ $DRY -eq 1 ] || macflags+=(--notarize); [ $AOT -eq 1 ] && macflags+=(--aot)
     "$HERE/make-macos-app.sh" "${macflags[@]}" > "$WORK/make-macos-app.log" 2>&1 \
         || { tail -40 "$WORK/make-macos-app.log" >&2; die "make-macos-app.sh failed (above)"; }
     grep -E '^warning: ' "$WORK/make-macos-app.log" >&2 || true
