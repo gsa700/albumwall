@@ -152,6 +152,17 @@ public partial class MainWindow
         _meterTimer.Start();
     }
 
+    /// Starts the meters' timer if music plays and a meter is on screen to show it:
+    /// when playing starts, and when a meter arrives while it plays. The play bar's
+    /// meters went dead for good after picking a new album from a pause (2026-10-27,
+    /// Hambench): the bar slides out and back in for the new album, so at the moment
+    /// playing started there was no meter on screen and nothing started the timer,
+    /// and nothing looked again when the bar came back.
+    private void WakeMeters()
+    {
+        if (_player?.IsPlaying == true && (LiveViews().Any() || BarMetersLive)) StartMeters();
+    }
+
     private void StopMeters()
     {
         _meterTimer?.Stop();

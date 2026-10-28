@@ -3755,7 +3755,7 @@ public partial class MainWindow : Window
             Classes.Set("paused", _player?.IsPlaying != true);
             Pulse();
             // The meters' timer sleeps through a pause (StartMeters); playing wakes it.
-            if (_player?.IsPlaying == true && (LiveViews().Any() || BarMetersLive)) StartMeters();
+            WakeMeters();
         });
 
     /// A slow breath on the playing marker: long and shallow deliberately, it should read
@@ -3865,6 +3865,10 @@ public partial class MainWindow : Window
             TransportSlot.IsVisible = true;
             SetWallInset(true);
             Transport.RenderTransform = Shifted(0);
+            // The bar's meters come with it. Playing starts the meters' timer only
+            // if a meter is on screen at that moment, and a new album takes the bar
+            // away and brings it back around the very moment it starts to play.
+            WakeMeters();
         }
         else
         {
