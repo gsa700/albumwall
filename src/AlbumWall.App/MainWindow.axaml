@@ -665,6 +665,7 @@
                          whether or not anything is playing. -->
                     <Button x:Name="GainButton" Classes="chrome" VerticalAlignment="Center"
                             FontSize="10" Padding="10,5" MinWidth="84"
+                            HorizontalContentAlignment="Center"
                             Foreground="#F3EEE6" Background="#18FFFFFF" BorderBrush="#40FFFFFF"
                             BorderThickness="1"
                             ToolTip.Tip="ReplayGain — click to change"/>
