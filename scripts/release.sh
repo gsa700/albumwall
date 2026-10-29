@@ -15,9 +15,8 @@
 #   scripts/release.sh 0.2.0 --no-mac            without the Mac's dmg, on a machine that is not a Mac
 #   scripts/release.sh 0.2.0 --aot --dry-run     the Native AOT builds instead of the single file: Linux
 #                                                and Windows from CI's run of this commit (build.yml),
-#                                                the Mac made here; AlbumWall-<rid>-aot.zip. A trial
-#                                                only, refused without --dry-run until the bridge
-#                                                release (docs/roadmap.md, the road to Native AOT).
+#                                                the Mac made here; AlbumWall-<rid>-aot.zip (from
+#                                                0.8.0; docs/roadmap.md, the road to Native AOT).
 #
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
@@ -95,8 +94,8 @@ if [ $MAC -eq 1 ]; then
 fi
 # Every installed copy before the bridge looks for AlbumWall-<rid>.zip and installs one file:
 # an AOT release would tell them there is no build for them, or leave them a program without
-# its libraries. Until the bridge has shipped (step 4), --aot is for trying the path only.
-[ $AOT -eq 1 ] && [ $DRY -eq 0 ] && die "--aot works with --dry-run only until the bridge release (docs/roadmap.md, the road to Native AOT, step 4)"
+# its libraries. The bridge (0.7.14 on) is on Stable since 0.7.17 (2026-10-28), so --aot may
+# publish; promote an AOT release only once Stable copies have reached the bridge.
 
 cd "$ROOT"
 [ -z "$(git status --porcelain)" ] || must "the working tree is not clean"
