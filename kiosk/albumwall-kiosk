@@ -17,8 +17,27 @@ DIR=$(dirname "$APP")
 
 if [ "$1" = "--inside" ]; then
     # labwc has no screen settings of its own here; set them as a desktop's kanshi would.
+    # And keep them: switching a screen off and on unplugs it as far as labwc knows, and
+    # it came back at scale 1 (2026-10-28, the wall at 100% after every power cycle). So
+    # kanshi runs here too, as on the desktop, and puts the profile back on every hotplug;
+    # the profile is written from kiosk.conf each session. Two of them, because kanshi
+    # picks a profile only when its screens are exactly the connected ones.
     if [ -n "$MAIN_OUTPUT" ]; then
         wlr-randr --output "$MAIN_OUTPUT" ${MAIN_MODE:+--mode "$MAIN_MODE"} --scale "${MAIN_SCALE:-1}" || true
+        if command -v kanshi >/dev/null; then
+            profile="$HOME/.config/albumwall-kiosk/kanshi.conf"
+            main="output $MAIN_OUTPUT enable${MAIN_MODE:+ mode $MAIN_MODE} scale ${MAIN_SCALE:-1}"
+            {
+                echo "# Written by albumwall-kiosk from kiosk.conf at each session start; edit kiosk.conf instead."
+                if [ -n "$PANEL_OUTPUT" ]; then
+                    printf 'profile {\n\t%s\n\toutput %s enable transform %s\n}\n' "$main" "$PANEL_OUTPUT" "${PANEL_TRANSFORM:-normal}"
+                fi
+                printf 'profile {\n\t%s\n}\n' "$main"
+            } > "$profile"
+            kanshi -c "$profile" &
+        else
+            echo "[kiosk] no kanshi: the screen settings will not survive the screen being switched off and on"
+        fi
     fi
     # --kiosk: the app is the only thing running and may use the machine as its own
     # (it decodes every cover up front). ALBUMWALL_SUPERVISED below says the same to
