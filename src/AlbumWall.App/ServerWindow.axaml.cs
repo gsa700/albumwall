@@ -18,5 +18,6 @@ public partial class ServerWindow : Window
         InitializeComponent();
         SignIn.Finished += chosen => Close(chosen);
         Opened += (_, _) => SignIn.FocusServer();
+        TextSize.Follow(this);
     }
 }

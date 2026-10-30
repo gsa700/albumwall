@@ -164,6 +164,14 @@ public sealed class Settings
     /// unset is on.
     public bool? MeterPeakHold { get; set; }
 
+    /// Accessibility, Preferences. Unset follows the system's own "reduce
+    /// motion" (Motion.FromSystem); true or false is a choice made here that
+    /// stands over it.
+    public bool? ReduceMotion { get; set; }
+    /// How large the text in the light windows is, as a percentage of the
+    /// designed size (TextSize.Choices). Unset is 100.
+    public int? TextSize { get; set; }
+
     /// ALBUMWALL_CONFIG_DIR moves the settings somewhere else, for test runs. A
     /// second instance pointed at the real file fights the first over window
     /// geometry and the library path, and whichever closes last wins — so

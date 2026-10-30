@@ -64,6 +64,7 @@ public sealed class StatisticsWindow : Window
         this[!BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
         KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape) Close(); };
         Opened += (_, _) => FitHeight();
+        TextSize.Follow(this);
     }
 
     /// The page as tall as its content, up to what a 1080p laptop at 125 %

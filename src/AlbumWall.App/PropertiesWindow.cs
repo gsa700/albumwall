@@ -192,6 +192,7 @@ public sealed class PropertiesWindow : Window
             if (e.Key == Avalonia.Input.Key.Left) { Go(_around.Previous); e.Handled = true; }
             else if (e.Key == Avalonia.Input.Key.Right) { Go(_around.Next); e.Handled = true; }
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        TextSize.Follow(this);
     }
 
     // What the filling in the window just now has to say for itself: the ways

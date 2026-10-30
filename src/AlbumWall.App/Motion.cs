@@ -18,7 +18,22 @@ namespace AlbumWall.App;
 
 public static class Motion
 {
-    public static bool Reduced { get; } = Read();
+    /// What the system says, read once as the app starts.
+    public static bool FromSystem { get; } = Read();
+
+    /// Accessibility in Preferences (2026-10-29): null follows the system, true
+    /// or false is his choice over it. A desktop this cannot read (anything on
+    /// Linux but GNOME) had no way to ask for stillness before this.
+    private static bool? _chosen;
+
+    public static bool Reduced => _chosen ?? FromSystem;
+
+    /// Takes effect at once: every duration asks Ms or Of as it starts.
+    public static void Choose(bool? reduce)
+    {
+        _chosen = reduce;
+        Console.WriteLine($"[motion] {(Reduced ? "reduced" : "full")} ({(reduce is null ? "the system's setting" : "chosen in Preferences")})");
+    }
 
     /// A duration, or none at all when motion is reduced.
     public static int Ms(int ms) => Reduced ? 0 : ms;

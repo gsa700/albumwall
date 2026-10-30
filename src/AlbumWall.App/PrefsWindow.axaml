@@ -1,9 +1,9 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AlbumWall.App.PrefsWindow"
         Title="AlbumWall — Preferences"
         Icon="/Assets/app.ico"
-        Width="580" Height="700" CanResize="False"
+        Width="780" Height="640" CanResize="False"
         RequestedThemeVariant="Light"
         Background="{DynamicResource SheetBg}"
         Foreground="#1D1D20"
@@ -45,11 +45,53 @@
             <Setter Property="Foreground" Value="#1D1D20"/>
             <Setter Property="BorderBrush" Value="#38000000"/>
         </Style>
+        <Style Selector="TextBlock.pagetitle">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <!-- THE SIDEBAR'S LINES: the sheet's own colors, no accent. The selected
+             page is marked the way the Library list marks its pick, darker than
+             the sheet and edged, and by weight; this app's only accents belong
+             to the albums. -->
+        <Style Selector="ListBox#Pages">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox#Pages ListBoxItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#3C3C42"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="CornerRadius" Value="5"/>
+        </Style>
+        <Style Selector="ListBox#Pages ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBox#Pages ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#0C000000"/>
+            <Setter Property="Foreground" Value="#1D1D20"/>
+        </Style>
+        <Style Selector="ListBox#Pages ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SheetPicked}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SheetEdge}"/>
+            <Setter Property="Foreground" Value="#1D1D20"/>
+        </Style>
+        <Style Selector="ListBox#Pages ListBoxItem:selected">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <!-- About, set apart at the foot of the list: a page about the app, not a
+             setting. -->
+        <Style Selector="ListBox#Pages ListBoxItem.apart">
+            <Setter Property="Margin" Value="0,18,0,2"/>
+        </Style>
     </Window.Styles>
 
     <!-- A PROPER WINDOW, in the format of the family's Setup windows (FlexPad,
          LP-100A, W2, Shack Power): the system's own title bar, a fixed size so it
-         does not jump between tabs, one instance that is brought forward rather
+         does not jump between pages, one instance that is brought forward rather
          than opened twice, its position remembered, and no Close button because
          the title bar has one. His words: "let's make the prefs a proper
          decorated window same as Flexpad etc. we'll use the same format with the
@@ -60,342 +102,422 @@
          was tidy and wrong: it could not be moved off the thing it was changing,
          and it was one more piece of hand-made chrome to keep working.
 
-         THE FORMAT, for the next window built like this: fixed size sized to
-         the longest tab, TabControl filling it with a 12 px margin, tab chrome
-         from App.axaml, SheetBg behind and SheetField in the panel so it moves
-         with the ground he chose, settings written straight through with no OK
-         button. About is the last tab, by convention; new tabs go before it. -->
-    <TabControl x:Name="Tabs" Margin="12">
-        <TabItem Header="Library">
-            <!-- THE LIST, THEN THE NUMBERS (2026-10-10, the third shape of this
-                 tab in a day). One LINE per library, built in code
-                 (FillLibraries): its name, where it is, a mark on the one on the
-                 wall, a word of status, and Switch to and Settings. Everything
-                 about one library - its name box, folder, rescan, editing, the
-                 integrity check and what it found, Forget - is on that library's
-                 own settings window (LibrarySettingsWindow), opened by Settings.
-                 The rows used to carry it all, then a detail section below did
-                 (0.6.12), and both grew with every library: "still busy".
+         A SIDEBAR, NOT TABS (his call, 2026-10-29, after a look at everything the
+         window had gathered since it was whipped up): "B is the best for future
+         growth as well as now. Adding another page is cheap with the sidebar."
+         Six tabs had made it 962 px tall, the tallest tab's height on every tab,
+         nearly all of a 1080p laptop, and Updates and About mostly empty. Now the
+         window is one size that never changes, and each page scrolls on its own
+         when it is longer than that. The pages are in the order of the Page enum
+         (PrefsWindow.axaml.cs); About stays last, set apart. Settings are written
+         straight through with no OK button. -->
+    <DockPanel Margin="12">
+        <!-- THE PAGES, as a list: the arrow keys move through it and the page
+             follows, Tab goes into the page. Each line is a string, which is also
+             what a screen reader is told it is called. -->
+        <ListBox x:Name="Pages" DockPanel.Dock="Left" Width="168" Margin="0,0,12,0"
+                 SelectionMode="Single,AlwaysSelected"
+                 AutomationProperties.Name="Preferences pages">
+            <ListBoxItem Content="Library"/>
+            <ListBoxItem Content="Playback"/>
+            <ListBoxItem Content="Appearance"/>
+            <ListBoxItem Content="Accessibility"/>
+            <ListBoxItem Content="Updates"/>
+            <ListBoxItem Content="Keys and search"/>
+            <ListBoxItem Content="About" Classes="apart"/>
+        </ListBox>
 
-                 Below the line, the statistics of the SELECTED library, which is
-                 the one on the wall until another line is clicked. They were a
-                 tab of their own; now they change with the selection, from each
-                 library's stored numbers (Domain/LibraryStatsStore.cs), and the
-                 counts in the main window's bottom bar open this tab. Scrolls,
-                 alone of the tabs: how many rows the numbers take depends on
-                 whose music it is. -->
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="12" Margin="0,0,14,0">
-                <TextBlock Text="Libraries" FontSize="14" FontWeight="SemiBold"/>
-                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="The wall shows one library at a time and never mixes them. Switch to puts a library on the wall, as the name in the bottom bar does. Settings is everything about one library; click a line to see its numbers below."/>
-                <!-- Up to about six lines, then the list scrolls on its own, so
-                     the add buttons and the numbers below stay put and the
-                     window stops growing with every library ("we have to start
-                     scrolling the library list at SOME point", 2026-10-10). -->
-                <ScrollViewer MaxHeight="292" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                    <StackPanel x:Name="LibraryList" Spacing="4" Margin="0,0,4,0"/>
-                </ScrollViewer>
-                <StackPanel Orientation="Horizontal" Spacing="9">
-                    <Button x:Name="AddFolderLibrary" Classes="panel" Content="Add a folder…"/>
-                    <Button x:Name="AddNavidromeLibrary" Classes="panel" Content="Add a Navidrome server…"/>
-                </StackPanel>
+        <Border Background="{DynamicResource SheetField}" BorderBrush="{DynamicResource SheetEdge}"
+                BorderThickness="1" CornerRadius="6" Padding="22,20,8,20">
+            <Panel x:Name="PageHost">
+                <ScrollViewer x:Name="PageLibrary" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                    <!-- THE LIST, THEN THE NUMBERS (2026-10-10, the third shape of this
+                         tab in a day). One LINE per library, built in code
+                         (FillLibraries): its name, where it is, a mark on the one on the
+                         wall, a word of status, and Switch to and Settings. Everything
+                         about one library - its name box, folder, rescan, editing, the
+                         integrity check and what it found, Forget - is on that library's
+                         own settings window (LibrarySettingsWindow), opened by Settings.
+                         The rows used to carry it all, then a detail section below did
+                         (0.6.12), and both grew with every library: "still busy".
 
-                <!-- WHAT THE SELECTED LIBRARY IS MADE OF. "detailed library stats
-                     like x number file types and bitrates etc." The rows are
-                     laid out in code (PrefsWindow.Statistics.cs): the five
-                     totals here, everything else behind a button. Hidden on a
-                     fresh install until the first library is chosen. -->
-                <StackPanel x:Name="StatsPanel" Spacing="10">
-                    <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
-                    <TextBlock x:Name="StatsHeader" FontSize="14" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="StatsEmpty" Classes="dim" FontSize="13" IsVisible="False"
-                               Text="Nothing to count yet. This fills in once the library has been read."/>
-
-                    <Grid x:Name="StatsTotals" ColumnDefinitions="*,*,*,1.35*,*" Margin="0,2,0,6"/>
-                    <!-- The rest - file types, bitrates, lossless formats, cover
-                         art - is a window of its own (StatisticsWindow): "I love
-                         the full data load, I don't want to lose that but maybe
-                         most people don't care", and with it here the tab was
-                         973 px tall, more than a 1080p laptop has. -->
-                    <Button x:Name="StatsMore" Classes="panel" Content="All the numbers…" HorizontalAlignment="Left"/>
-                </StackPanel>
-            </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-
-        <!-- PLAYBACK (2026-10-10, from the Preferences overview): what happens
-             when the app opens, and how loud things play. The first two were
-             the Startup tab, which also held the update check, two unrelated
-             things under one heading; the third had no home but a cycling
-             button on the play controls. -->
-        <TabItem Header="Playback">
-            <StackPanel Spacing="14">
-                <TextBlock x:Name="WhenItOpens" Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="Resume" Content="Pick up where I left off"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="Brings back the album you had open, the track, and how far into it you were."/>
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="AutoPlay" Content="…and start playing straight away"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
-                </StackPanel>
-
-                <!-- REPLAYGAIN, as three choices with the words the RG button
-                     beside the volume has no room for. The button and these are
-                     the same setting. Until one is chosen here or there, the
-                     app picks by context: by album, and by track for a shuffle
-                     (StartPlayback). -->
-                <TextBlock Text="Loudness" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The RG button beside the volume is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
-                <StackPanel Spacing="4">
-                    <RadioButton x:Name="GainAlbum" GroupName="gain" Content="By album"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
-                               Text="A whole record at one level, so its quiet songs stay quiet. For playing an album through."/>
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <RadioButton x:Name="GainTrack" GroupName="gain" Content="By track"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
-                               Text="Every song to the same level. For shuffling across the collection."/>
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <RadioButton x:Name="GainOff" GroupName="gain" Content="Off"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
-                               Text="Everything plays at exactly the level it was encoded at."/>
-                </StackPanel>
-
-                <!-- THE METERS (2026-10-27): whether the play bar has them, and where
-                     every meter reads. Which style each place shows is changed by
-                     clicking the meters themselves, not here. -->
-                <TextBlock Text="Meters" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="BarMeters" Content="Show meters in the play controls"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="At the end of the play bar. Click them to change between the VU meters, LED bars and a 31-band analyzer; compact mode keeps a choice of its own."/>
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="MeterPeakHold" Content="Peak hold"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="The LED bars keep their highest segment lit a moment, and the analyzer's bands wear a cap that waits before it falls. Off, both show only the level now."/>
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="MetersAfterGain" Content="Meters read after ReplayGain"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="Off, every meter shows the record as it was mastered, so a quiet master reads quiet. On, they show what ReplayGain sends on to the volume, closer to what you hear."/>
-                </StackPanel>
-            </StackPanel>
-        </TabItem>
-
-        <!-- The three levers that used to sit in the main window's top bar. None of
-             them touches the HUE: that comes from the covers and is the
-             collection's own, not a matter of taste. They are here because the
-             right numbers differ from screen to screen — he settled on 21 / 2 /
-             ink across a 6K panel and a pair of 4K ones, and expects to want
-             something else on the next.
-
-             Everything applies as it moves. Nobody ever chose one of these
-             numbers except by looking at it. -->
-        <TabItem Header="Appearance">
-            <StackPanel Spacing="16">
-                <!-- WHAT THE COLOR IS, BEFORE HOW TO CHANGE IT. The first version of
-                     this tab was three controls with a caption each, and it read
-                     as a theme picker: choose a lightness, choose a tint. That is
-                     exactly backwards. The app has no color scheme; the hue is
-                     worked out from his own covers, and the controls only decide
-                     what is done with it. His words: "more clearly explain that
-                     the colors of the window are derived from the individual's
-                     actual collection and the sliders alter THAT relationship".
-                     So it opens by showing him the color it found and saying
-                     where it came from, and every caption below is written as
-                     something done TO that color. -->
-                <Border CornerRadius="6" Padding="14,12" Background="{DynamicResource SheetBg}">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Border x:Name="HueSwatch" Width="18" Height="18" CornerRadius="9"
-                                    VerticalAlignment="Center"/>
-                            <TextBlock x:Name="HueLine" FontSize="14" FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
+                         Below the line, the statistics of the SELECTED library, which is
+                         the one on the wall until another line is clicked. They were a
+                         tab of their own; now they change with the selection, from each
+                         library's stored numbers (Domain/LibraryStatsStore.cs), and the
+                         counts in the main window's bottom bar open this page. -->
+                    <StackPanel Spacing="12">
+                        <TextBlock Classes="pagetitle" Text="Libraries"/>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Text="The wall shows one library at a time and never mixes them. Switch to puts a library on the wall, as the name in the bottom bar does. Settings is everything about one library; click a line to see its numbers below."/>
+                        <!-- Up to about six lines, then the list scrolls on its own, so
+                             the add buttons and the numbers below stay put and the
+                             window stops growing with every library ("we have to start
+                             scrolling the library list at SOME point", 2026-10-10). -->
+                        <ScrollViewer MaxHeight="292" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="LibraryList" Spacing="4" Margin="0,0,4,0"/>
+                        </ScrollViewer>
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Button x:Name="AddFolderLibrary" Classes="panel" Content="Add a folder…"/>
+                            <Button x:Name="AddNavidromeLibrary" Classes="panel" Content="Add a Navidrome server…"/>
                         </StackPanel>
-                        <TextBlock x:Name="HueAbout" Classes="dim" FontSize="13" LineHeight="20"
+
+                        <!-- WHAT THE SELECTED LIBRARY IS MADE OF. "detailed library stats
+                             like x number file types and bitrates etc." The rows are
+                             laid out in code (PrefsWindow.Statistics.cs): the five
+                             totals here, everything else behind a button. Hidden on a
+                             fresh install until the first library is chosen. -->
+                        <StackPanel x:Name="StatsPanel" Spacing="10">
+                            <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
+                            <TextBlock x:Name="StatsHeader" FontSize="14" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="StatsEmpty" Classes="dim" FontSize="13" IsVisible="False"
+                                       Text="Nothing to count yet. This fills in once the library has been read."/>
+
+                            <Grid x:Name="StatsTotals" ColumnDefinitions="*,*,*,1.35*,*" Margin="0,2,0,6"/>
+                            <!-- The rest - file types, bitrates, lossless formats, cover
+                                 art - is a window of its own (StatisticsWindow): "I love
+                                 the full data load, I don't want to lose that but maybe
+                                 most people don't care", and with it here the tab was
+                                 973 px tall, more than a 1080p laptop has. -->
+                            <Button x:Name="StatsMore" Classes="panel" Content="All the numbers…" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- PLAYBACK (2026-10-10, from the Preferences overview): what happens
+                     when the app opens, and how loud things play. The first two were
+                     the Startup tab, which also held the update check, two unrelated
+                     things under one heading; the third had no home but a cycling
+                     button on the play controls. -->
+                <ScrollViewer x:Name="PagePlayback" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                        <TextBlock Classes="pagetitle" Text="Playback"/>
+                    <StackPanel Spacing="14">
+                        <TextBlock x:Name="WhenItOpens" Text="When AlbumWall opens" FontSize="14" FontWeight="SemiBold"/>
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="Resume" Content="Pick up where I left off"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="Brings back the album you had open, the track, and how far into it you were."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="AutoPlay" Content="…and start playing straight away"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
+                        </StackPanel>
+
+                        <!-- REPLAYGAIN, as three choices with the words the RG button
+                             beside the volume has no room for. The button and these are
+                             the same setting. Until one is chosen here or there, the
+                             app picks by context: by album, and by track for a shuffle
+                             (StartPlayback). -->
+                        <TextBlock Text="Loudness" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The RG button beside the volume is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="GainAlbum" GroupName="gain" Content="By album"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="A whole record at one level, so its quiet songs stay quiet. For playing an album through."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="GainTrack" GroupName="gain" Content="By track"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="Every song to the same level. For shuffling across the collection."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="GainOff" GroupName="gain" Content="Off"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="Everything plays at exactly the level it was encoded at."/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="MetersAfterGain" Content="Meters read after ReplayGain"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="Off, every meter shows the record as it was mastered, so a quiet master reads quiet. On, they show what ReplayGain sends on to the volume, closer to what you hear."/>
+                        </StackPanel>
+                    </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- The three levers that used to sit in the main window's top bar. None of
+                     them touches the HUE: that comes from the covers and is the
+                     collection's own, not a matter of taste. They are here because the
+                     right numbers differ from screen to screen — he settled on 21 / 2 /
+                     ink across a 6K panel and a pair of 4K ones, and expects to want
+                     something else on the next.
+
+                     Everything applies as it moves. Nobody ever chose one of these
+                     numbers except by looking at it. -->
+                <ScrollViewer x:Name="PageAppearance" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                        <TextBlock Classes="pagetitle" Text="Appearance"/>
+                    <StackPanel Spacing="16">
+                        <!-- WHAT THE COLOR IS, BEFORE HOW TO CHANGE IT. The first version of
+                             this tab was three controls with a caption each, and it read
+                             as a theme picker: choose a lightness, choose a tint. That is
+                             exactly backwards. The app has no color scheme; the hue is
+                             worked out from his own covers, and the controls only decide
+                             what is done with it. His words: "more clearly explain that
+                             the colors of the window are derived from the individual's
+                             actual collection and the sliders alter THAT relationship".
+                             So it opens by showing him the color it found and saying
+                             where it came from, and every caption below is written as
+                             something done TO that color. -->
+                        <Border CornerRadius="6" Padding="14,12" Background="{DynamicResource SheetBg}">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Border x:Name="HueSwatch" Width="18" Height="18" CornerRadius="9"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="HueLine" FontSize="14" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock x:Name="HueAbout" Classes="dim" FontSize="13" LineHeight="20"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Spacing="2">
+                            <Grid ColumnDefinitions="70,*,34">
+                                <TextBlock Grid.Column="0" Text="Light" FontSize="14" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" x:Name="Light" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <TextBlock Grid.Column="2" x:Name="LightValue" Classes="dim mono" FontSize="12"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="70,0,0,0"
+                                       Text="How light or dark the window is. The color stays your collection's; only its brightness moves."/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <Grid ColumnDefinitions="70,*,34">
+                                <TextBlock Grid.Column="0" Text="Tint" FontSize="14" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" x:Name="Tint" Minimum="0" Maximum="14"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <TextBlock Grid.Column="2" x:Name="TintValue" Classes="dim mono" FontSize="12"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="70,0,0,0"
+                                       Text="How much of your collection's color comes through. At 0 the window is a plain neutral; turn it up and more of that color shows."/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="70,*">
+                                <TextBlock Grid.Column="0" Text="Bars" FontSize="14" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1" x:Name="Bars" Width="170" HorizontalAlignment="Left"/>
+                            </Grid>
+                            <TextBlock x:Name="BarsAbout" Classes="dim" FontSize="13" LineHeight="20"
+                                       TextWrapping="Wrap" Margin="70,0,0,0" MinHeight="40"/>
+                        </StackPanel>
+
+                        <!-- THE METERS (2026-10-27): whether the play bar has them and how
+                             they fall. Which style each place shows is changed by clicking
+                             the meters themselves, not here; what they READ (before or
+                             after ReplayGain) is a matter of loudness, on Playback. Here
+                             since the sidebar (2026-10-29): they are something to look at. -->
+                        <TextBlock Text="Meters" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="BarMeters" Content="Show meters in the play controls"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="At the end of the play bar. Click them to change between the VU meters, LED bars and a 31-band analyzer; compact mode keeps a choice of its own."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="MeterPeakHold" Content="Peak hold"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="The LED bars keep their highest segment lit a moment, and the analyzer's bands wear a cap that waits before it falls. Off, both show only the level now."/>
+                        </StackPanel>
+                        <!-- Not a color, but the same kind of thing: something about the
+                             look of the window that only the person looking at it can
+                             decide. It lives here rather than on a page of its own, which
+                             is why the page is not called Colors. -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Layout" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                            <CheckBox x:Name="TransportTop" Content="Play controls along the top"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="Off, they sit at the bottom, below the wall. In full screen they float at the bottom either way, and the search box and the library counts stay at the bottom."/>
+                        </StackPanel>
+
+                        <!-- LAST on the tab, because it resets the whole tab. It used to
+                             sit above, when the tab was only colors; left there once
+                             Layout appeared below it, it would read as a button for the
+                             sliders alone. -->
+                        <Button x:Name="ResetColors" Classes="panel" Content="Back to the defaults"
+                                Margin="70,2,0,0"/>
+                    </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ACCESSIBILITY (2026-10-29, his ask, with the sidebar). What was built
+                     on 2026-10-21 (keys, names, reduce motion, the contrast floor) only
+                     ever followed the system, so there was nothing to find here and no
+                     way to choose: a Linux desktop other than GNOME has no setting this
+                     app can read, and someone who wants stillness from one app alone had
+                     no switch. Now motion can be chosen, text can be made larger, and
+                     the page says what is always on. -->
+                <ScrollViewer x:Name="PageAccessibility" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                        <TextBlock Classes="pagetitle" Text="Accessibility"/>
+        <StackPanel Spacing="14">
+            <TextBlock Text="Motion" FontSize="14" FontWeight="SemiBold"/>
+            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                       Text="The play controls slide, an album unfolds, the wall scrolls smoothly and the playing track's marker breathes. With motion reduced, all of it happens at once and the marker holds still."/>
+            <StackPanel Spacing="4">
+                <RadioButton x:Name="MotionSystem" GroupName="motion"/>
+                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                           x:Name="MotionSystemAbout"/>
+            </StackPanel>
+            <RadioButton x:Name="MotionReduced" GroupName="motion" Content="Always reduce motion"/>
+            <RadioButton x:Name="MotionFull" GroupName="motion" Content="Never reduce motion"/>
+
+            <TextBlock Text="Text size" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+            <TextBlock x:Name="TextSizeAbout" Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <ComboBox x:Name="TextSizeChoice" Width="120"/>
+                <TextBlock x:Name="TextSizeNote" Classes="dim" FontSize="13" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <TextBlock Text="Always on" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                       Text="Everything can be reached from the keyboard: the arrow keys move from cover to cover and into an album's tracks, and Keys and search lists the rest. Every control has a name for a screen reader (VoiceOver, Narrator, Orca). Text is always held to a minimum contrast against whatever color the wall takes from your covers."/>
+        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- UPDATES (2026-10-10): the policy and the action together. "Look for
+                     a newer version" and the channel were on Startup, the status line,
+                     the button and What's new were on About, and the two halves of one
+                     thing were two tabs apart. The update section is only for a
+                     copy that can replace itself (UpdateService.CanUpdate). Nothing
+                     here happens by itself - the check at launch only ever lights the
+                     dot on the gear. -->
+                <ScrollViewer x:Name="PageUpdates" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                        <TextBlock Classes="pagetitle" Text="Updates"/>
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Newer versions" FontSize="14" FontWeight="SemiBold"/>
+                        <!-- A Mac copy that cannot replace itself (run from the disk image
+                             or Downloads, or from a folder this account cannot write;
+                             UpdateService.MacBlocker) says why instead of offering
+                             options that do nothing. -->
+                        <TextBlock x:Name="UpdateMacNote" IsVisible="False" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
+                        <StackPanel x:Name="UpdateChoices" Spacing="14">
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="CheckUpdates" Content="Look for a newer version when AlbumWall opens"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="One small question to GitHub. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it here."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <CheckBox x:Name="EdgeUpdates" Content="Edge builds: every release as it comes out"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                       Margin="28,0,0,0"
+                                       Text="Off is Stable: only builds that have already run on Edge without trouble. Switching back to Stable keeps the build you have until Stable passes it."/>
+                        </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel x:Name="UpdateSection" Spacing="7" Margin="0,4,0,0" IsVisible="False">
+                            <Border Height="1" Margin="0,0,0,8" Background="{DynamicResource SheetEdge}"/>
+                            <TextBlock x:Name="UpdateStatus" Classes="dim" FontSize="13" LineHeight="20"
+                                       TextWrapping="Wrap"/>
+                            <Border x:Name="UpdateBar" Height="4" CornerRadius="2" IsVisible="False"
+                                    Background="{DynamicResource SheetBg}">
+                                <Border x:Name="UpdateFill" Height="4" CornerRadius="2" Width="0"
+                                        HorizontalAlignment="Left" Background="{DynamicResource WordmarkInk}"/>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button x:Name="UpdateButton" Classes="panel" Content="Check for updates"/>
+                                <Button x:Name="UpdateNotes" Classes="link" VerticalAlignment="Center" IsVisible="False">
+                                    <TextBlock Text="What's new" FontSize="13" TextDecorations="Underline"/>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- WHAT THE KEYS DO AND WHAT THE SEARCH BOX UNDERSTANDS: the two things in
+                     this app that cannot be found by looking at it. F1 opens it. Built in
+                     code (PrefsWindow.Help.cs) beside the list it has to agree with. With
+                     the settings, not beside About (his call, 2026-10-29: "someone would
+                     probably never think to hit F1 for the shortcuts"). -->
+                <ScrollViewer x:Name="PageHelp" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                        <TextBlock Classes="pagetitle" Text="Keys and search"/>
+                    <StackPanel x:Name="HelpBody" Spacing="3"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="PageAbout" Classes="page" IsVisible="False"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,14,0">
+                    <StackPanel Spacing="12">
+                        <!-- The wordmark, with its alpha (see App.Wordmark), and the version
+                             under it as a plain fact. They used to be one 15 px line,
+                             "AlbumWall 0.1.0", which is a label. This is the one place in
+                             the app that is ABOUT the app, so the name gets to be seen. -->
+                        <StackPanel Spacing="2" Margin="0,2,0,4">
+                            <TextBlock x:Name="AboutWordmark" Text="AlbumWall" FontSize="34" FontWeight="Bold"/>
+                            <TextBlock x:Name="AboutVersion" Classes="dim" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Text="A player for a music library you own, built around seeing the whole collection at once."/>
+                        <!-- LINKS THAT SAY WHAT THEY ARE FOR. "lets make the about page have
+                             direct links clearly describing what they are for." This was one
+                             sentence — "Licensed under the GNU GPL v3 or later. Audio by
+                             libmpv. Tags by TagLib#." — which named three things and linked
+                             to none of them. Each row is the link, then in plain words what
+                             is at the other end of it; the address itself is the tooltip.
+                             Built in code (FillAboutLinks) since the addresses hang off
+                             App.ProjectUrl, which will change once. -->
+                        <StackPanel x:Name="AboutLinks" Spacing="7" Margin="0,4,0,2"/>
+                        <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
                                    TextWrapping="Wrap"/>
+
+                        <!-- HOW THIS COPY IS RUNNING, and the one thing that can be done
+                             about it. The app installs and removes itself, the family's
+                             way (see Install/InstallService); this is where that is
+                             visible, rather than only in a prompt at startup that can be
+                             declined and then never found again. -->
+                        <StackPanel x:Name="InstallSection" Spacing="6" Margin="0,8,0,0">
+                            <TextBlock x:Name="InstallStatus" Classes="dim" FontSize="13" LineHeight="20"
+                                       TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <Button x:Name="InstallButton" Classes="panel"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Windows only, and only for a copy that is NOT installed: once
+                             it is, the installer owns the Start Menu shortcut and keeps
+                             it pointed at the installed exe. A shortcut is how an exe in
+                             a folder gets a name: see WindowsShell. It stays for loose
+                             and development copies, where it is the only way to pin one,
+                             and because a shortcut made from inside the app is made with
+                             the app's own view of the disk. -->
+                        <StackPanel x:Name="ShortcutSection" Spacing="6" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <Button x:Name="ShortcutAdd" Classes="panel" Content="Add to the Start Menu"/>
+                                <Button x:Name="ShortcutRemove" Classes="panel" Content="Remove"/>
+                            </StackPanel>
+                            <TextBlock x:Name="ShortcutStatus" Classes="dim" FontSize="13" LineHeight="20"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
                     </StackPanel>
-                </Border>
-                <StackPanel Spacing="2">
-                    <Grid ColumnDefinitions="70,*,34">
-                        <TextBlock Grid.Column="0" Text="Light" FontSize="14" FontWeight="SemiBold"
-                                   VerticalAlignment="Center"/>
-                        <Slider Grid.Column="1" x:Name="Light" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                        <TextBlock Grid.Column="2" x:Name="LightValue" Classes="dim mono" FontSize="12"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    </Grid>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="70,0,0,0"
-                               Text="How light or dark the window is. The color stays your collection's; only its brightness moves."/>
-                </StackPanel>
-
-                <StackPanel Spacing="2">
-                    <Grid ColumnDefinitions="70,*,34">
-                        <TextBlock Grid.Column="0" Text="Tint" FontSize="14" FontWeight="SemiBold"
-                                   VerticalAlignment="Center"/>
-                        <Slider Grid.Column="1" x:Name="Tint" Minimum="0" Maximum="14"
-                                TickFrequency="1" IsSnapToTickEnabled="True"/>
-                        <TextBlock Grid.Column="2" x:Name="TintValue" Classes="dim mono" FontSize="12"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    </Grid>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="70,0,0,0"
-                               Text="How much of your collection's color comes through. At 0 the window is a plain neutral; turn it up and more of that color shows."/>
-                </StackPanel>
-
-                <StackPanel Spacing="6">
-                    <Grid ColumnDefinitions="70,*">
-                        <TextBlock Grid.Column="0" Text="Bars" FontSize="14" FontWeight="SemiBold"
-                                   VerticalAlignment="Center"/>
-                        <ComboBox Grid.Column="1" x:Name="Bars" Width="170" HorizontalAlignment="Left"/>
-                    </Grid>
-                    <TextBlock x:Name="BarsAbout" Classes="dim" FontSize="13" LineHeight="20"
-                               TextWrapping="Wrap" Margin="70,0,0,0" MinHeight="40"/>
-                </StackPanel>
-
-                <!-- Not a color, but the same kind of thing: something about the
-                     look of the window that only the person looking at it can
-                     decide. It lives here rather than in a tab of its own, which
-                     is why the tab is no longer called Colors. -->
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Layout" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                    <CheckBox x:Name="TransportTop" Content="Play controls along the top"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="Off, they sit at the bottom, below the wall. In full screen they float at the bottom either way, and the search box and the library counts stay at the bottom."/>
-                </StackPanel>
-
-                <!-- LAST on the tab, because it resets the whole tab. It used to
-                     sit above, when the tab was only colors; left there once
-                     Layout appeared below it, it would read as a button for the
-                     sliders alone. -->
-                <Button x:Name="ResetColors" Classes="panel" Content="Back to the defaults"
-                        Margin="70,2,0,0"/>
-            </StackPanel>
-        </TabItem>
-
-        <!-- WHAT THE KEYS DO AND WHAT THE SEARCH BOX UNDERSTANDS: the two things in
-             this app that cannot be found by looking at it. F1 opens it. Built in code
-             (PrefsWindow.Help.cs) beside the list it has to agree with. Before About,
-             which stays last by convention. -->
-        <!-- UPDATES (2026-10-10): the policy and the action together. "Look for
-             a newer version" and the channel were on Startup, the status line,
-             the button and What's new were on About, and the two halves of one
-             thing were two tabs apart. The update section is only for a
-             published single-file build, which is the only kind that can be
-             swapped for another: the update IS one file. Nothing here happens
-             by itself - the check at launch only ever lights the dot on the gear. -->
-        <TabItem Header="Updates">
-            <StackPanel Spacing="14">
-                <TextBlock Text="Newer versions" FontSize="14" FontWeight="SemiBold"/>
-                <!-- A Mac copy that cannot replace itself (run from the disk image
-                     or Downloads, or from a folder this account cannot write;
-                     UpdateService.MacBlocker) says why instead of offering
-                     options that do nothing. -->
-                <TextBlock x:Name="UpdateMacNote" IsVisible="False" FontSize="13" LineHeight="20" TextWrapping="Wrap"/>
-                <StackPanel x:Name="UpdateChoices" Spacing="14">
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="CheckUpdates" Content="Look for a newer version when AlbumWall opens"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="One small question to GitHub. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it here."/>
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <CheckBox x:Name="EdgeUpdates" Content="Edge builds: every release as it comes out"/>
-                    <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                               Margin="28,0,0,0"
-                               Text="Off is Stable: only builds that have already run on Edge without trouble. Switching back to Stable keeps the build you have until Stable passes it."/>
-                </StackPanel>
-                </StackPanel>
-
-                <StackPanel x:Name="UpdateSection" Spacing="7" Margin="0,4,0,0" IsVisible="False">
-                    <Border Height="1" Margin="0,0,0,8" Background="{DynamicResource SheetEdge}"/>
-                    <TextBlock x:Name="UpdateStatus" Classes="dim" FontSize="13" LineHeight="20"
-                               TextWrapping="Wrap"/>
-                    <Border x:Name="UpdateBar" Height="4" CornerRadius="2" IsVisible="False"
-                            Background="{DynamicResource SheetBg}">
-                        <Border x:Name="UpdateFill" Height="4" CornerRadius="2" Width="0"
-                                HorizontalAlignment="Left" Background="{DynamicResource WordmarkInk}"/>
-                    </Border>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button x:Name="UpdateButton" Classes="panel" Content="Check for updates"/>
-                        <Button x:Name="UpdateNotes" Classes="link" VerticalAlignment="Center" IsVisible="False">
-                            <TextBlock Text="What's new" FontSize="13" TextDecorations="Underline"/>
-                        </Button>
                     </StackPanel>
-                </StackPanel>
-            </StackPanel>
-        </TabItem>
-
-        <TabItem Header="Help">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="HelpBody" Spacing="3" Margin="0,0,14,0"/>
-            </ScrollViewer>
-        </TabItem>
-
-        <TabItem Header="About">
-            <StackPanel Spacing="12">
-                <!-- The wordmark, with its alpha (see App.Wordmark), and the version
-                     under it as a plain fact. They used to be one 15 px line,
-                     "AlbumWall 0.1.0", which is a label. This is the one place in
-                     the app that is ABOUT the app, so the name gets to be seen. -->
-                <StackPanel Spacing="2" Margin="0,2,0,4">
-                    <TextBlock x:Name="AboutWordmark" Text="AlbumWall" FontSize="34" FontWeight="Bold"/>
-                    <TextBlock x:Name="AboutVersion" Classes="dim" FontSize="13"/>
-                </StackPanel>
-                <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                           Text="A player for a music library you own, built around seeing the whole collection at once."/>
-                <!-- LINKS THAT SAY WHAT THEY ARE FOR. "lets make the about page have
-                     direct links clearly describing what they are for." This was one
-                     sentence — "Licensed under the GNU GPL v3 or later. Audio by
-                     libmpv. Tags by TagLib#." — which named three things and linked
-                     to none of them. Each row is the link, then in plain words what
-                     is at the other end of it; the address itself is the tooltip.
-                     Built in code (FillAboutLinks) since the addresses hang off
-                     App.ProjectUrl, which will change once. -->
-                <StackPanel x:Name="AboutLinks" Spacing="7" Margin="0,4,0,2"/>
-                <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
-                           TextWrapping="Wrap"/>
-
-                <!-- HOW THIS COPY IS RUNNING, and the one thing that can be done
-                     about it. The app installs and removes itself, the family's
-                     way (see Install/InstallService); this is where that is
-                     visible, rather than only in a prompt at startup that can be
-                     declined and then never found again. -->
-                <StackPanel x:Name="InstallSection" Spacing="6" Margin="0,8,0,0">
-                    <TextBlock x:Name="InstallStatus" Classes="dim" FontSize="13" LineHeight="20"
-                               TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Button x:Name="InstallButton" Classes="panel"/>
-                    </StackPanel>
-                </StackPanel>
-
-                <!-- Windows only, and only for a copy that is NOT installed: once
-                     it is, the installer owns the Start Menu shortcut and keeps
-                     it pointed at the installed exe. A shortcut is how an exe in
-                     a folder gets a name: see WindowsShell. It stays for loose
-                     and development copies, where it is the only way to pin one,
-                     and because a shortcut made from inside the app is made with
-                     the app's own view of the disk. -->
-                <StackPanel x:Name="ShortcutSection" Spacing="6" Margin="0,8,0,0">
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Button x:Name="ShortcutAdd" Classes="panel" Content="Add to the Start Menu"/>
-                        <Button x:Name="ShortcutRemove" Classes="panel" Content="Remove"/>
-                    </StackPanel>
-                    <TextBlock x:Name="ShortcutStatus" Classes="dim" FontSize="13" LineHeight="20"
-                               TextWrapping="Wrap"/>
-                </StackPanel>
-            </StackPanel>
-        </TabItem>
-    </TabControl>
+                </ScrollViewer>
+            </Panel>
+        </Border>
+    </DockPanel>
 </Window>

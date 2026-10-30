@@ -80,6 +80,7 @@ public sealed class LibrarySettingsWindow : Window
         KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape) Close(); };
         RememberPlace(host.AppSettings);
         Opened += (_, _) => FitHeight();
+        TextSize.Follow(this);
     }
 
     private Control? _page;

@@ -90,6 +90,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // Accessibility in Preferences: what was chosen there stands over the
+        // system's settings, from the first frame.
+        Motion.Choose(_settings.ReduceMotion);
+        TextSize.Choose(_settings.TextSize);
+
         // The markup says "AlbumWall" so the previewer has something to show;
         // what he actually sees comes from one place. See App.DisplayName.
         Title = App.DisplayName;
@@ -555,7 +560,7 @@ public partial class MainWindow : Window
             _spaceToggled = false;
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
         // Reduced motion: the playing marker holds still (Path.pulse in the markup).
-        if (Motion.Reduced) Classes.Add("still");
+        ApplyMotion();
         ScanLibrary();
         ListenForSecondLaunches();
         StartNetworkRecheck();
@@ -2015,6 +2020,10 @@ public partial class MainWindow : Window
     /// Opens Preferences at a tab, or brings it forward if it is already open.
     /// One instance, like the family's Setup windows: a second Preferences
     /// window would be two views of the same settings disagreeing.
+    /// What changes at once when motion is chosen in Preferences: the playing
+    /// marker's breathing. Every slide and unfold asks Motion as it starts.
+    internal void ApplyMotion() => Classes.Set("still", Motion.Reduced);
+
     private void ShowPrefs(PrefsWindow.Tab tab)
     {
         if (_prefs is null)
@@ -2779,6 +2788,19 @@ public partial class MainWindow : Window
         if (text.StartsWith("compact ", StringComparison.OrdinalIgnoreCase)) { CompactDebug(text[8..].Trim().ToLowerInvariant()); return; }
         if (text.Equals("expand", StringComparison.OrdinalIgnoreCase)) { ExitCompact(); return; }
         if (text.Equals("fullscreen", StringComparison.OrdinalIgnoreCase)) { ToggleFullScreen(); return; }
+        // Preferences on a page, by the page's name ("prefs accessibility"), and the
+        // text size, so the sidebar and a larger size can be photographed.
+        if (text.StartsWith("prefs", StringComparison.OrdinalIgnoreCase))
+        {
+            var page = text[5..].Trim();
+            ShowPrefs(Enum.TryParse<PrefsWindow.Tab>(page, true, out var tab) ? tab : PrefsWindow.Tab.Library);
+            return;
+        }
+        if (text.StartsWith("textsize ", StringComparison.OrdinalIgnoreCase) && int.TryParse(text[9..].Trim(), out var percent))
+        {
+            TextSize.Choose(percent);
+            return;
+        }
         if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
         // The meters' click, on the play bar's strip or compact's (MainWindow.Meters.cs).
         if (text.Equals("meter bar", StringComparison.OrdinalIgnoreCase)) { _barMeters.Cycle(); return; }
@@ -2949,6 +2971,8 @@ public partial class MainWindow : Window
         if (text.Equals("prefs updates", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Updates); return; }
         if (text.Equals("prefs stats", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Library); return; }
         if (text.Equals("prefs help", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Help); return; }
+        if (text.Equals("prefs keys", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Help); return; }
+        if (text.Equals("prefs accessibility", StringComparison.OrdinalIgnoreCase)) { ShowPrefs(PrefsWindow.Tab.Accessibility); return; }
 
         // A key press, for testing the shortcuts without typing into whatever
         // window he happens to have in front: "key space", "key ctrl+right",

@@ -46,6 +46,7 @@ public partial class ConfirmWindow : Window
 
         AffirmativeButton.Click += (_, _) => Close(true);
         NegativeButton.Click += (_, _) => Close(false);
+        TextSize.Follow(this);
     }
 
     /// <summary>Whether the optional checkbox was ticked when the dialog closed.</summary>

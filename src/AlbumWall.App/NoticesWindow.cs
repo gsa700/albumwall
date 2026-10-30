@@ -100,6 +100,7 @@ public sealed class NoticesWindow : Window
         panel[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetField");
         panel[!Border.BorderBrushProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetEdge");
         Content = panel;
+        TextSize.Follow(this);
     }
 
     /// The license texts themselves, which the notices end by promising: every file

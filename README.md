@@ -53,8 +53,9 @@ the sleeve over to show.
   › Appearance decides how light it sits and how much of the hue it takes.
 - **Meters in the play controls**: the same VU pair, LED bars or 31-band
   analyzer at the end of the play bar, a click to change them, kept apart from
-  compact mode's choice. Preferences › Playback turns them off, and says whether
-  every meter reads the record as mastered or after ReplayGain.
+  compact mode's choice. Preferences › Appearance turns them off; Preferences ›
+  Playback says whether every meter reads the record as mastered or after
+  ReplayGain.
 - **Compact mode** (Ctrl+M, or the button beside full screen): the window
   becomes a strip showing what is playing — cover, track, format, progress —
   with a pair of analog VU meters that swing like real ones; click them for LED
@@ -86,10 +87,12 @@ the sleeve over to show.
 - **The keyboard works**: the arrows move about the wall and into an album's
   tracks, Enter opens and plays, Space to play or pause, Ctrl+arrows for the
   next and previous track, Shift+arrows to seek, Ctrl+F to search, Esc to back out, Ctrl+M for
-  compact, F11 for full screen, and F1 for the list — Preferences › Help has
-  every key and every search the box understands.
+  compact, F11 for full screen, and F1 for the list — Preferences › Keys and
+  search has every key and every search the box understands.
 - **Reduce motion is followed**: with the system's setting on (macOS,
   Windows, GNOME), nothing slides, unfolds or flips; it just appears.
+  Preferences › Accessibility can choose it for this app alone, either way, and
+  makes the text in the light windows larger.
 - **One copy at a time, and a command line to it**: starting it again brings
   the window forward, and `--play-pause`, `--next`, `--previous`, `--stop` or
   `--play "dark side"` drive the copy that is running, for scripts and
