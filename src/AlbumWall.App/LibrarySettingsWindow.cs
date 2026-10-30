@@ -48,9 +48,12 @@ public sealed class LibrarySettingsWindow : Window
         _prefs = prefs;
 
         Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://AlbumWall/Assets/app.ico")));
-        // A FIXED size, set from here, never SizeToContent: see StatisticsWindow
-        // for the Wayland half-width window that ruled it out. The height is
-        // the page's, measured after it is in the tree (FitHeight).
+        // A FIXED size, set from here, never SizeToContent: on Wayland Avalonia
+        // sized a self-sizing window before it knew the display scale, and the
+        // first numbers window he opened on 0.6.16 came up at exactly half its
+        // width with the content laid out for the whole of it (his screenshot,
+        // 2026-10-10 16:43). The height is the page's, measured after it is in
+        // the tree (FitHeight).
         Width = 560;
         Height = 420;
         CanResize = false;

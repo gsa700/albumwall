@@ -101,10 +101,10 @@ the sleeve over to show.
 - **Live search** by artist or album, a way back to whatever is playing, and
   three searches for art that wants attention: `art:missing`, `art:small`,
   `art:nonsquare`.
-- **Statistics**: press the library counts in the bottom bar. The totals sit
-  under the library list, and *All the numbers…* opens the file types,
-  bitrates, lossless formats and the state of the cover art, for any library
-  in the list, as of its last scan.
+- **Statistics**: press the library counts in the bottom bar. Under the
+  library list are the totals, then the file types, bitrates, lossless formats
+  and the state of the cover art, for any library in the list, as of its last
+  scan.
 - The play controls slide in when something is loaded and leave when the record
   ends. They sit above the bottom bar, or under the title bar if you prefer.
 - **The paperwork is light, the music dark.** The wall takes its color from your

@@ -1,119 +1,52 @@
-// AlbumWall — all the numbers about one library, on a window of its own.
+// AlbumWall — all the numbers about one library, on Preferences > Library.
 //
 // File types, bitrates, lossless formats and cover art, from the library's
-// last scan (Domain.LibraryStats), reached from "All the numbers…" under the
-// totals on Preferences > Library. "detailed library stats like x number file
-// types and bitrates etc." was the ask that made the Statistics tab
-// (2026-09-20); the tab became the lower half of Library (2026-10-10) and
-// made it too tall, so the totals stayed there and this is the rest. The
-// rows are built here because how many there are depends on whose music it
-// is; a section with nothing in it is left out.
-//
-// The Properties format: light, a fixed width, the system's own title bar
-// and no Close button, nothing to change. One window, refilled as the
-// selection in Preferences changes.
+// last scan (Domain.LibraryStats), laid out under the five totals. "detailed
+// library stats like x number file types and bitrates etc." was the ask that
+// made the Statistics tab (2026-09-20); the tab became the lower half of
+// Library (2026-10-10) and made it too tall, so this went to a window of its
+// own behind "All the numbers…". Since the pages scroll (0.8.3) it is back on
+// the page, and the window is gone: "lets eliminate the 'All the numbers...'
+// popup and just display it right in the panel" (2026-10-30). The rows are
+// built here because how many there are depends on whose music it is; a
+// section with nothing in it is left out.
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Platform;
-using Avalonia.Styling;
 using AlbumWall.Domain;
 
 namespace AlbumWall.App;
 
-public sealed class StatisticsWindow : Window
+internal static class LibraryNumbers
 {
-    private readonly MainWindow _host;
-
     private static readonly IBrush Ink = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#1D1D20"));
-    private static readonly IBrush DimInk = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#62626A"));
 
-    public StatisticsWindow(MainWindow host)
-    {
-        _host = host;
-        Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://AlbumWall/Assets/app.ico")));
-        // A FIXED size, set from here, never SizeToContent: on Wayland Avalonia
-        // sized a self-sizing window before it knew the display scale, and the
-        // first numbers window he opened on 0.6.16 came up at exactly half its
-        // width with the content laid out for the whole of it (his screenshot,
-        // 2026-10-10 16:43). Preferences never hit this because it measures its
-        // content after it opens and sets its own height (FitToTallestTab);
-        // this does the same (FitHeight).
-        Width = 580;
-        Height = 480;
-        CanResize = false;
-        ShowInTaskbar = false;
-        RequestedThemeVariant = ThemeVariant.Light;
-        Foreground = Ink;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-
-        Resources["SheetBg"] = SolidColorBrush.Parse("#E4E4E2");
-        Resources["SheetField"] = SolidColorBrush.Parse("#F6F6F4");
-        Resources["SheetEdge"] = SolidColorBrush.Parse("#C2C2C6");
-        Resources["WordmarkInk"] = BarInk();
-        Style Restyle<T>(Func<Selector?, Selector> which, params (AvaloniaProperty Property, object Value)[] set) where T : Control
-        {
-            var style = new Style(which);
-            foreach (var (property, value) in set) style.Setters.Add(new Setter(property, value));
-            return style;
-        }
-        Styles.Add(Restyle<TextBlock>(x => x.OfType<TextBlock>().Class("dim"), (TextBlock.ForegroundProperty, DimInk)));
-        Styles.Add(Restyle<Button>(x => x.OfType<Button>().Class("link"), (Button.ForegroundProperty, Ink)));
-        this[!BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetBg");
-        KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape) Close(); };
-        Opened += (_, _) => FitHeight();
-        TextSize.Follow(this);
-    }
-
-    /// The page as tall as its content, up to what a 1080p laptop at 125 %
-    /// has; past that it scrolls. Measured after the page is in the tree.
-    private const double TallestPage = 820;
-    private Control? _page;
-
-    private void FitHeight()
-    {
-        if (_page is null) return;
-        _page.Measure(new Size(Width, double.PositiveInfinity));
-        var want = Math.Min(Math.Ceiling(_page.DesiredSize.Height), TallestPage);
-        if (want > 0 && Math.Abs(Height - want) > 0.5) Height = want;
-    }
-
-    /// The bars' color: the wall's own accent (WordmarkInk, from the hue of his covers), as they
-    /// were on the Statistics tab they came from, made only as much darker as it takes to stand
-    /// out at 3:1 on this window's light sheet (WCAG's floor for graphics). Overriding it with the
-    /// sheet's ink when the numbers moved into this window (fdaa283) turned every bar gray-black,
+    /// The bars' color: the wall's own accent (WordmarkInk, from the hue of his covers), made only
+    /// as much darker as it takes to stand out at 3:1 on the light page (WCAG's floor for
+    /// graphics). Overriding it with the sheet's ink once (fdaa283) turned every bar gray-black,
     /// which he noticed (2026-10-27: "we somehow lost the color in the bars").
     private static IBrush BarInk()
     {
         var accent = Application.Current?.Resources.TryGetResource("WordmarkInk", null, out var value) == true
                      && value is ISolidColorBrush brush ? brush.Color : (Color?)null;
-        return accent is { } c ? Contrast.Brush(Contrast.Floor(c, Color.Parse("#E4E4E2"), 3.0)) : Ink;
+        return accent is { } c ? Contrast.Brush(Contrast.Floor(c, Color.Parse("#F6F6F4"), 3.0)) : Ink;
     }
 
-    public void Refill(Library library, LibraryStats? s, string asOf)
+    /// Everything below the totals, into <paramref name="page"/>, which is cleared first.
+    /// <paramref name="search"/> types a search into the main window, for the cover-art lines.
+    public static void Fill(StackPanel page, Library library, LibraryStats s, Action<string> search)
     {
-        Resources["WordmarkInk"] = BarInk();     // the wall's colors may have changed since
-        Title = $"{App.DisplayName} — {library.Name}: the numbers";
-        var page = new StackPanel { Spacing = 10, Margin = new Thickness(18, 14, 18, 18) };
-        page.Children.Add(new TextBlock { Text = $"{library.Name}  —  {asOf}", FontSize = 15, FontWeight = FontWeight.SemiBold });
-        if (s is not { Tracks: > 0 })
-        {
-            page.Children.Add(Dim("Nothing to count yet. This fills in once the library has been read.", 13));
-            _page = page;
-            Content = page;
-            Avalonia.Threading.Dispatcher.UIThread.Post(FitHeight, Avalonia.Threading.DispatcherPriority.Background);
-            return;
-        }
-
+        page.Children.Clear();
+        var ink = BarInk();
         // ---- file types: one row each, a bar for its share of the tracks
         var types = Section(page, "File types");
-        types.Children.Add(Row(TypeColumns, null,
+        types.Children.Add(Row(TypeColumns, null, ink,
             Dim("", 11), Dim("tracks", 11, right: true), Dim("share", 11, right: true),
             Dim("size", 11, right: true), Dim("time", 11, right: true), Dim("typical", 11, right: true)));
         foreach (var t in s.Types)
-            types.Children.Add(Row(TypeColumns, (double)t.Tracks / s.Tracks,
+            types.Children.Add(Row(TypeColumns, (double)t.Tracks / s.Tracks, ink,
                 new TextBlock { Text = t.Type, FontSize = 13, FontWeight = FontWeight.SemiBold },
                 Figure($"{t.Tracks:N0}"), Figure(Share(t.Tracks, s.Tracks)),
                 Figure(Bytes(t.Bytes)), Figure(Spoken(t.PlayingTime)),
@@ -131,7 +64,7 @@ public sealed class StatisticsWindow : Window
             about.TextWrapping = TextWrapping.Wrap;
             bitrates.Children.Add(about);
             foreach (var b in s.LossyBitrates)
-                bitrates.Children.Add(Row(BandColumns, (double)b.Tracks / lossy,
+                bitrates.Children.Add(Row(BandColumns, (double)b.Tracks / lossy, ink,
                     new TextBlock { Text = b.Label, FontSize = 13 },
                     Figure($"{b.Tracks:N0}"), Figure(Share(b.Tracks, lossy))));
         }
@@ -142,7 +75,7 @@ public sealed class StatisticsWindow : Window
             var lossless = s.LosslessFormats.Sum(b => b.Tracks);
             var formats = Section(page, "Lossless");
             foreach (var b in s.LosslessFormats)
-                formats.Children.Add(Row(BandColumns, (double)b.Tracks / lossless,
+                formats.Children.Add(Row(BandColumns, (double)b.Tracks / lossless, ink,
                     new TextBlock { Text = b.Label, FontSize = 13 },
                     Figure($"{b.Tracks:N0}"), Figure(Share(b.Tracks, lossless))));
         }
@@ -157,27 +90,19 @@ public sealed class StatisticsWindow : Window
         // they were inside the music or beside it is the server's business, so
         // "beside the tracks" would be a guess dressed as a fact.
         if (library.IsNavidrome)
-            art.Children.Add(ArtLine(N(s.Art.Embedded + s.Art.Sidecar, "album has its", "albums have their") + " cover from the server", null));
+            art.Children.Add(ArtLine(search, N(s.Art.Embedded + s.Art.Sidecar, "album has its", "albums have their") + " cover from the server", null));
         else
         {
-            art.Children.Add(ArtLine(N(s.Art.Embedded, "album carries its", "albums carry their") + " cover inside the files", null));
+            art.Children.Add(ArtLine(search, N(s.Art.Embedded, "album carries its", "albums carry their") + " cover inside the files", null));
             if (s.Art.Sidecar > 0)
-                art.Children.Add(ArtLine(N(s.Art.Sidecar, "album uses", "albums use") + " a cover file beside the tracks", null));
+                art.Children.Add(ArtLine(search, N(s.Art.Sidecar, "album uses", "albums use") + " a cover file beside the tracks", null));
         }
-        art.Children.Add(ArtLine(
+        art.Children.Add(ArtLine(search, 
             s.Art.Missing == 0 ? "No album is missing a cover" : N(s.Art.Missing, "album has", "albums have") + " no cover at all",
             s.Art.Missing == 0 ? null : "art:missing"));
         if (s.Art.Small > 0)
-            art.Children.Add(ArtLine(N(s.Art.Small, "album has", "albums have") + $" a cover smaller than {LibraryStats.SmallCover} px", "art:small"));
+            art.Children.Add(ArtLine(search, N(s.Art.Small, "album has", "albums have") + $" a cover smaller than {LibraryStats.SmallCover} px", "art:small"));
 
-        _page = page;
-        Content = new ScrollViewer
-        {
-            Content = page,
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-        };
-        Avalonia.Threading.Dispatcher.UIThread.Post(FitHeight, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     private static StackPanel Section(StackPanel page, string heading)
@@ -196,7 +121,7 @@ public sealed class StatisticsWindow : Window
 
     /// One row: the first cell, then a bar in the star column, then the figures.
     /// A null fraction is a header row, which has no bar.
-    private static Grid Row(string columns, double? fraction, Control first, params Control[] rest)
+    private static Grid Row(string columns, double? fraction, IBrush ink, Control first, params Control[] rest)
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(columns), MinHeight = 22 };
 
@@ -216,8 +141,7 @@ public sealed class StatisticsWindow : Window
             var track = new Border { CornerRadius = new CornerRadius(3) };
             track[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SheetEdge");
             Grid.SetColumnSpan(track, 2);
-            var fill = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.85 };
-            fill[!Border.BackgroundProperty] = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("WordmarkInk");
+            var fill = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.85, Background = ink };
             bar.Children.Add(track);
             bar.Children.Add(fill);
             Grid.SetColumn(bar, 1);
@@ -235,11 +159,11 @@ public sealed class StatisticsWindow : Window
 
     /// A sentence about the covers and, when the wall can show which albums it
     /// means, a link that types that search into the main window.
-    private Control ArtLine(string text, string? search)
+    private static Control ArtLine(Action<string> search, string text, string? query)
     {
         var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         line.Children.Add(new TextBlock { Text = text, FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
-        if (search is not null)
+        if (query is not null)
         {
             var show = new Button
             {
@@ -247,7 +171,7 @@ public sealed class StatisticsWindow : Window
                 Content = new TextBlock { Text = "show on the wall", FontSize = 13, TextDecorations = TextDecorations.Underline },
                 VerticalAlignment = VerticalAlignment.Center
             };
-            show.Click += (_, _) => _host.SearchFor(search);
+            show.Click += (_, _) => search(query);
             line.Children.Add(show);
         }
         return line;

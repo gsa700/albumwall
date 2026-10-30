@@ -2041,8 +2041,6 @@ public partial class MainWindow : Window
     // settings itself; anything that touches the LIBRARY comes back through
     // these, because only this window knows how to scan.
     internal Settings AppSettings => _settings;
-    internal string LibraryRootPath => LibraryRoot;
-    internal string LibraryCounts => _counts;
     internal int LibraryTrackCount => _trackCount;
     /// Whether scans of the library on the wall skip files the index recognizes.
 

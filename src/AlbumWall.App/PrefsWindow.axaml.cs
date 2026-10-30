@@ -51,7 +51,6 @@ public partial class PrefsWindow : Window
         ShowPage();     // the list starts on its first line, so no change is raised for it
         WhenItOpens.Text = $"When {App.DisplayName} opens";
 
-        StatsMore.Click += (_, _) => OpenStatistics();
         AddFolderLibrary.Click += async (_, _) => { await host.AddFolderLibrary(this); Fill(); };
         AddNavidromeLibrary.Click += async (_, _) => { await host.AddNavidromeLibrary(this); Fill(); };
 
@@ -177,7 +176,6 @@ public partial class PrefsWindow : Window
             host.AppSettings.PrefsHeight = Math.Round(Height / f);
             host.AppSettings.Save();
             _libraryWindow?.Close();
-            _statsWindow?.Close();
         };
 
         WireAccessibility(host);
@@ -638,7 +636,6 @@ public partial class PrefsWindow : Window
         if (AboutLinks.Children.Count == 0) FillAboutLinks();
         if (HelpBody.Children.Count == 0) FillHelp();
         AboutVersion.Text = $"Version {v?.Major}.{v?.Minor}.{v?.Build}";
-        AboutLibrary.Text = $"{_host.LibraryCounts}\n{_host.LibraryRootPath}";
     }
 
     /// A plain word for a hue, in degrees. Only ever shown beside the swatch, so

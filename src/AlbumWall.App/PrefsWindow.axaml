@@ -173,9 +173,9 @@
 
                         <!-- WHAT THE SELECTED LIBRARY IS MADE OF. "detailed library stats
                              like x number file types and bitrates etc." The rows are
-                             laid out in code (PrefsWindow.Statistics.cs): the five
-                             totals here, everything else behind a button. Hidden on a
-                             fresh install until the first library is chosen. -->
+                             laid out in code (PrefsWindow.Statistics.cs, LibraryNumbers):
+                             the five totals, then everything else. Hidden on a fresh
+                             install until the first library is chosen. -->
                         <StackPanel x:Name="StatsPanel" Spacing="10">
                             <Border Height="1" Margin="0,6,0,0" Background="{DynamicResource SheetEdge}"/>
                             <TextBlock x:Name="StatsHeader" FontSize="14" FontWeight="SemiBold"/>
@@ -184,11 +184,11 @@
 
                             <Grid x:Name="StatsTotals" ColumnDefinitions="*,*,*,1.35*,*" Margin="0,2,0,6"/>
                             <!-- The rest - file types, bitrates, lossless formats, cover
-                                 art - is a window of its own (StatisticsWindow): "I love
-                                 the full data load, I don't want to lose that but maybe
-                                 most people don't care", and with it here the tab was
-                                 973 px tall, more than a 1080p laptop has. -->
-                            <Button x:Name="StatsMore" Classes="panel" Content="All the numbers…" HorizontalAlignment="Left"/>
+                                 art - right here under the totals. It was a window of its
+                                 own behind "All the numbers…" while the tab could not
+                                 scroll (973 px tall with it); since the pages scroll it
+                                 is back on the page (2026-10-30). -->
+                            <StackPanel x:Name="StatsDetail" Spacing="10"/>
                         </StackPanel>
                     </StackPanel>
                     </StackPanel>
@@ -490,8 +490,6 @@
                              Built in code (FillAboutLinks) since the addresses hang off
                              App.ProjectUrl, which will change once. -->
                         <StackPanel x:Name="AboutLinks" Spacing="7" Margin="0,4,0,2"/>
-                        <TextBlock x:Name="AboutLibrary" Classes="dim mono" FontSize="12" LineHeight="18"
-                                   TextWrapping="Wrap"/>
 
                         <!-- HOW THIS COPY IS RUNNING, and the one thing that can be done
                              about it. The app installs and removes itself, the family's
