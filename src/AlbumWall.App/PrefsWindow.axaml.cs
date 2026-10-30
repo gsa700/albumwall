@@ -28,6 +28,10 @@ public partial class PrefsWindow : Window
     public PrefsWindow(MainWindow host) : this()
     {
         _host = host;
+        // The size it was dragged to last time, if it was (at 100% text; the text
+        // size grows it from there).
+        if (host.AppSettings.PrefsWidth is { } w) Width = Math.Max(w, MinWidth);
+        if (host.AppSettings.PrefsHeight is { } h) Height = Math.Max(h, MinHeight);
         Title = $"{App.DisplayName} \u2014 Preferences";
 
         // A PAGE IS CALLED WHAT ITS LINE SAYS. With the old tabs the automation
@@ -168,6 +172,9 @@ public partial class PrefsWindow : Window
         {
             host.AppSettings.PrefsX = Position.X;
             host.AppSettings.PrefsY = Position.Y;
+            var f = TextSize.Percent / 100.0;
+            host.AppSettings.PrefsWidth = Math.Round(Width / f);
+            host.AppSettings.PrefsHeight = Math.Round(Height / f);
             host.AppSettings.Save();
             _libraryWindow?.Close();
             _statsWindow?.Close();
@@ -197,9 +204,10 @@ public partial class PrefsWindow : Window
         }
     }
 
-    /// ONE SIZE, which never changes as pages are chosen (the family's rule for
-    /// these windows): a page longer than the window scrolls inside it. Only a
-    /// screen too short for even that is a reason to be shorter. The tabs before
+    /// ONE SIZE, which never changes by itself as pages are chosen (the family's
+    /// rule for these windows): a page longer than the window scrolls inside it.
+    /// He can drag it to another size, which it keeps. Only a screen too short
+    /// is a reason to open shorter. The tabs before
     /// this measured every tab and took the tallest one's height, 962 px by
     /// 2026-10-29, which is why they went.
     private void FitToScreen()

@@ -3,7 +3,7 @@
         x:Class="AlbumWall.App.PrefsWindow"
         Title="AlbumWall — Preferences"
         Icon="/Assets/app.ico"
-        Width="780" Height="640" CanResize="False"
+        Width="780" Height="640" MinWidth="640" MinHeight="480" CanResize="True"
         RequestedThemeVariant="Light"
         Background="{DynamicResource SheetBg}"
         Foreground="#1D1D20"
@@ -107,8 +107,15 @@
          growth as well as now. Adding another page is cheap with the sidebar."
          Six tabs had made it 962 px tall, the tallest tab's height on every tab,
          nearly all of a 1080p laptop, and Updates and About mostly empty. Now the
-         window is one size that never changes, and each page scrolls on its own
-         when it is longer than that. The pages are in the order of the Page enum
+         window is one size that never changes by itself, and each page scrolls on
+         its own when it is longer than that.
+
+         RESIZABLE (his ask, the same evening: "what do you think of making the
+         prefs dialog resizable?"). The rule was that the window never jumps by
+         itself from page to page; a size he drags it to is his, kept from page to
+         page and from one opening to the next (Settings.PrefsWidth/Height). 780 by
+         640 until then; never smaller than 640 by 480, where the sidebar and a
+         readable page still fit. The pages are in the order of the Page enum
          (PrefsWindow.axaml.cs); About stays last, set apart. Settings are written
          straight through with no OK button. -->
     <DockPanel Margin="12">

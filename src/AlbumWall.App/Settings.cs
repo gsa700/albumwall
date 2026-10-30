@@ -28,6 +28,10 @@ public sealed class Settings
     /// Where the Preferences window was, in screen pixels.
     public int? PrefsX { get; set; }
     public int? PrefsY { get; set; }
+    /// Its size, once it has been dragged to one (2026-10-29), as it would be
+    /// at 100% text: the size a larger text size grows from.
+    public double? PrefsWidth { get; set; }
+    public double? PrefsHeight { get; set; }
 
     /// Where the Properties window was, in screen pixels: a place of its own,
     /// not the main window's centre ("can we give the properties dialog its own

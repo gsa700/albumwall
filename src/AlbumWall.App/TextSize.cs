@@ -53,6 +53,8 @@ public static class TextSize
         var host = new LayoutTransformControl();
         var content = window.Content as Control;
         double width = window.Width, height = window.Height;
+        double minWidth = window.MinWidth, minHeight = window.MinHeight;
+        var applied = 1.0;
         var swapping = false;
 
         void Wrap()
@@ -86,6 +88,16 @@ public static class TextSize
             var f = Percent / 100.0;
             Wrap();
             if (window.SizeToContent != SizeToContent.Manual) return;
+            // A window that can be resized grows from the size it has been
+            // dragged to, not from the one it was built with.
+            if (window.CanResize && window.IsVisible)
+            {
+                if (!double.IsNaN(window.Width)) width = window.Width / applied;
+                if (!double.IsNaN(window.Height)) height = window.Height / applied;
+            }
+            applied = f;
+            window.MinWidth = minWidth * f;
+            window.MinHeight = minHeight * f;
             var w = double.IsNaN(width) ? double.NaN : Math.Ceiling(width * f);
             var h = double.IsNaN(height) ? double.NaN : Math.Ceiling(height * f);
             if ((window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary) is { } screen)
