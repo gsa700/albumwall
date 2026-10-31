@@ -365,6 +365,11 @@ public sealed partial class LibraryScanner
     private static LibraryIndex.TrackFacts? ReadFacts(string path, long size, long modified)
     {
         TagLib.File tf;
+        // An MP4 nested deeper than any real file overflowed TagLib#'s stack
+        // and took the app down mid-scan (Marginal security review 2026-10-31,
+        // A1): refused here, so it is never a track and never opened again.
+        if (path.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) && !Mp4Nesting.IsSafe(path))
+            return new LibraryIndex.TrackFacts(size, modified, false, "", "", 0, 0, 0, "", "", 0, 0, 0, 0, false, 0, 0);
         try { tf = TagLib.File.Create(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
