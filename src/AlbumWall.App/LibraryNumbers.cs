@@ -63,7 +63,7 @@ internal static class LibraryNumbers
             var about = Dim(
                 $"The {lossy:N0} lossy tracks, by the rate each file reports for itself in kbps. "
               + "For a variable-rate file that is its average. "
-              + (silent > 0 ? $"{(silent == 1 ? "1 track reports" : $"{silent:N0} tracks report")} no rate and {(silent == 1 ? "is" : "are")} left out. " : "")
+              + (silent > 0 ? $"{(silent == 1 ? "One track reports" : $"{silent:N0} tracks report")} no rate and {(silent == 1 ? "is" : "are")} left out. " : "")
               + "“Typical” above is the middle track of its type, "
               + "not the mean, so a few low-rate files do not drag it down.", 12);
             about.TextWrapping = TextWrapping.Wrap;
