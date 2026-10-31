@@ -56,10 +56,15 @@ internal static class LibraryNumbers
         if (s.LossyBitrates.Count > 0)
         {
             var lossy = s.LossyBitrates.Sum(b => b.Tracks);
+            // A file that reports neither a bitrate nor a bit depth is in no band
+            // at all; say so, or 15,528 under 15,529 looks like a counting slip.
+            var silent = s.Tracks - lossy - s.LosslessFormats.Sum(b => b.Tracks);
             var bitrates = Section(page, "Bitrates");
             var about = Dim(
                 $"The {lossy:N0} lossy tracks, by the rate each file reports for itself in kbps. "
-              + "For a variable-rate file that is its average. “Typical” above is the middle track of its type, "
+              + "For a variable-rate file that is its average. "
+              + (silent > 0 ? $"{(silent == 1 ? "1 track reports" : $"{silent:N0} tracks report")} no rate and {(silent == 1 ? "is" : "are")} left out. " : "")
+              + "“Typical” above is the middle track of its type, "
               + "not the mean, so a few low-rate files do not drag it down.", 12);
             about.TextWrapping = TextWrapping.Wrap;
             bitrates.Children.Add(about);
@@ -93,7 +98,9 @@ internal static class LibraryNumbers
             art.Children.Add(ArtLine(search, N(s.Art.Embedded + s.Art.Sidecar, "album has its", "albums have their") + " cover from the server", null));
         else
         {
-            art.Children.Add(ArtLine(search, N(s.Art.Embedded, "album carries its", "albums carry their") + " cover inside the files", null));
+            art.Children.Add(ArtLine(search,
+                s.Art.Embedded == 0 ? "No album carries its cover inside the files"
+                                    : N(s.Art.Embedded, "album carries its", "albums carry their") + " cover inside the files", null));
             if (s.Art.Sidecar > 0)
                 art.Children.Add(ArtLine(search, N(s.Art.Sidecar, "album uses", "albums use") + " a cover file beside the tracks", null));
         }
