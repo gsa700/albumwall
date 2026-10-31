@@ -13,6 +13,9 @@
 //
 // Returns null for anything it does not recognize, and callers treat null as
 // "unknown, behave as before" — never as "small".
+//
+// COPIED to Marginal (src/Marginal.Core/ImageSize.cs, 2026-10-31), the same
+// code in both: a fix here goes there too.
 
 namespace AlbumWall.Domain;
 
