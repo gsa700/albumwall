@@ -102,12 +102,27 @@ public partial class MainWindow
     {
         var first = album.Album.Tracks.FirstOrDefault()?.Path;
         var folder = first is null || Domain.Navidrome.IsTrack(first) ? null : Path.GetDirectoryName(first);
-        return Menu(
+        var menu = Menu(
             play: CanPlayNow && first is not null ? () => StartPlayback(album, 0, false) : null,
             show: folder is null ? null : () => OpenFolder(folder),
             path: folder,
             pathItem: "Copy folder path",
             properties: () => ShowAlbumProperties(album.Album));
+        menu.Items.Add(MarginalItem(album.Album, folder is null));
+        return menu;
+    }
+
+    /// "Edit in Marginal…" when Marginal is installed, else "Get Marginal…",
+    /// which opens its releases page (MarginalLink). Greyed, with the reason,
+    /// for an album on a server: Marginal edits files on this computer.
+    private MenuItem MarginalItem(Domain.Album album, bool onServer)
+    {
+        var marginal = MarginalLink.Find();
+        if (marginal is null)
+            return Item("Get Marginal (tag editor)…", () => _ = Launcher.LaunchUriAsync(new Uri(MarginalLink.ReleasesPage)), "");
+        var folder = onServer ? null : MarginalLink.FolderOf(album.Directories);
+        return Item("Edit in Marginal…", folder is null ? null : () => MarginalLink.Open(marginal, folder),
+            onServer ? $"{OnAServer} Marginal edits files on this computer." : "This album's folders share no parent to open.");
     }
 
     private MenuFlyout TrackMenu(TrackLine line, Domain.Track track, Domain.Album? album)
