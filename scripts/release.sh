@@ -13,15 +13,19 @@
 #                                                version/tree checks only warn. Leaves the
 #                                                zips in ./dist (and the dmg, not notarized).
 #   scripts/release.sh 0.2.0 --no-mac            without the Mac's dmg, on a machine that is not a Mac
-#   scripts/release.sh 0.2.0 --aot --dry-run     the Native AOT builds instead of the single file: Linux
-#                                                and Windows from CI's run of this commit (build.yml),
-#                                                the Mac made here; AlbumWall-<rid>-aot.zip (from
-#                                                0.8.0; docs/roadmap.md, the road to Native AOT).
+#   THE NATIVE AOT BUILDS ARE THE DEFAULT (2026-11-01, after 0.8.5 went out as the single file
+#   because --aot was left off; Dave: "put the -aot into the build script so you don't NEED to
+#   pass it"): Linux and Windows from CI's run of this commit (build.yml), the Mac made here;
+#   AlbumWall-<rid>-aot.zip (from 0.8.0; docs/roadmap.md, the road to Native AOT). --aot is
+#   still accepted and changes nothing.
+#   scripts/release.sh 0.2.0 --single-file       the old single-file builds instead (made here),
+#                                                AlbumWall-<rid>.zip: only to go back on purpose.
 #
 # WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
-# AlbumWall-<rid>.zip for linux-x64, linux-arm64 and win-x64 - each zip holding
-# the single-file program - AlbumWall-osx-arm64.zip (AlbumWall.app whole, made
+# AlbumWall-<rid>-aot.zip for linux-x64, linux-arm64 and win-x64 - each zip
+# holding the Native AOT program and its libraries (AlbumWall-<rid>.zip, the
+# single file, with --single-file) - AlbumWall-osx-arm64.zip (AlbumWall.app whole, made
 # with ditto so its signature and stapled ticket survive: what a Mac copy's
 # updater installs, MacUpdate.cs), AlbumWall.dmg (the same app, the Mac
 # download for people; scripts/make-macos-app.sh), and SHA256SUMS listing them
@@ -48,16 +52,17 @@ REPO=gsa700/albumwall
 CSPROJ="$ROOT/src/AlbumWall.App/AlbumWall.App.csproj"
 RIDS=(linux-x64 linux-arm64 win-x64)
 
-VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish] [--dry-run] [--no-mac] [--aot]}
+VERSION=${1:?usage: release.sh X.Y.Z [--notes-file FILE] [--edge] [--publish] [--dry-run] [--no-mac] [--single-file]}
 shift
-PUBLISH=0; NOTES=""; DRY=0; EDGE=0; MAC=1; AOT=0
+PUBLISH=0; NOTES=""; DRY=0; EDGE=0; MAC=1; AOT=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --publish) PUBLISH=1 ;;
         --edge) EDGE=1 ;;
         --dry-run) DRY=1 ;;
         --no-mac) MAC=0 ;;
-        --aot) AOT=1 ;;
+        --aot) AOT=1 ;;            # the default since 2026-11-01; kept so old commands still work
+        --single-file) AOT=0 ;;
         --notes-file) NOTES=${2:?--notes-file needs a file}; shift ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
