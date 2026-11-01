@@ -49,6 +49,17 @@ public sealed class LyricsView : Border
     private double Pitch => Math.Ceiling(Size * 1.75);
 
     private readonly StackPanel _lines = new();
+
+    // PLAIN LYRICS, with no timing to follow (most of them for now), drift down
+    // a single column with the song, and the wheel nudges the drift forward or
+    // back when it runs ahead or behind: the drift carries on from there. A
+    // lyric sheet of columns was tried and he chose the column (2026-11-01:
+    // "I feel like the scrolling untimed lyrics in a single column would be
+    // best").
+    private double _nudge;
+    /// The wheel was turned: the drift holds until then (TickCount64).
+    private long _handUntil;
+    private const long HandHold = 4000;
     private readonly List<TextBlock> _blocks = [];
     private readonly DispatcherTimer _timer;
     private int _current = -1;
@@ -71,6 +82,24 @@ public sealed class LyricsView : Border
         // waited for (see Tick).
         _lines.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
         Child = _lines;
+        // The wheel scrolls plain lyrics by hand (timed ones leave it to the
+        // wall). The drift holds while the hand is at it and for a few seconds
+        // after, then carries on from where the hand left the words; it used to
+        // keep drifting underneath, "working against the manual". The whole
+        // window takes the wheel, not only the letters: between the lines it
+        // fell through to the wall ("the main window is picking up the scroll
+        // some of the time"). Transparent, not null, for that.
+        Background = Brushes.Transparent;
+        PointerWheelChanged += (_, e) =>
+        {
+            if (Lyrics is not { Timed: false }) return;
+            e.Handled = true;
+            var travel = Math.Max(0, _blocks.Count * Pitch - Bounds.Height);
+            _y = Math.Clamp(_y - e.Delta.Y * Pitch * 2, 0, travel);
+            _handUntil = Environment.TickCount64 + HandHold;
+            _lines.RenderTransform = new TranslateTransform(0, -_y);
+            Fade(Bounds.Height);
+        };
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background, (_, _) => Tick());
         AttachedToVisualTree += (_, _) => { _attached = true; Run(); };
         DetachedFromVisualTree += (_, _) => { _attached = false; _timer.Stop(); };
@@ -110,6 +139,8 @@ public sealed class LyricsView : Border
         _current = -1;
         _y = 0;
         _fresh = true;
+        _nudge = 0;
+        _handUntil = 0;
         MinHeight = MinLines * Pitch;
         var lyrics = Lyrics;
         if (lyrics is null) return;
@@ -197,7 +228,14 @@ public sealed class LyricsView : Border
         {
             var travel = Math.Max(0, _blocks.Count * Pitch - view);
             var share = duration > TimeSpan.Zero ? Math.Clamp(position / duration, 0, 1) : 0;
-            target = share * travel;
+            if (Environment.TickCount64 < _handUntil)
+            {
+                // The hand has the words: hold them, and let the drift take up
+                // from here when it lets go.
+                _nudge = _y - share * travel;
+                return;
+            }
+            target = Math.Clamp(share * travel + _nudge, 0, travel);
         }
 
         // New words (another song) start where they belong, not gliding in

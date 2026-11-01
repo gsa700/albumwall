@@ -301,10 +301,19 @@
                             </Border>
                         </Button>
                         <Button Classes="panel onwall" HorizontalAlignment="Center"
-                                Content="{Binding LyricsButtonText}"
                                 Command="{Binding ToggleLyricsCommand}"
                                 IsVisible="{Binding LyricsAvailable}"
-                                ToolTip.Tip="The words of the song playing, over the album"/>
+                                ToolTip.Tip="{Binding LyricsButtonTip}">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <!-- A clock face when the words are timed. -->
+                                <Path IsVisible="{Binding LyricsTimed}" VerticalAlignment="Center"
+                                      Width="{DynamicResource Text12}" Height="{DynamicResource Text12}" Stretch="Uniform"
+                                      Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.4"
+                                      StrokeLineCap="Round" StrokeJoin="Round"
+                                      Data="M 7 1 A 6 6 0 1 1 6.99 1 Z M 7 3.5 L 7 7 L 9.5 8.5"/>
+                                <TextBlock Text="{Binding LyricsButtonText}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                         </StackPanel>
                     </Grid>
                 </Border>

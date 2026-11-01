@@ -66,7 +66,15 @@ public sealed class PanelRow : WallItem, System.ComponentModel.INotifyPropertyCh
     /// (2026-11-01: "Show Lyrics" ... "Hide Lyrics").
     public string LyricsButtonText => _lyricsShown ? "Hide Lyrics" : "Show Lyrics";
 
-    public Domain.Lyrics? Lyrics { get => _lyrics; set { if (ReferenceEquals(_lyrics, value)) return; _lyrics = value; Changed(nameof(Lyrics)); } }
+    public Domain.Lyrics? Lyrics { get => _lyrics; set { if (ReferenceEquals(_lyrics, value)) return; _lyrics = value; Changed(nameof(Lyrics)); Changed(nameof(LyricsTimed)); Changed(nameof(LyricsButtonTip)); } }
+
+    /// The words have timing, so they follow the song line by line: the
+    /// button carries a small clock (2026-11-01: "if there is timing maybe a
+    /// little clock or something to show they are there").
+    public bool LyricsTimed => _lyrics?.Timed == true;
+    public string LyricsButtonTip => LyricsTimed
+        ? "The words of the song playing, over the album. Timed: they follow the song line by line."
+        : "The words of the song playing, over the album. They have no timing, so they drift down with the song; the wheel nudges them.";
     private Domain.Lyrics? _lyrics;
 
     /// Supplied by the wall: where the song is, and how long it is.
