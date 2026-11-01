@@ -72,7 +72,7 @@ rewritten function for function in another language.
   License: GNU LGPL, version 2.1.
   Source: https://github.com/mono/taglib-sharp
 
-- **Microsoft.Data.Sqlite 10.0.12, SQLitePCLRaw 2.1.12 and SQLite** — the
+- **Microsoft.Data.Sqlite 10.0.14, SQLitePCLRaw 2.1.13 and SQLite** — the
   library index (Windows only): what was read from each file, so that it need
   not be opened again.
   License: MIT (Microsoft.Data.Sqlite); Apache 2.0 (SQLitePCLRaw); SQLite itself
