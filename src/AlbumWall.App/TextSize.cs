@@ -15,6 +15,9 @@
 // should grow is its own decision.
 //
 // Applies at once to every window that follows it, open or not.
+//
+// COPIED TO Deadwax (src/Deadwax.App/TextSize.cs, 2026-11-01) and, changed, to
+// Marginal: a fix here goes to them too.
 
 using Avalonia;
 using Avalonia.Controls;
