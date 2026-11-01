@@ -48,8 +48,8 @@ public sealed class PanelRow : WallItem
     /// is no case where a panel should quietly open in the neutral palette.
     public required AlbumPalette Palette { get; init; }
 
-    /// Supplied by the wall: (album, first track index, shuffle).
-    public Action<AlbumVm, int, bool>? PlayFrom { get; init; }
+    /// Supplied by the wall: (album, first track index).
+    public Action<AlbumVm, int>? PlayFrom { get; init; }
 
     /// False when there is no sound output, which is the only reason the transport is
     /// ever unavailable. The buttons say why in their tooltip rather than being
@@ -57,10 +57,7 @@ public sealed class PanelRow : WallItem
     public bool CanPlay => PlayFrom is not null;
 
     public System.Windows.Input.ICommand PlayCommand =>
-        new Relay(() => PlayFrom?.Invoke(Album, 0, false));
-
-    public System.Windows.Input.ICommand ShuffleCommand =>
-        new Relay(() => PlayFrom?.Invoke(Album, 0, true));
+        new Relay(() => PlayFrom?.Invoke(Album, 0));
 
     internal sealed class Relay(Action run) : System.Windows.Input.ICommand
     {
@@ -212,7 +209,7 @@ public sealed class PanelRow : WallItem
                 }
 
                 var from = i;
-                lines.Add(TrackLine.Of(t, Palette, () => PlayFrom?.Invoke(Album, from, false)));
+                lines.Add(TrackLine.Of(t, Palette, () => PlayFrom?.Invoke(Album, from)));
             }
 
             // Split so the left column is never shorter than the right, and never

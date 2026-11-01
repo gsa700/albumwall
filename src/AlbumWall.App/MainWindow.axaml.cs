@@ -1454,7 +1454,6 @@ public partial class MainWindow : Window
         // Avalonia's own layout reads as the title bar's height.
         ExtendClientAreaTitleBarHeightHint = TopBar.Height;
 
-        FullScreenButton.IsVisible = false;
         Opened += (_, _) =>
         {
             var h = TryGetPlatformHandle();
@@ -1764,12 +1763,6 @@ public partial class MainWindow : Window
         if (on == _fullScreenChrome) return;
         _fullScreenChrome = on;
 
-        FullScreenGlyph.Data = Geometry.Parse(on
-            ? "M 6 1 L 6 6 L 1 6 M 12 1 L 12 6 L 17 6 M 12 17 L 12 12 L 17 12 M 6 17 L 6 12 L 1 12"
-            : "M 1 6 L 1 1 L 6 1 M 12 1 L 17 1 L 17 6 M 17 12 L 17 17 L 12 17 M 6 17 L 1 17 L 1 12");
-        ToolTip.SetTip(FullScreenButton, on ? "Exit full screen (F11)" : "Full screen (F11)");
-        AutomationProperties.SetName(FullScreenButton, on ? "Exit full screen" : "Full screen");
-
         foreach (var bar in new Control[] { TopBar, BottomBar, TransportSlot })
         {
             bar.Transitions = null;
@@ -2009,7 +2002,6 @@ public partial class MainWindow : Window
         // The gear opens a menu again, and the play mode is in it
         // (MainWindow.PlayMode.cs, 2026-11-01): see there for why it came back.
         WirePlayMode();
-        FullScreenButton.Click += (_, _) => ToggleFullScreen();
 
         EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder(this);
         EmptyRetry.Click += (_, _) =>
@@ -3385,30 +3377,16 @@ public partial class MainWindow : Window
     /// The ALBUM is the queue even when starting from track 4, so playing a track
     /// from the middle carries on into the rest of the record rather than
     /// stopping at the end of one song.
-    private void StartPlayback(AlbumVm album, int from, bool shuffle)
+    private void StartPlayback(AlbumVm album, int from)
     {
         try
         {
             EnsurePlayer();
             var paths = album.Album.Tracks.Select(t => t.Path).ToList();
 
-            // Context picks the mode only while the user has not picked one.
-            if (_gainChosen)
-            {
-                if (shuffle) from = Shuffle(paths);
-            }
-            else if (shuffle)
-            {
-                // Shuffle uses TRACK gain: album gain preserves the relative
-                // loudness a record was mastered with, which is exactly what you
-                // do not want once the running order is gone.
-                from = Shuffle(paths);
-                _player.Gain = Playback.GainMode.Track;
-            }
-            else
-            {
-                _player.Gain = Playback.GainMode.Album;
-            }
+            // Context picks the mode only while the user has not picked one: an
+            // album by album (and "shuffle all songs" by track, MainWindow.PlayMode.cs).
+            if (!_gainChosen) _player.Gain = Playback.GainMode.Album;
 
             _playingAlbum = album;
             _playingPaths = paths;
@@ -3422,7 +3400,7 @@ public partial class MainWindow : Window
             Console.WriteLine($"[wall] requested track {from + 1}: "
                             + $"{(from < album.Album.Tracks.Count ? album.Album.Tracks[from].Title : "?")}");
             Console.WriteLine($"[wall] play {album.Artist} - {album.Title} "
-                            + $"from {from + 1}/{paths.Count}{(shuffle ? " shuffled" : "")}");
+                            + $"from {from + 1}/{paths.Count}");
         }
         catch (Exception ex)
         {
@@ -3626,16 +3604,6 @@ public partial class MainWindow : Window
     }
 
     /// Fisher-Yates, in place. Returns the index to start from.
-    private static int Shuffle(List<string> paths)
-    {
-        var rng = Random.Shared;
-        for (var i = paths.Count - 1; i > 0; i--)
-        {
-            var j = rng.Next(i + 1);
-            (paths[i], paths[j]) = (paths[j], paths[i]);
-        }
-        return 0;
-    }
 
     private AlbumVm? _playingAlbum;
     private List<string> _playingPaths = [];

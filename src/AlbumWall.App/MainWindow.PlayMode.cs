@@ -31,7 +31,8 @@
 // it once counted as such, and on Techbench (2026-11-01) the next album began
 // ten seconds after he picked "next album" and the wall stayed put.
 //
-// THE MENU UNDER THE GEAR came back for this. It went on 2026-09-20 (da37455)
+// THE MENU UNDER THE GEAR came back for this, and the top bar's full-screen
+// button went into it (2026-11-01: "drop full screen only, keep compact"). It went on 2026-09-20 (da37455)
 // because it held two doors into one window, Preferences and About. Now it
 // holds things to do: the play mode and ReplayGain, rescan, compact, full
 // screen, and then Preferences, Keys and search, About. Cmd/Ctrl+, still opens
@@ -147,7 +148,7 @@ public partial class MainWindow
         }
 
         Console.WriteLine($"[play] album ended: {Words(mode).ToLowerInvariant()}, {next.Artist} - {next.Title}");
-        StartPlayback(next, 0, shuffle: false);
+        StartPlayback(next, 0);
         FollowNow();
         return true;
     }
@@ -380,8 +381,12 @@ public partial class MainWindow
         menu.Items.Add(new Separator());
 
         menu.Items.Add(Command("Rescan the library", () => ScanLibrary(asked: true)));
-        menu.Items.Add(Command("Compact view", EnterCompact));
-        if (FullScreenButton.IsVisible) menu.Items.Add(Command("Full screen", ToggleFullScreen));
+        menu.Items.Add(Command("Compact view", EnterCompact, new KeyGesture(Key.M, Shortcut.Primary | Shortcut.CompactExtra)));
+        // Not on the Mac, where the green button zooms and full screen is off
+        // (MacWindow.ZoomInsteadOfFullScreen); worth another look on a later macOS.
+        if (!OperatingSystem.IsMacOS())
+            menu.Items.Add(Command(WindowState == WindowState.FullScreen ? "Exit full screen" : "Full screen",
+                                   ToggleFullScreen, new KeyGesture(Key.F11)));
         menu.Items.Add(new Separator());
 
         menu.Items.Add(Command("Preferences…", () => ShowPrefs(PrefsWindow.Tab.Library), new KeyGesture(Key.OemComma, Shortcut.Primary)));

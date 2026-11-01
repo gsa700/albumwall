@@ -72,7 +72,7 @@ public partial class MainWindow
                ?? _all.FirstOrDefault(a => Has(a.Artist));
         if (hit is null) return $"! No album's title or artist contains \"{words}\".";
 
-        StartPlayback(hit, 0, shuffle: false);
+        StartPlayback(hit, 0);
         if (_playerFailed) return "! It could not be played.";
 
         // And the wall goes to it, as ⌘L would: a different album is playing now,

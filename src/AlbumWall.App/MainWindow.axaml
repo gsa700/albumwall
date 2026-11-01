@@ -28,6 +28,33 @@
         <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#564D45"/>
         <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#564D45"/>
 
+        <!-- MENUS IN THE LIGHT WINDOWS' COLORS (2026-11-01: "The menus are pretty
+             dark, maybe we can lighten them somehow consistent with the app color
+             pallet"). Fluent's dark menus matched nothing else here; these are
+             Preferences' sheet (SheetField, SheetBg, SheetEdge, SheetPicked), so a
+             menu reads as one of the app's light surfaces. Every menu this window
+             opens finds them here: the gear, the play mode, an album or a track,
+             the library picker, compact's. -->
+        <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#F6F6F4"/>
+        <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="#C2C2C6"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="Transparent"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#E4E4E2"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#CDCDD0"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemBackgroundDisabled" Color="Transparent"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemForeground" Color="#1C1B1A"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemForegroundPointerOver" Color="#1C1B1A"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemForegroundPressed" Color="#1C1B1A"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemForegroundDisabled" Color="#8C8B88"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemKeyboardAcceleratorTextForeground" Color="#6E6D6A"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemKeyboardAcceleratorTextForegroundPointerOver" Color="#5A5956"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemKeyboardAcceleratorTextForegroundPressed" Color="#5A5956"/>
+        <SolidColorBrush x:Key="MenuFlyoutItemKeyboardAcceleratorTextForegroundDisabled" Color="#A8A7A4"/>
+        <SolidColorBrush x:Key="MenuFlyoutSubItemChevron" Color="#5A5956"/>
+        <SolidColorBrush x:Key="MenuFlyoutSubItemChevronPointerOver" Color="#1C1B1A"/>
+        <SolidColorBrush x:Key="MenuFlyoutSubItemChevronPressed" Color="#1C1B1A"/>
+        <SolidColorBrush x:Key="MenuFlyoutSubItemChevronSubMenuOpened" Color="#1C1B1A"/>
+        <SolidColorBrush x:Key="MenuFlyoutSubItemChevronDisabled" Color="#A8A7A4"/>
+
         <!-- One row of covers. The row is exactly as wide as its albums, so the
              arrow offsets computed for the panel below it stay correct. -->
         <DataTemplate x:Key="AlbumRowTemplate" DataType="app:AlbumRow">
@@ -169,13 +196,9 @@
                                            Foreground="{Binding Palette.TextDim}"/>
                             </StackPanel>
 
-                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
-                                        Spacing="9" Margin="0,14,0,0">
-                                <Button Classes="panel onwall" Content="Shuffle"
-                                        Command="{Binding ShuffleCommand}"
-                                        IsEnabled="{Binding CanPlay}"
-                                        ToolTip.Tip="Shuffle this album"/>
-                            </StackPanel>
+                            <!-- No Shuffle button since 2026-11-01: "I am not sure I would
+                                 ever shuffle within a single collection like that". Shuffling
+                                 is the play mode's, across the wall (MainWindow.PlayMode.cs). -->
 
                             <!-- NO internal scroll region. An album panel sizes to
                                  its own track list and the wall scrolls, because
@@ -183,7 +206,7 @@
                                  means two scrollbars competing for one wheel. Even
                                  the 46-track box set is only about 26 rows per
                                  column, which the wall carries without complaint. -->
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="26" Margin="0,16,0,0">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="26" Margin="{DynamicResource TrackListGap}">
                                 <ItemsControl Grid.Column="0" ItemsSource="{Binding LeftColumn}" AutomationProperties.Name="Tracks"
                                               ItemTemplate="{StaticResource TrackLineTemplate}"/>
                                 <ItemsControl Grid.Column="1" ItemsSource="{Binding RightColumn}" AutomationProperties.Name="More tracks"
@@ -322,6 +345,10 @@
         <sys:Double x:Key="Text21">21</sys:Double>
         <sys:Double x:Key="TrackLineHeight">28</sys:Double>
         <GridLength x:Key="TrackNumberWidth">30</GridLength>
+        <!-- Between the album's details and its tracks: the room the Shuffle
+             button's row took (14 above it, the button, 16 below), kept when the
+             button went (2026-11-01: "Lets keep the space the button provided"). -->
+        <Thickness x:Key="TrackListGap">0,60,0,0</Thickness>
         <!-- Replaced by ApplyGround as soon as the wall has a ground. -->
         <SolidColorBrush x:Key="DimText" Color="#A2978A"/>
     </Window.Resources>
@@ -417,11 +444,9 @@
         </Style>
         <!-- The dim text, held to the contrast floor against this window's own
              wall and bars (ApplyGround). Other windows keep App.axaml's. -->
-        <!-- The open album's buttons at the text size (MainWindow.TextSize.cs). A
-             style, not FontSize on the button: set inside a template, that lost
-             to Button.panel's own 12 in App.axaml. -->
-        <Style Selector="Button.panel.onwall">
-            <Setter Property="FontSize" Value="{DynamicResource Text12}"/>
+        <!-- The rule between a menu's groups, in the sheet's edge color. -->
+        <Style Selector="MenuFlyoutPresenter Separator, ContextMenu Separator">
+            <Setter Property="Background" Value="#D2D2D4"/>
         </Style>
         <Style Selector="TextBlock.dim">
             <Setter Property="Foreground" Value="{DynamicResource DimText}"/>
@@ -716,12 +741,9 @@
                               Stroke="#F3EEE6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
                               Data="M 1 5 L 19 5 L 19 12 L 1 12 Z M 4 8.5 L 7 8.5"/>
                     </Button>
-                    <Button x:Name="FullScreenButton" Classes="chrome" VerticalAlignment="Center"
-                            Padding="8,4" ToolTip.Tip="Full screen (F11)" AutomationProperties.Name="Full screen">
-                        <Path x:Name="FullScreenGlyph" Stretch="Uniform" Width="15" Height="15"
-                              Stroke="#F3EEE6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
-                              Data="M 1 6 L 1 1 L 6 1 M 12 1 L 17 1 L 17 6 M 17 12 L 17 17 L 12 17 M 6 17 L 1 17 L 1 12"/>
-                    </Button>
+                    <!-- No full-screen button since 2026-11-01 (his call): F11, Esc to
+                         leave, and the gear menu. Compact keeps its button: it is used
+                         often, and the strip has one button back. -->
                     <Button x:Name="SettingsButton" Classes="chrome" VerticalAlignment="Center"
                             Padding="8,4" ToolTip.Tip="Menu: play mode, ReplayGain, Preferences" AutomationProperties.Name="Menu">
                         <!-- The dot says a newer version exists. It is the only thing the

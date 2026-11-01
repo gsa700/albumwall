@@ -103,7 +103,7 @@ public partial class MainWindow
         var first = album.Album.Tracks.FirstOrDefault()?.Path;
         var folder = first is null || Domain.Navidrome.IsTrack(first) ? null : Path.GetDirectoryName(first);
         var menu = Menu(
-            play: CanPlayNow && first is not null ? () => StartPlayback(album, 0, false) : null,
+            play: CanPlayNow && first is not null ? () => StartPlayback(album, 0) : null,
             show: folder is null ? null : () => OpenFolder(folder),
             path: folder,
             pathItem: "Copy folder path",
