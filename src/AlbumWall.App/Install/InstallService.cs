@@ -758,7 +758,7 @@ public static class InstallService
         // (2026-09-20, driven through UI Automation against a throwaway folder) left exactly that
         // one file behind in an otherwise emptied folder.
         foreach (var name in new[] { "settings.json", "session.json", "albumwall.log", "albumwall.log.1",
-                                     "registration.log" })
+                                     "albumwall-crash.txt", "registration.log" })
         {
             var path = Path.Combine(DataDir, name);
             if (File.Exists(path)) yield return path;

@@ -35,7 +35,10 @@ public static class LogFile
                                                        FileShare.ReadWrite | FileShare.Delete))
             { AutoFlush = true };
 
+            // Errors too (2026-11-01): Console.Error went only to the terminal,
+            // so the line that said what failed was the one line not kept.
             Console.SetOut(new Tee(Console.Out, file));
+            Console.SetError(new Tee(Console.Error, file));
             Console.WriteLine($"[log] {DateTime.Now:yyyy-MM-dd HH:mm:ss}  pid {Environment.ProcessId}  "
                             + $"{typeof(LogFile).Assembly.GetName().Version}");
         }
@@ -44,10 +47,12 @@ public static class LogFile
 
     /// Lines are stamped with the time since start, because nearly every
     /// question asked of this log is "in what order, and how far apart?".
+    /// Output and Error each have one, writing to the same file, so they share
+    /// the clock and the lock.
     private sealed class Tee(TextWriter console, TextWriter file) : TextWriter
     {
-        private readonly System.Diagnostics.Stopwatch _since = System.Diagnostics.Stopwatch.StartNew();
-        private readonly object _gate = new();
+        private static readonly System.Diagnostics.Stopwatch _since = System.Diagnostics.Stopwatch.StartNew();
+        private static readonly object _gate = new();
 
         public override Encoding Encoding => Encoding.UTF8;
 

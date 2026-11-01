@@ -150,6 +150,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Diagnostics.WatchUiThread();
         DrawnCaptions.FollowTheDesktop();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

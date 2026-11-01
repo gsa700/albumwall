@@ -38,6 +38,7 @@ class Program
             return;
 
         LogFile.Start();
+        Diagnostics.CatchCrashes();
         FrontPanel = args.Any(a => a.Equals("--front-panel", StringComparison.OrdinalIgnoreCase));
 
         // --install and --uninstall, the family's switches. Handled here, before
