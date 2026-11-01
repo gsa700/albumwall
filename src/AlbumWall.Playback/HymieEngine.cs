@@ -107,6 +107,10 @@ internal sealed class HymieEngine : IDisposable
     /// track has begun decoding (the last moments of this one) it is too late
     /// for this boundary and takes effect at the next.
     public volatile bool EndAfterCurrent;
+
+    /// The equalizer's settings, swapped whole for each change (Equalizer.cs);
+    /// null or off passes the sound through untouched.
+    public volatile EqSettings? Eq;
     public event EventHandler? DurationChanged;
     public event EventHandler<TimeSpan>? Seeked;
 
@@ -362,7 +366,19 @@ internal sealed class HymieEngine : IDisposable
         }
 
         IOutput output;
-        try { output = Output.Open(track.SampleRate, track.Channels, into => Source(into, generation)); }
+        // The equalizer is a stage in the output's pull, between Hymie and the
+        // platform (Equalizer.cs), set for this output's rate and channels.
+        var eq = new EqualizerStage(track.SampleRate, track.Channels, () => Eq);
+        var channels = track.Channels;
+        try
+        {
+            output = Output.Open(track.SampleRate, channels, into =>
+            {
+                var frames = Source(into, generation);
+                if (frames > 0) eq.Process(into[..(frames * channels)]);
+                return frames;
+            });
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"[engine] no output for {track.SampleRate} Hz, {track.Channels} ch: {ex.Message}");

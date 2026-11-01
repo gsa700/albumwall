@@ -111,6 +111,14 @@ public sealed class Player : IDisposable
 
     public void PlayIndex(int index) => _hymie.PlayIndex(index);
 
+    /// The equalizer, between Hymie and the output (Equalizer.cs). Set a new
+    /// object for each change; it is read as each block of sound goes out.
+    public EqSettings? Equalizer
+    {
+        get => _hymie.Eq;
+        set => _hymie.Eq = value;
+    }
+
     /// End with the track playing now (HymieEngine.EndAfterCurrent).
     public bool EndAfterCurrent
     {

@@ -2798,6 +2798,8 @@ public partial class MainWindow : Window
             return;
         }
         if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
+        // "eq": opens the equalizer (EqualizerWindow.cs).
+        if (text.Equals("eq", StringComparison.OrdinalIgnoreCase)) { EqualizerWindow.ShowFrom(this); return; }
         // "lyrics": as if Show Lyrics / Hide Lyrics were pressed (MainWindow.Lyrics.cs).
         if (text.Equals("lyrics", StringComparison.OrdinalIgnoreCase)) { ToggleLyrics(); return; }
         // "browse": as if someone had just scrolled the wall (MainWindow.PlayMode.cs).
@@ -3208,6 +3210,16 @@ public partial class MainWindow : Window
                 shot.Save(Path.ChangeExtension(trigger, null) + ".notices.png");
             }
 
+            // And the equalizer.
+            if (EqualizerWindow.Current is { } eqw)
+            {
+                var ew = (int)Math.Ceiling(eqw.ClientSize.Width * eqw.RenderScaling);
+                var eh = (int)Math.Ceiling(eqw.ClientSize.Height * eqw.RenderScaling);
+                var edpi = 96 * eqw.RenderScaling;
+                using var shot = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(ew, eh), new Vector(edpi, edpi));
+                shot.Render(eqw);
+                shot.Save(Path.ChangeExtension(trigger, null) + ".eq.png");
+            }
             // And Properties.
             if (PropertiesWindow.Current is { } props)
             {
@@ -3436,8 +3448,10 @@ public partial class MainWindow : Window
                 ? saved
                 : Playback.GainMode.Album);
 
-        // A player built now starts at whatever the slider already says.
+        // A player built now starts at whatever the slider already says,
+        // and with the equalizer as kept (EqualizerWindow.cs).
         _player.Volume = _volume;
+        _player.Equalizer = EqualizerSettings;
 
         _player.TrackChanged += OnTrackChanged;
         _player.StateChanged += OnPlaybackState;

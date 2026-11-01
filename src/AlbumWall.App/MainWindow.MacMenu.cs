@@ -104,7 +104,8 @@ public partial class MainWindow
             new NativeMenuItemSeparator(),
             Item("Go to the Playing Album", () => OnRevealPlaying(null, new Avalonia.Interactivity.RoutedEventArgs()), Key.L),
             new NativeMenuItemSeparator(),
-            MacPlayModeMenu()));
+            MacPlayModeMenu(),
+            Item("Equalizer…", () => EqualizerWindow.ShowFrom(this))));
         bar.Items.Add(Menu("View",
             Item("Compact", ToggleCompact, Key.M, Cmd | Shortcut.CompactExtra)));
         bar.Items.Add(Menu("Window",

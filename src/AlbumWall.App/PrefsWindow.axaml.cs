@@ -109,6 +109,15 @@ public partial class PrefsWindow : Window
         BarMeters.IsCheckedChanged += (_, _) => { if (!_filling) host.BarMetersOn = BarMeters.IsChecked == true; };
         MeterPeakHold.IsCheckedChanged += (_, _) => { if (!_filling) host.MeterPeakHold = MeterPeakHold.IsChecked == true; };
         MetersAfterGain.IsCheckedChanged += (_, _) => { if (!_filling) host.MetersAfterGain = MetersAfterGain.IsChecked == true; };
+        EqualizerOn.IsCheckedChanged += (_, _) =>
+        {
+            if (_filling) return;
+            var eq = host.EqualizerSettings;
+            eq.On = EqualizerOn.IsChecked == true;
+            host.EqualizerSettings = eq;
+            EqualizerWindow.Refresh();
+        };
+        EqualizerOpen.Click += (_, _) => EqualizerWindow.ShowFrom(host);
 
         UpdateButton.Click += async (_, _) => await OnUpdateButton();
         UpdateNotes.Click += async (_, _) =>
@@ -578,6 +587,7 @@ public partial class PrefsWindow : Window
         GainOff.IsChecked = gain == Playback.GainMode.Off;
         BarMeters.IsChecked = _host.BarMetersOn;
         MetersAfterGain.IsChecked = _host.MetersAfterGain;
+        EqualizerOn.IsChecked = _host.EqualizerSettings.On;
         MeterPeakHold.IsChecked = _host.MeterPeakHold;
         CheckUpdates.IsChecked = _host.AppSettings.CheckForUpdates != false;
         EdgeUpdates.IsChecked = _host.AppSettings.EdgeChannel == true;

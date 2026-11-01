@@ -378,6 +378,7 @@ public partial class MainWindow
             gain.Items.Add(item);
         }
         menu.Items.Add(gain);
+        menu.Items.Add(Command("Equalizer…", () => EqualizerWindow.ShowFrom(this)));
         menu.Items.Add(new Separator());
 
         menu.Items.Add(Command("Rescan the library", () => ScanLibrary(asked: true)));
@@ -400,5 +401,32 @@ public partial class MainWindow
             item.Click += (_, _) => { Console.WriteLine($"[menu] chose {header}"); run(); };
             return item;
         }
+    }
+
+    // ---- THE EQUALIZER (Playback/Equalizer.cs, EqualizerWindow.cs) ------------
+
+    /// As kept, four bands in range; off and flat when never set.
+    internal AlbumWall.Playback.EqSettings EqualizerSettings
+    {
+        get => (_settings.Equalizer ?? new AlbumWall.Playback.EqSettings()).Checked();
+        set
+        {
+            _settings.Equalizer = value;
+            if (_player is not null) _player.Equalizer = value;
+            _prefs?.Fill();
+            SaveEqualizerSoon();
+        }
+    }
+
+    /// A slider swept by ear changes the setting many times a second: it is
+    /// written once it has rested half a second.
+    private Avalonia.Threading.DispatcherTimer? _eqSave;
+    private void SaveEqualizerSoon()
+    {
+        _eqSave ??= new Avalonia.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(500), Avalonia.Threading.DispatcherPriority.Background,
+            (_, _) => { _eqSave!.Stop(); _settings.Save(); Console.WriteLine($"[eq] {(_settings.Equalizer?.On == true ? "on" : "off")}: "
+                + string.Join(", ", (_settings.Equalizer?.Bands ?? []).Select(b => $"{b.Frequency:0} Hz {b.Gain:+0.0;-0.0;0} dB"))); });
+        _eqSave.Stop();
+        _eqSave.Start();
     }
 }
