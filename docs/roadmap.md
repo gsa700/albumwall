@@ -511,6 +511,16 @@ is ahead, the history is for what is behind.
   goes to whichever app played last until AlbumWall has played once (macOS
   makes an app Now Playing only once it plays). "ok leave it as is."
 
+- **A clever lyrics display: to look into** (his note, 2026-11-01, after adding
+  synced lyrics to Back in Black with Marginal: "make a note to take a look into
+  adding a clever lyrics display to albumwall"). Nothing decided. What it would
+  read: the lyrics tag (LYRICS / USLT / ©lyr), with or without its [mm:ss.xx]
+  codes, and an .lrc beside the track, which Marginal writes both of. To settle
+  when it is looked at: where it shows (the open album, Compact, full screen,
+  the kiosk); following Hymie's position; reduce motion (Motion.Ms); a screen
+  reader (not a live region read out line by line); Navidrome libraries
+  (OpenSubsonic's structured lyrics).
+
 ## Decided
 
 - **AlbumWall is for LISTENING; tags and art are edited elsewhere.** His
