@@ -33,7 +33,6 @@ public partial class MainWindow : Window
 {
     // Label block under each cover: title + artist + StackPanel spacing.
     // Measured, not guessed — at 11/10 px this is what the two lines occupy.
-    private const int LabelHeight = 40;
 
     private readonly ObservableCollection<WallItem> _rows = [];
     private List<AlbumVm> _all = [];
@@ -94,6 +93,7 @@ public partial class MainWindow : Window
         // system's settings, from the first frame.
         Motion.Choose(_settings.ReduceMotion);
         TextSize.Choose(_settings.TextSize);
+        FollowTextSize();       // the main window's text too (MainWindow.TextSize.cs)
 
         // The markup says "AlbumWall" so the previewer has something to show;
         // what he actually sees comes from one place. See App.DisplayName.
@@ -1394,7 +1394,7 @@ public partial class MainWindow : Window
         {
             LeftButtons.Spacing = RightButtons.Spacing = 0;
             RightButtons.Margin = new Thickness(RightButtons.Margin.Left, 0, 0, 0);
-            if (left.Length > 0 && TopBar.Child is Grid bar)
+            if (left.Length > 0 && Inner(TopBar) is Grid bar)
             {
                 bar.Margin = new Thickness(0);
                 LeftButtons.Margin = new Thickness(0, 0, LeftButtons.Margin.Right, 0);
@@ -1697,7 +1697,7 @@ public partial class MainWindow : Window
         TransportSlot.MaxWidth = pill ? PillMaxWidth : double.PositiveInfinity;
         TransportSlot.HorizontalAlignment = HorizontalAlignment.Stretch;
         Transport.CornerRadius = new CornerRadius(pill ? TransportHeight / 2 : 0);
-        if (Transport.Child is Grid inner) inner.Margin = new Thickness(pill ? PillInset : 26, 0);
+        if (Inner(Transport) is Grid inner) inner.Margin = new Thickness(pill ? PillInset : 26, 0);
         TransportSlot.CornerRadius = Transport.CornerRadius;
         Transport.BorderThickness = pill ? new Thickness(1)
                                   : top ? new Thickness(0, 0, 0, 1) : new Thickness(0, 1, 0, 0);
@@ -3974,7 +3974,6 @@ public partial class MainWindow : Window
         Avalonia.Media.Transformation.TransformOperations.Parse(
             $"translateY({y.ToString(System.Globalization.CultureInfo.InvariantCulture)}px)");
 
-    private const double TransportHeight = 82;
 
     // 240 at first, which measured fine and looked wrong: "it's too fast, lets
     // double it to start". Then, once it floated and could be judged at all:

@@ -30,9 +30,10 @@ public partial class PrefsWindow
             host.AppSettings.Save();
             TextSize.Choose(percent);
         };
-        TextSizeAbout.Text = "Makes the text in this window and the app's other light windows larger: "
-                           + "Properties, a library's settings, the statistics, signing in to a server, "
-                           + "and the questions the app asks. Their buttons and spacing grow with it.";
+        TextSizeAbout.Text = "Makes the text larger everywhere in the app. On the wall, the names under "
+                           + "the covers, the open album and the play controls grow, and the covers keep "
+                           + "their size. The bars, this window and the app's other windows grow whole, "
+                           + "buttons and spacing with the text.";
         TextSizeNote.Text = "Applies at once.";
     }
 

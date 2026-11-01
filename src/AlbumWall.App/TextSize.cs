@@ -9,10 +9,9 @@
 // already know.
 //
 // THE LIGHT WINDOWS ONLY: Preferences, Properties, a library's settings, the
-// statistics, the server sign-in and the questions the app asks. Not yet the
-// main window, where a scale would make the covers larger as well as the text,
-// fewer to a row and decoded too small for their new size; how text there
-// should grow is its own decision.
+// statistics, the server sign-in and the questions the app asks. The main
+// window follows too, its own way: text only, never the covers (his call,
+// 2026-11-01; MainWindow.TextSize.cs).
 //
 // Applies at once to every window that follows it, open or not.
 //
@@ -32,7 +31,9 @@ public static class TextSize
 
     public static int Percent { get; private set; } = 100;
 
-    private static event Action? Changed;
+    /// Raised after the size changes. The main window listens, for its text
+    /// (MainWindow.TextSize.cs); the light windows are followed by Follow.
+    public static event Action? Changed;
 
     public static void Choose(int? percent)
     {

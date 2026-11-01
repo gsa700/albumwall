@@ -117,9 +117,9 @@
                                         <Border Classes="keyline" BorderThickness="3"/>
                                     </Border>
                                 </Panel>
-                                <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Medium"
+                                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource Text11}" FontWeight="Medium"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"/>
-                                <TextBlock Text="{Binding Artist}" Classes="dim" FontSize="10"
+                                <TextBlock Text="{Binding Artist}" Classes="dim" FontSize="{DynamicResource Text10}"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"/>
                             </StackPanel>
                         </Button>
@@ -159,19 +159,19 @@
 
                         <DockPanel Grid.Column="0">
                             <StackPanel DockPanel.Dock="Top" Spacing="3">
-                                <TextBlock Text="{Binding Album.Title}" FontSize="21"
+                                <TextBlock Text="{Binding Album.Title}" FontSize="{DynamicResource Text21}"
                                            FontWeight="Bold"
                                            Foreground="{Binding Palette.Text}"/>
-                                <TextBlock Text="{Binding Album.Artist}" FontSize="14"
+                                <TextBlock Text="{Binding Album.Artist}" FontSize="{DynamicResource Text14}"
                                            Foreground="{Binding Palette.TextDim}"/>
-                                <TextBlock Text="{Binding HeaderLine}" FontSize="11"
+                                <TextBlock Text="{Binding HeaderLine}" FontSize="{DynamicResource Text11}"
                                            Margin="0,4,0,0"
                                            Foreground="{Binding Palette.TextDim}"/>
                             </StackPanel>
 
                             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
                                         Spacing="9" Margin="0,14,0,0">
-                                <Button Classes="panel" Content="Shuffle"
+                                <Button Classes="panel onwall" Content="Shuffle"
                                         Command="{Binding ShuffleCommand}"
                                         IsEnabled="{Binding CanPlay}"
                                         ToolTip.Tip="Shuffle this album"/>
@@ -265,14 +265,19 @@
         <DataTemplate x:Key="TrackLineTemplate" DataType="app:TrackLine">
             <Panel>
                 <TextBlock Text="{Binding Text}" IsVisible="{Binding IsHeader}"
-                           FontSize="11" FontWeight="Bold" Margin="0,14,0,5"
+                           FontSize="{DynamicResource Text11}" FontWeight="Bold" Margin="0,14,0,5"
                            Foreground="{Binding Palette.Accent}"/>
                 <Button Classes="track" Classes.playing="{Binding IsPlaying}"
                         AutomationProperties.Name="{Binding Spoken}"
                         IsVisible="{Binding !IsHeader}" IsTabStop="False"
                         Command="{Binding PlayCommand}">
-                <Grid ColumnDefinitions="30,*,Auto" Height="28">
-                    <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="12"
+                <Grid Height="{DynamicResource TrackLineHeight}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{DynamicResource TrackNumberWidth}"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding Number}" FontSize="{DynamicResource Text12}"
                                IsVisible="{Binding NotPlaying}"
                                VerticalAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
                                Foreground="{Binding Palette.TextDim}"/>
@@ -292,10 +297,10 @@
                          shown and one hidden, from when the playing color was a
                          different brush: both are Palette.Text now. -->
                     <TextBlock Grid.Column="1" Classes="title" Classes.playing="{Binding IsPlaying}"
-                               Text="{Binding Text}" FontSize="14"
+                               Text="{Binding Text}" FontSize="{DynamicResource Text14}"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Foreground="{Binding Palette.Text}"/>
-                    <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="12"
+                    <TextBlock Grid.Column="2" Text="{Binding Duration}" FontSize="{DynamicResource Text12}"
                                VerticalAlignment="Center" Margin="10,0,0,0"
                                Foreground="{Binding Palette.TextDim}"/>
                 </Grid>
@@ -306,6 +311,17 @@
         <!-- The single source of truth for tile geometry. Updating this at
              runtime re-sizes every realized tile without touching bindings. -->
         <sys:Double x:Key="CoverPx">185</sys:Double>
+        <!-- TEXT ON THE WALL at the chosen text size (MainWindow.TextSize.cs):
+             the labels under the covers, the open album and its track list. Each
+             key is a designed size, set to that size times the text size, so the
+             text grows and the covers do not. These are the values at 100%. -->
+        <sys:Double x:Key="Text10">10</sys:Double>
+        <sys:Double x:Key="Text11">11</sys:Double>
+        <sys:Double x:Key="Text12">12</sys:Double>
+        <sys:Double x:Key="Text14">14</sys:Double>
+        <sys:Double x:Key="Text21">21</sys:Double>
+        <sys:Double x:Key="TrackLineHeight">28</sys:Double>
+        <GridLength x:Key="TrackNumberWidth">30</GridLength>
         <!-- Replaced by ApplyGround as soon as the wall has a ground. -->
         <SolidColorBrush x:Key="DimText" Color="#A2978A"/>
     </Window.Resources>
@@ -401,6 +417,12 @@
         </Style>
         <!-- The dim text, held to the contrast floor against this window's own
              wall and bars (ApplyGround). Other windows keep App.axaml's. -->
+        <!-- The open album's buttons at the text size (MainWindow.TextSize.cs). A
+             style, not FontSize on the button: set inside a template, that lost
+             to Button.panel's own 12 in App.axaml. -->
+        <Style Selector="Button.panel.onwall">
+            <Setter Property="FontSize" Value="{DynamicResource Text12}"/>
+        </Style>
         <Style Selector="TextBlock.dim">
             <Setter Property="Foreground" Value="{DynamicResource DimText}"/>
         </Style>
