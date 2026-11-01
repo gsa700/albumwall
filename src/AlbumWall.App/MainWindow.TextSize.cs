@@ -75,8 +75,8 @@ public partial class MainWindow
         foreach (var size in WallTypeSizes) Resources[$"Text{size}"] = size * f;
         Resources["TrackLineHeight"] = Math.Ceiling(28 * f);
         Resources["TrackNumberWidth"] = new GridLength(Math.Ceiling(30 * f));
-        // 14 + the old Shuffle button (about 30, which grew with the text) + 16.
-        Resources["TrackListGap"] = new Thickness(0, Math.Round(14 + 30 * f + 16), 0, 0);
+        // The Lyrics button's row (where Shuffle was), as tall as the button.
+        Resources["PanelButtonRow"] = Math.Round(30 * f);
 
         foreach (var chrome in new[] { TopBar, BottomBar, EmptyState, WelcomeState, ScanState })
             Scale(chrome, f);

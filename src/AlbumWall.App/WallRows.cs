@@ -32,9 +32,50 @@ public sealed class AlbumRow : WallItem
 /// The open album, occupying a full-width row of its own directly beneath the
 /// row that holds the clicked cover -- or directly ABOVE it, when the album was
 /// picked from the row under an open panel and the panel stayed where it was.
-public sealed class PanelRow : WallItem
+public sealed class PanelRow : WallItem, System.ComponentModel.INotifyPropertyChanged
 {
     public required AlbumVm Album { get; init; }
+
+    // ---- the Lyrics view (LyricsView.cs, MainWindow.Lyrics.cs) ----------------
+    // The only part of a panel that changes after it is made, so the only part
+    // that says so.
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private void Changed(string name) => PropertyChanged?.Invoke(this, new(name));
+
+    /// This album is playing and the song playing has words.
+    public bool LyricsAvailable { get => _lyricsAvailable; set { if (_lyricsAvailable == value) return; _lyricsAvailable = value; Changed(nameof(LyricsAvailable)); } }
+    private bool _lyricsAvailable;
+
+    /// The words are shown in place of the tracks.
+    public bool LyricsShown
+    {
+        get => _lyricsShown;
+        set
+        {
+            if (_lyricsShown == value) return;
+            _lyricsShown = value;
+            Changed(nameof(LyricsShown));
+            Changed(nameof(TracksShown));
+            Changed(nameof(LyricsButtonText));
+        }
+    }
+    private bool _lyricsShown;
+    public bool TracksShown => !_lyricsShown;
+    /// Only there when the song has words, so it says what it does to them
+    /// (2026-11-01: "Show Lyrics" ... "Hide Lyrics").
+    public string LyricsButtonText => _lyricsShown ? "Hide Lyrics" : "Show Lyrics";
+
+    public Domain.Lyrics? Lyrics { get => _lyrics; set { if (ReferenceEquals(_lyrics, value)) return; _lyrics = value; Changed(nameof(Lyrics)); } }
+    private Domain.Lyrics? _lyrics;
+
+    /// Supplied by the wall: where the song is, and how long it is.
+    public Func<(TimeSpan Position, TimeSpan Duration)>? Position { get; init; }
+    /// Supplied by the wall: take the song to this point (a lyric line clicked).
+    public Action<TimeSpan>? Seek { get; init; }
+    /// Supplied by the wall: Lyrics pressed (or Tracks, to go back).
+    public Action? ToggleLyrics { get; init; }
+    public System.Windows.Input.ICommand ToggleLyricsCommand => new Relay(() => ToggleLyrics?.Invoke());
 
     /// Which column of the row above was clicked, so the arrow can point at it.
     public required int ArrowColumn { get; init; }

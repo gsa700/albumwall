@@ -7,10 +7,12 @@
 // window from what the server says of it, lyrics included (Domain/Navidrome.cs,
 // Describe).
 //
-// ONE THING HERE WRITES: the lyrics of a track, in a library he has allowed
-// editing in (Library.Editable). The writing itself is Domain/TagWriter.cs;
-// this window only offers a box to type or paste into. Everything else is
-// read-only, and tag editing proper is still to come (docs/roadmap.md).
+// NOTHING HERE WRITES. It once let a track's lyrics be typed or pasted and
+// saved (Domain/TagWriter.cs); since 2026-11-01 the lyrics are shown only,
+// with "Edit in Marginal…" under them (or "Get Marginal…"), as the album's
+// menu has: "the user should no longer be able to edit the lyrics there.
+// View them yes, but instead of edit, open in Marginal". Marginal is the
+// family's tag editor, with Pending, Undo and timing from LRCLIB.
 //
 // A track's window can step to the tracks either side of it in the album,
 // keeping the tab it is on: lyrics are read a song after a song, and pasted in
@@ -50,10 +52,13 @@ public sealed class PropertiesWindow : Window
     /// with what it is called underneath.
     public sealed record Picture(string Caption, string? File, byte[]? Data = null);
 
-    /// A track's lyrics and how they may be changed. `WhyNot` is the reason
-    /// they cannot be, shown on the greyed button; `Save` is given the new
+    /// A track's lyrics, and the button under them: its words (Edit in
+    /// Marginal…, Get Marginal…), what it does, or why it cannot (greyed, with
+    /// `WhyNot` as its tooltip).
+    public sealed record Lyrics(string Current, string Button, Action? Run, string? WhyNot);
+    /// (Was: how they may be changed, with `Save` given the new
     /// text and answers with what went wrong, or null.
-    public sealed record Lyrics(string Current, string? WhyNot, Func<string, Task<string?>>? Save);
+
 
     /// The tracks either side of this one in its album, and where it stands
     /// among them ("3 of 11"). A way is null at the album's end.
@@ -366,83 +371,42 @@ public sealed class PropertiesWindow : Window
         },
     };
 
-    /// The lyrics, in a box that is always ready to be typed or pasted into
-    /// where the library allows it, with Save under it. Where it does not, the
-    /// same box only shows them, and the greyed Save says why.
+    /// The lyrics, shown in a box that can be read and copied from but not
+    /// typed in, and under it the way to change them: Marginal.
     private Control LyricsPart(Lyrics lyrics)
     {
-        var current = lyrics.Current;
-        var can = lyrics.Save is not null && lyrics.WhyNot is null;
-
         // The whitest thing in the window: the page the words are printed on.
         var box = new TextBox
         {
-            Text = current, FontSize = LyricsText, LineHeight = 28, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
-            IsReadOnly = !can, PlaceholderText = can ? "Paste or type the lyrics here." : "None in the file.",
+            Text = lyrics.Current, FontSize = LyricsText, LineHeight = 28, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+            IsReadOnly = true, PlaceholderText = "None in the file.",
             Background = Brushes.White, BorderBrush = SolidColorBrush.Parse("#D6D6DA"), BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(5), Padding = new Thickness(18, 14),
         };
         // And it stays white under the pointer and with the caret in it.
         box.Resources["TextControlBackgroundPointerOver"] = Brushes.White;
         box.Resources["TextControlBackgroundFocused"] = Brushes.White;
-        // Nor does it light up in the system's blue for holding the caret,
-        // which it nearly always does: a darker edge says as much.
         box.Resources["TextControlBorderBrushFocused"] = SolidColorBrush.Parse("#9A9AA2");
         box.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(1);
         ScrollViewer.SetVerticalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
 
-        var said = Dim(new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center });
-        var save = new Button { Content = "Save", MinWidth = 84, IsEnabled = false };
-        save.Classes.Add("panel");
-        var under = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 12, Margin = new Thickness(0, 10, 0, 0) };
-        Grid.SetColumn(said, 1);
-        under.Children.Add(save);
-        under.Children.Add(said);
-
-        void Say(string? text) => said.Text = text ?? "";
-        bool Unsaved() => can && (box.Text ?? "") != current;
-
-        if (!can)
-        {
-            ToolTip.SetTip(save, lyrics.WhyNot ?? "These cannot be changed.");
-            ToolTip.SetShowOnDisabled(save, true);
-        }
+        var open = new Button { Content = lyrics.Button, IsEnabled = lyrics.Run is not null };
+        open.Classes.Add("panel");
+        if (lyrics.Run is { } run) open.Click += (_, _) => run();
         else
         {
-            var saving = false;
-            async Task Save()
-            {
-                if (saving || !Unsaved()) return;
-                saving = true;
-                save.IsEnabled = false;
-                box.IsReadOnly = true;
-                var text = Domain.TagWriter.Tidy(box.Text);
-                var problem = await lyrics.Save!(text);
-                box.IsReadOnly = false;
-                saving = false;
-                if (problem is not null) { save.IsEnabled = true; Say(problem); return; }
-                current = text;
-                if (box.Text != text) box.Text = text;
-                _warned = false;
-                Say("Saved to the file.");
-            }
-            box.TextChanged += (_, _) =>
-            {
-                if (saving) return;
-                save.IsEnabled = Unsaved();
-                if (save.IsEnabled) { Say(null); _warned = false; }
-            };
-            save.Click += async (_, _) => await Save();
-            box.KeyDown += async (_, e) =>
-            {
-                if (e.Key != Avalonia.Input.Key.S || e.KeyModifiers != Shortcut.Primary) return;    // Ctrl+S, Cmd+S on the Mac
-                e.Handled = true;
-                await Save();
-            };
-            _unsaved = Unsaved;
-            _save = Save;
+            ToolTip.SetTip(open, lyrics.WhyNot ?? "Not here.");
+            ToolTip.SetShowOnDisabled(open, true);
         }
-        _say = Say;
+        var said = Dim(new TextBlock
+        {
+            FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
+            Text = "Lyrics are written in Marginal, which can also find them with timing.",
+        });
+        var under = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 12, Margin = new Thickness(0, 10, 0, 0) };
+        Grid.SetColumn(said, 1);
+        under.Children.Add(open);
+        under.Children.Add(said);
         _lyricsBox = box;
 
         var part = new DockPanel();

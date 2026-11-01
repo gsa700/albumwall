@@ -2798,6 +2798,8 @@ public partial class MainWindow : Window
             return;
         }
         if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
+        // "lyrics": as if Show Lyrics / Hide Lyrics were pressed (MainWindow.Lyrics.cs).
+        if (text.Equals("lyrics", StringComparison.OrdinalIgnoreCase)) { ToggleLyrics(); return; }
         // "browse": as if someone had just scrolled the wall (MainWindow.PlayMode.cs).
         if (text.Equals("browse", StringComparison.OrdinalIgnoreCase)) { MarkBrowsed("command"); return; }
         // "seek end 5": five seconds before the end of the track, so an album's
@@ -3359,7 +3361,14 @@ public partial class MainWindow : Window
         MarkPlayingTrack();
     }
 
-    private PanelRow NewPanel(int index, bool unfold, double? morphFrom) => new()
+    private PanelRow NewPanel(int index, bool unfold, double? morphFrom)
+    {
+        var panel = MakePanel(index, unfold, morphFrom);
+        ShowLyrics(panel);      // the Lyrics view, if this is the album playing (MainWindow.Lyrics.cs)
+        return panel;
+    }
+
+    private PanelRow MakePanel(int index, bool unfold, double? morphFrom) => new()
     {
         Album = _open!,
         ArrowColumn = index % _columns,
@@ -3369,7 +3378,10 @@ public partial class MainWindow : Window
         Unfold = unfold,
         PointsDown = _panelAbove,
         MorphFrom = morphFrom,
-        PlayFrom = Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null
+        PlayFrom = Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null,
+        Position = () => _player is { } p ? (p.Position, p.Duration) : (TimeSpan.Zero, TimeSpan.Zero),
+        Seek = at => _player?.Seek(at),
+        ToggleLyrics = ToggleLyrics,
     };
 
     /// Queues the whole album and starts at the chosen track.
@@ -3476,6 +3488,7 @@ public partial class MainWindow : Window
         _playingAlbum = null;
         UpdateNowPlaying();
         MarkPlayingTrack();
+        LyricsForPlaying();     // nothing playing: no words, the tracks again
     }
 
     private bool _resumeTried;
@@ -3758,7 +3771,7 @@ public partial class MainWindow : Window
     });
 
     private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
-        Dispatcher.UIThread.Post(() => { SongShuffleTrackChanged(); UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); });
+        Dispatcher.UIThread.Post(() => { SongShuffleTrackChanged(); UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); LyricsForPlaying(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() =>

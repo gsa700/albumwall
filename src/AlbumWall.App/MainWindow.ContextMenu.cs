@@ -6,12 +6,11 @@
 // this machine, so there is nothing to show in a file manager and no path to
 // copy.
 //
-// THE MENU ITSELF WRITES NOTHING. Play, show, copy, and Properties. Properties
-// can change one thing, a track's lyrics, and only in a library he has allowed
-// editing in (PropertiesWindow.cs, Domain/TagWriter.cs). The rest of tag
-// editing comes to Properties when it is built (docs/roadmap.md); the disabled
-// "Edit tags" button the album panel used to carry is gone, because this is
-// where that lives.
+// THE MENU ITSELF WRITES NOTHING, and nor does anything it opens. Play, show,
+// copy, Properties (which shows a track's lyrics), and Marginal, the family's
+// tag editor, for anything to be changed: lyrics stopped being editable in
+// Properties on 2026-11-01 ("View them yes, but instead of edit, open in
+// Marginal as the main window context menu does").
 
 using System.Diagnostics;
 using Avalonia.Controls;
@@ -302,9 +301,8 @@ public partial class MainWindow
                 sections.Add(new("Tags", facts.Tags.Select(t => new PropertiesWindow.Row(t.Label, t.Value)).ToList(),
                                  facts.Tags.Count == 0 ? "None." : null));
                 // Shown, never changed: a server cannot be written to.
-                lyrics = new(facts.Lyrics ?? "",
-                             "This is on a server. Lyrics are changed in the file, on the machine that holds the master copy.",
-                             null);
+                lyrics = new(facts.Lyrics ?? "", "Edit in Marginal…", null,
+                             $"{OnAServer} Marginal edits files on this computer, so lyrics are changed on the machine that holds the master copy.");
             }
         }
         else
@@ -318,20 +316,13 @@ public partial class MainWindow
             else
             {
                 sections.Add(new("Tags", facts.Tags, facts.Tags.Count == 0 ? "None." : null));
-                var path = track.Path;
-                lyrics = new(
-                    facts.Lyrics ?? "",
-                    library.CanEdit ? null
-                        : $"Editing is not allowed in the library “{library.Name}”. It is turned on per library in "
-                          + "the library's settings (Preferences › Library), and belongs on the machine that holds the master copy.",
-                    async text =>
-                    {
-                        var result = await Task.Run(() => Domain.TagWriter.SetLyrics(path, text, Settings.TagBackups));
-                        Console.WriteLine(result.Ok
-                            ? $"[edit] lyrics of {path}: {(result.Backup is null ? "unchanged" : $"written, old kept in {result.Backup}")}"
-                            : $"[edit] lyrics of {path}: FAILED, {result.Problem}");
-                        return result.Problem;
-                    });
+                // Shown, and changed in Marginal (2026-11-01), as the album's menu offers.
+                var folder = Path.GetDirectoryName(track.Path);
+                var marginal = MarginalLink.Find();
+                lyrics = marginal is null
+                    ? new(facts.Lyrics ?? "", "Get Marginal…", () => _ = Launcher.LaunchUriAsync(new Uri(MarginalLink.ReleasesPage)), null)
+                    : new(facts.Lyrics ?? "", "Edit in Marginal…",
+                          folder is null ? null : () => MarginalLink.Open(marginal, folder), "This track has no folder to open.");
             }
         }
         var cover = await Task.Run(() => WithBytes(FrontOf(album)));

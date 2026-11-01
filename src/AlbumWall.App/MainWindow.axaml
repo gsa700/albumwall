@@ -184,7 +184,14 @@
                         Margin="{Binding BodyMargin}" Padding="{Binding BodyPadding}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
 
-                        <DockPanel Grid.Column="0">
+                        <!-- THE WORDS OVER THE WHOLE ALBUM (2026-11-01: "the track list was
+                             still there and the lyrics were centered on the track list. Have
+                             the track list faded out like some aero glass", then "give them
+                             the full vertical hieght of the album"): this side of the panel,
+                             title and tracks together, frosted behind the words while they
+                             show (.tracks.behind below), the words across all of it. -->
+                        <Panel Grid.Column="0">
+                        <DockPanel Classes="tracks" Classes.behind="{Binding LyricsShown}">
                             <StackPanel DockPanel.Dock="Top" Spacing="3">
                                 <TextBlock Text="{Binding Album.Title}" FontSize="{DynamicResource Text21}"
                                            FontWeight="Bold"
@@ -198,7 +205,11 @@
 
                             <!-- No Shuffle button since 2026-11-01: "I am not sure I would
                                  ever shuffle within a single collection like that". Shuffling
-                                 is the play mode's, across the wall (MainWindow.PlayMode.cs). -->
+                                 is the play mode's, across the wall (MainWindow.PlayMode.cs).
+                                 Its row now holds Lyrics, in the album playing when the song
+                                 has words (MainWindow.Lyrics.cs); the row keeps its height
+                                 whether or not the button is there. -->
+                            <Panel DockPanel.Dock="Top" Margin="0,14,0,0" Height="{DynamicResource PanelButtonRow}"/>
 
                             <!-- NO internal scroll region. An album panel sizes to
                                  its own track list and the wall scrolls, because
@@ -206,13 +217,19 @@
                                  means two scrollbars competing for one wheel. Even
                                  the 46-track box set is only about 26 rows per
                                  column, which the wall carries without complaint. -->
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="26" Margin="{DynamicResource TrackListGap}">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="26" Margin="0,16,0,0">
                                 <ItemsControl Grid.Column="0" ItemsSource="{Binding LeftColumn}" AutomationProperties.Name="Tracks"
                                               ItemTemplate="{StaticResource TrackLineTemplate}"/>
                                 <ItemsControl Grid.Column="1" ItemsSource="{Binding RightColumn}" AutomationProperties.Name="More tracks"
                                               ItemTemplate="{StaticResource TrackLineTemplate}"/>
                             </Grid>
                         </DockPanel>
+                        <app:LyricsView IsVisible="{Binding LyricsShown}"
+                                        Lyrics="{Binding Lyrics}"
+                                        Bright="{Binding Palette.Text}" Dim="{Binding Palette.TextDim}"
+                                        LineSize="{DynamicResource Text14}"
+                                        AutomationProperties.Name="Lyrics"/>
+                        </Panel>
 
                         <!-- THE SLEEVE IS THE PLAY BUTTON.
                              Opening an album used to end in a choice: hit Play, or
@@ -227,7 +244,11 @@
                              pointer: his condition, and the right one. The sleeve
                              is the reason this app exists; chrome does not get to
                              cover it up. -->
-                        <Button Grid.Column="1" Classes="coverplay"
+                        <!-- The sleeve, and under it Lyrics, in the album playing when the
+                             song has words (MainWindow.Lyrics.cs). Under the art rather than
+                             on the left, which the words cover (his idea, 2026-11-01). -->
+                        <StackPanel Grid.Column="1" Spacing="12" VerticalAlignment="Top">
+                        <Button Classes="coverplay"
                                 AutomationProperties.Name="{Binding Album.Title, StringFormat='Play {0}'}"
                                 Command="{Binding PlayCommand}"
                                 IsEnabled="{Binding CanPlay}"
@@ -279,6 +300,12 @@
                                 </Panel>
                             </Border>
                         </Button>
+                        <Button Classes="panel onwall" HorizontalAlignment="Center"
+                                Content="{Binding LyricsButtonText}"
+                                Command="{Binding ToggleLyricsCommand}"
+                                IsVisible="{Binding LyricsAvailable}"
+                                ToolTip.Tip="The words of the song playing, over the album"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Panel>
@@ -345,10 +372,10 @@
         <sys:Double x:Key="Text21">21</sys:Double>
         <sys:Double x:Key="TrackLineHeight">28</sys:Double>
         <GridLength x:Key="TrackNumberWidth">30</GridLength>
-        <!-- Between the album's details and its tracks: the room the Shuffle
-             button's row took (14 above it, the button, 16 below), kept when the
-             button went (2026-11-01: "Lets keep the space the button provided"). -->
-        <Thickness x:Key="TrackListGap">0,60,0,0</Thickness>
+        <!-- The row under the album's details that held Shuffle and now holds
+             Lyrics: its height whether or not the button shows (2026-11-01:
+             "Lets keep the space the button provided"). Set by text size. -->
+        <sys:Double x:Key="PanelButtonRow">30</sys:Double>
         <!-- Replaced by ApplyGround as soon as the wall has a ground. -->
         <SolidColorBrush x:Key="DimText" Color="#A2978A"/>
     </Window.Resources>
@@ -447,6 +474,29 @@
         <!-- The rule between a menu's groups, in the sheet's edge color. -->
         <Style Selector="MenuFlyoutPresenter Separator, ContextMenu Separator">
             <Setter Property="Background" Value="#D2D2D4"/>
+        </Style>
+        <!-- The open album's buttons at the text size (MainWindow.TextSize.cs). A
+             style, not FontSize on the button: set inside a template, that lost
+             to Button.panel's own 12 in App.axaml. -->
+        <Style Selector="Button.panel.onwall">
+            <Setter Property="FontSize" Value="{DynamicResource Text12}"/>
+        </Style>
+        <!-- The track list behind the words: faded and frosted, and not to be
+             clicked through by a hand meant for a lyric line. "Tracks" brings it
+             back. The fade eases; the blur is simply on or off. -->
+        <Style Selector="DockPanel.tracks">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="DockPanel.tracks.behind">
+            <Setter Property="Opacity" Value="0.22"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Effect">
+                <BlurEffect Radius="7"/>
+            </Setter>
         </Style>
         <Style Selector="TextBlock.dim">
             <Setter Property="Foreground" Value="{DynamicResource DimText}"/>

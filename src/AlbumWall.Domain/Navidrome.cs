@@ -159,6 +159,39 @@ public sealed class Navidrome
             .ToList();
     }
 
+    // ---- one song's lyrics, for the Lyrics view -------------------------------
+
+    /// The song's lyrics as the server has them, TIMED ones first (the Lyrics
+    /// view follows them line by line; Describe, for Properties, prefers the
+    /// plain words). One request. Null when there are none or the server could
+    /// not be asked. Never throws; not for the UI thread.
+    public Lyrics? LyricsOf(string path, CancellationToken ct = default)
+    {
+        try
+        {
+            using var doc = Get("getLyricsBySongId", $"id={Uri.EscapeDataString(IdOf(path))}", ct);
+            foreach (var one in Items(doc, "lyricsList", "structuredLyrics")
+                         .OrderBy(l => !(l.TryGetProperty("synced", out var timed) && timed.ValueKind == JsonValueKind.True)))
+            {
+                if (!one.TryGetProperty("line", out var lines) || lines.ValueKind != JsonValueKind.Array) continue;
+                var synced = one.TryGetProperty("synced", out var t) && t.ValueKind == JsonValueKind.True;
+                var offset = one.TryGetProperty("offset", out var o) && o.ValueKind == JsonValueKind.Number ? o.GetInt32() : 0;
+                var list = lines.EnumerateArray().Select(l => new LyricLine(
+                    synced && l.TryGetProperty("start", out var start) && start.ValueKind == JsonValueKind.Number
+                        ? TimeSpan.FromMilliseconds(Math.Max(0, start.GetInt64() - offset)) : null,
+                    Text(l, "value").Trim())).ToList();
+                if (list.All(l => l.Text.Length == 0)) continue;
+                var timedAll = synced && list.All(l => l.At is not null);
+                return new Lyrics { Lines = timedAll ? list : list.Select(l => l with { At = null }).ToList(), Timed = timedAll };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[lyrics] the server's lyrics could not be read: {ex.GetType().Name}: {ex.Message}");
+        }
+        return null;
+    }
+
     // ---- one song, for Properties -------------------------------------------
 
     /// What the server says of one song: its tags as the server read them out
