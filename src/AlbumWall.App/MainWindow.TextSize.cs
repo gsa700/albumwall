@@ -114,7 +114,9 @@ public partial class MainWindow
             host = new LayoutTransformControl { Child = child };
             border.Child = host;
         }
-        host.LayoutTransform = f == 1 ? null : new ScaleTransform(f, f);
+        // 1 said explicitly: a null transform leaves the old scale on the content
+        // (TextSize.Follow says how that was found).
+        host.LayoutTransform = new ScaleTransform(f, f);
     }
 
     /// A border's own content, whether or not Scale has wrapped it.
