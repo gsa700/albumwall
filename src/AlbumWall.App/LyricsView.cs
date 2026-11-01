@@ -60,6 +60,11 @@ public sealed class LyricsView : Border
     /// The wheel was turned: the drift holds until then (TickCount64).
     private long _handUntil;
     private const long HandHold = 4000;
+    /// The left button is down on the words: nothing moves.
+    private bool _held;
+    private long _pressedAt;
+    private int _pressedLine = -1;
+    private const long ClickMs = 350;
     private readonly List<TextBlock> _blocks = [];
     private readonly DispatcherTimer _timer;
     private int _current = -1;
@@ -90,12 +95,38 @@ public sealed class LyricsView : Border
         // fell through to the wall ("the main window is picking up the scroll
         // some of the time"). Transparent, not null, for that.
         Background = Brushes.Transparent;
+
+        // HOLD THE LEFT BUTTON ON THE WORDS AND THEY STAND STILL, to be read
+        // (2026-11-01: "if I hold left click over the text the scrolling
+        // pauses"); let go and plain lyrics drift on from there, timed ones go
+        // back to the line being sung. A quick click on a timed line still takes
+        // the song there: a press shorter than ClickMs, so a hold never moves it.
+        PointerPressed += (_, e) =>
+        {
+            if (Lyrics is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            _held = true;
+            _pressedAt = Environment.TickCount64;
+            _pressedLine = (int)Math.Floor((e.GetPosition(this).Y + _y) / Pitch);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+        };
+        PointerReleased += (_, e) =>
+        {
+            if (!_held) return;
+            _held = false;
+            e.Pointer.Capture(null);
+            e.Handled = true;
+            if (Lyrics is { Timed: true } timed && Environment.TickCount64 - _pressedAt < ClickMs
+                && _pressedLine >= 0 && _pressedLine < timed.Lines.Count && timed.Lines[_pressedLine].At is { } at)
+                (DataContext as PanelRow)?.Seek?.Invoke(at);
+        };
+        PointerCaptureLost += (_, _) => _held = false;
         PointerWheelChanged += (_, e) =>
         {
             if (Lyrics is not { Timed: false }) return;
             e.Handled = true;
-            var travel = Math.Max(0, _blocks.Count * Pitch - Bounds.Height);
-            _y = Math.Clamp(_y - e.Delta.Y * Pitch * 2, 0, travel);
+            var (lo, hi) = PlainRange(Bounds.Height);
+            _y = Math.Clamp(_y - e.Delta.Y * Pitch * 2, lo, hi);
             _handUntil = Environment.TickCount64 + HandHold;
             _lines.RenderTransform = new TranslateTransform(0, -_y);
             Fade(Bounds.Height);
@@ -159,16 +190,7 @@ public sealed class LyricsView : Border
                 Height = Pitch,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
             };
-            if (lyrics.Timed && line.At is { } at)
-            {
-                block.Cursor = new Cursor(StandardCursorType.Hand);
-                block.PointerPressed += (_, e) =>
-                {
-                    if (!e.GetCurrentPoint(block).Properties.IsLeftButtonPressed) return;
-                    (DataContext as PanelRow)?.Seek?.Invoke(at);
-                    e.Handled = true;
-                };
-            }
+            if (lyrics.Timed) block.Cursor = new Cursor(StandardCursorType.Hand);
             _blocks.Add(block);
             _lines.Children.Add(block);
         }
@@ -212,6 +234,7 @@ public sealed class LyricsView : Border
             var now = 0;
             for (var i = 0; i < lyrics.Lines.Count; i++)
                 if (lyrics.Lines[i].At <= at) now = i; else break;
+            if (_held) return;     // held still, to be read
             if (now != _current) { _current = now; Paint(); }
             // The line being sung is held in the middle, the first one too
             // before its time, so nothing moves when it starts (it used to wait
@@ -226,16 +249,17 @@ public sealed class LyricsView : Border
         }
         else
         {
-            var travel = Math.Max(0, _blocks.Count * Pitch - view);
+            var (lo, hi) = PlainRange(view);
+            var travel = hi - lo;
             var share = duration > TimeSpan.Zero ? Math.Clamp(position / duration, 0, 1) : 0;
-            if (Environment.TickCount64 < _handUntil)
+            if (_held || Environment.TickCount64 < _handUntil)
             {
                 // The hand has the words: hold them, and let the drift take up
                 // from here when it lets go.
-                _nudge = _y - share * travel;
+                _nudge = _y - (lo + share * travel);
                 return;
             }
-            target = Math.Clamp(share * travel + _nudge, 0, travel);
+            target = Math.Clamp(lo + share * travel + _nudge, lo, hi);
         }
 
         // New words (another song) start where they belong, not gliding in
@@ -258,5 +282,18 @@ public sealed class LyricsView : Border
             var fromEdge = Math.Min(middle, view - middle);
             _blocks[i].Opacity = Math.Clamp(fromEdge / edge, 0, 1);
         }
+    }
+
+    /// Where plain lyrics may be scrolled to, as the column's offset: from the
+    /// first line a fifth of the way down the window to the last line a fifth
+    /// from its foot, clear of the fade at both ends ("we need some buffer space
+    /// at the start and end of the text", 2026-11-01). A song that fits sits
+    /// centred and does not move.
+    private (double Lo, double Hi) PlainRange(double view)
+    {
+        var buffer = view * 0.2;
+        var total = _blocks.Count * Pitch;
+        if (total + 2 * buffer <= view) { var middle = (total - view) / 2; return (middle, middle); }
+        return (-buffer, total - view + buffer);
     }
 }
