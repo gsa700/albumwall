@@ -1990,6 +1990,10 @@ public partial class MainWindow : Window
     /// The settings button and the empty state — both here because they exist for
     /// one reason: the app cannot know where the music is.
     ///
+    /// (2026-11-01: THERE IS A MENU AGAIN, with things to do in it: the play
+    /// mode, ReplayGain, rescan, compact; see MainWindow.PlayMode.cs. What
+    /// follows is why the first one went.)
+    ///
     /// THERE IS NO MENU. It was a hamburger with two items, Preferences and
     /// About, and About is a TAB of the window that Preferences opens — so the
     /// menu's entire job was to ask which door of the same room to use, one slip
@@ -2002,7 +2006,9 @@ public partial class MainWindow : Window
     /// About is still reachable, as the last tab of that window, by convention.
     private void SetUpMenu()
     {
-        SettingsButton.Click += (_, _) => ShowPrefs(PrefsWindow.Tab.Library);
+        // The gear opens a menu again, and the play mode is in it
+        // (MainWindow.PlayMode.cs, 2026-11-01): see there for why it came back.
+        WirePlayMode();
         FullScreenButton.Click += (_, _) => ToggleFullScreen();
 
         EmptyChoose.Click += async (_, _) => await ChooseLibraryFolder(this);
@@ -2800,6 +2806,17 @@ public partial class MainWindow : Window
             return;
         }
         if (text.Equals("pause", StringComparison.OrdinalIgnoreCase)) { _player?.TogglePause(); return; }
+        // "browse": as if someone had just scrolled the wall (MainWindow.PlayMode.cs).
+        if (text.Equals("browse", StringComparison.OrdinalIgnoreCase)) { MarkBrowsed("command"); return; }
+        // "seek end 5": five seconds before the end of the track, so an album's
+        // end (and the play mode after it, MainWindow.PlayMode.cs) can be tested
+        // without sitting through the record.
+        if (text.StartsWith("seek end ", StringComparison.OrdinalIgnoreCase)
+            && double.TryParse(text[9..].Trim(), System.Globalization.CultureInfo.InvariantCulture, out var secondsLeft) && _player is { } seeking)
+        {
+            seeking.Seek(seeking.Duration - TimeSpan.FromSeconds(secondsLeft));
+            return;
+        }
         // The meters' click, on the play bar's strip or compact's (MainWindow.Meters.cs).
         if (text.Equals("meter bar", StringComparison.OrdinalIgnoreCase)) { _barMeters.Cycle(); return; }
         if (text.Equals("meter compact", StringComparison.OrdinalIgnoreCase)) { CycleCompactMeter(); return; }
@@ -3395,8 +3412,10 @@ public partial class MainWindow : Window
 
             _playingAlbum = album;
             _playingPaths = paths;
+            _songShuffle = false;       // an album's own list again (MainWindow.PlayMode.cs)
             _sessionOver = false;
             _player.Play(paths.Select(Playable).ToList(), from, names: paths);
+            ApplySongEnd();     // shuffling songs takes over when this song ends
             MarkPlayingTrack();
             CoverForTransport(album);
 
@@ -3454,7 +3473,9 @@ public partial class MainWindow : Window
         _player.Finished += (_, _) =>
         {
             if (_player is not { Index: >= 0 }) return;
-            Dispatcher.UIThread.Post(EndSession);
+            // The play mode first (MainWindow.PlayMode.cs): Stop ends the session
+            // as it always did; the others start the next album or the shuffle.
+            Dispatcher.UIThread.Post(() => { if (!AdvanceAfterAlbum()) EndSession(); });
         };
     }
 
@@ -3572,6 +3593,7 @@ public partial class MainWindow : Window
             _playingPaths = queue;
             _sessionOver = false;
             _player.Play(queue.Select(Playable).ToList(), index, at, paused: _settings.AutoPlay != true, names: queue);
+            ApplySongEnd();
         }
         catch (Exception ex)
         {
@@ -3761,14 +3783,14 @@ public partial class MainWindow : Window
             case "PlayPause": _player.TogglePause(); break;
             case "Play": _player.SetPaused(false); break;
             case "Pause": _player.SetPaused(true); break;
-            case "Next": _player.Next(); break;
-            case "Previous": _player.Previous(); break;
+            case "Next": PlayNext(); break;
+            case "Previous": PlayPrevious(); break;
             case "Stop": _player.Stop(); break;
         }
     });
 
     private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
-        Dispatcher.UIThread.Post(() => { UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); });
+        Dispatcher.UIThread.Post(() => { SongShuffleTrackChanged(); UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() =>
@@ -3995,8 +4017,8 @@ public partial class MainWindow : Window
         NextButton.Content = Glyph("M 9 0 L 9 12 M 1 0 L 9 6 L 1 12 Z");
         SetPlayGlyph(false);
 
-        PrevButton.Click += (_, _) => _player?.Previous();
-        NextButton.Click += (_, _) => _player?.Next();
+        PrevButton.Click += (_, _) => PlayPrevious();
+        NextButton.Click += (_, _) => PlayNext();
         PlayPauseButton.Click += (_, _) => _player?.TogglePause();
 
         // On the top bar since 2026-10-27, so it can be pressed before anything has
@@ -4031,10 +4053,10 @@ public partial class MainWindow : Window
 
     private void Recolor(IBrush on)
     {
-        foreach (var b in new Button[] { PrevButton, PlayPauseButton, NextButton })
+        foreach (var b in new Button[] { PrevButton, PlayPauseButton, NextButton, PlayModeButton })
             if (b.Content is Avalonia.Controls.Shapes.Path path)
             {
-                path.Fill = on;
+                if (path.Fill is not null) path.Fill = on;      // the play-mode glyph is lines only
                 path.Stroke = on;
             }
     }
@@ -4240,11 +4262,11 @@ public partial class MainWindow : Window
 
             case Key.Right when ctrl:
                 if (_player is null || !_mprisState.HasTrack) return;
-                _player.Next();
+                PlayNext();
                 break;
             case Key.Left when ctrl:
                 if (_player is null || !_mprisState.HasTrack) return;
-                _player.Previous();
+                PlayPrevious();
                 break;
 
             case Key.Right when seekKey && !typing && (focused is not Slider || onPosition):

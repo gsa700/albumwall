@@ -723,7 +723,7 @@
                               Data="M 1 6 L 1 1 L 6 1 M 12 1 L 17 1 L 17 6 M 17 12 L 17 17 L 12 17 M 6 17 L 1 17 L 1 12"/>
                     </Button>
                     <Button x:Name="SettingsButton" Classes="chrome" VerticalAlignment="Center"
-                            Padding="8,4" ToolTip.Tip="Preferences" AutomationProperties.Name="Preferences">
+                            Padding="8,4" ToolTip.Tip="Menu: play mode, ReplayGain, Preferences" AutomationProperties.Name="Menu">
                         <!-- The dot says a newer version exists. It is the only thing the
                              launch-time check ever does on its own: nothing is downloaded
                              or installed until it is asked for on the Updates tab. -->
@@ -932,6 +932,9 @@
                         AutomationProperties.Name="Play"/>
                 <Button x:Name="NextButton" Classes="transport" ToolTip.Tip="Next"
                         AutomationProperties.Name="Next track"/>
+                <!-- What happens when the album ends, dimmed at Stop
+                     (MainWindow.PlayMode.cs). Opens the four choices. -->
+                <Button x:Name="PlayModeButton" Classes="transport"/>
             </StackPanel>
 
             <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"

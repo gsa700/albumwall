@@ -102,8 +102,8 @@ public partial class MainWindow
         // view's color, or a tinted panel sits in a black frame.
         Compact.GroundChanged += ground => CompactHost.Background = ground;
         Compact.PlayPauseRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.TogglePause(); };
-        Compact.NextRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.Next(); };
-        Compact.PreviousRequested += () => { if (_player is not null && _mprisState.HasTrack) _player.Previous(); };
+        Compact.NextRequested += () => { if (_player is not null && _mprisState.HasTrack) PlayNext(); };
+        Compact.PreviousRequested += () => { if (_player is not null && _mprisState.HasTrack) PlayPrevious(); };
         Compact.SeekRequested += fraction =>
         {
             if (_player is null || _player.Duration <= TimeSpan.Zero) return;

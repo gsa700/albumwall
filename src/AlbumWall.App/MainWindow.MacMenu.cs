@@ -102,7 +102,9 @@ public partial class MainWindow
             Item("Louder", () => VolumeSlider.Value = Math.Min(100, VolumeSlider.Value + VolumeStep), Key.Up),
             Item("Quieter", () => VolumeSlider.Value = Math.Max(0, VolumeSlider.Value - VolumeStep), Key.Down),
             new NativeMenuItemSeparator(),
-            Item("Go to the Playing Album", () => OnRevealPlaying(null, new Avalonia.Interactivity.RoutedEventArgs()), Key.L)));
+            Item("Go to the Playing Album", () => OnRevealPlaying(null, new Avalonia.Interactivity.RoutedEventArgs()), Key.L),
+            new NativeMenuItemSeparator(),
+            MacPlayModeMenu()));
         bar.Items.Add(Menu("View",
             Item("Compact", ToggleCompact, Key.M, Cmd | Shortcut.CompactExtra)));
         bar.Items.Add(Menu("Window",
@@ -112,5 +114,32 @@ public partial class MainWindow
             Item("AlbumWall Help", () => ShowPrefs(PrefsWindow.Tab.Help), Key.OemQuestion, Cmd | KeyModifiers.Shift),
             Item("What's Inside", () => NoticesWindow.ShowFrom(this))));
         return bar;
+    }
+
+    /// Controls > When an Album Ends (MainWindow.PlayMode.cs), ticked. One per
+    /// window's menu bar, so every copy is kept up to date by UpdateMacPlayMode.
+    private readonly List<(NativeMenuItem Item, AfterAlbum Mode)> _macPlayModeItems = [];
+
+    private NativeMenuItem MacPlayModeMenu()
+    {
+        var menu = new NativeMenu();
+        foreach (var mode in Enum.GetValues<AfterAlbum>())
+        {
+            var item = new NativeMenuItem(Words(mode))
+            {
+                ToggleType = MenuItemToggleType.Radio,
+                IsChecked = mode == AfterAlbumMode,
+            };
+            item.Click += (_, _) => AfterAlbumMode = mode;
+            _macPlayModeItems.Add((item, mode));
+            menu.Items.Add(item);
+        }
+        return new NativeMenuItem("When an Album Ends") { Menu = menu };
+    }
+
+    private void UpdateMacPlayMode()
+    {
+        var now = AfterAlbumMode;
+        foreach (var (item, mode) in _macPlayModeItems) item.IsChecked = mode == now;
     }
 }

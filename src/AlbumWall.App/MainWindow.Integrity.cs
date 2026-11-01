@@ -165,8 +165,8 @@ public partial class MainWindow
         var damaged = _integrity.Values.Sum(s => s.Problems);
         UpdateDot.IsVisible = _updateDotWanted || damaged > 0;
         ToolTip.SetTip(SettingsButton,
-            damaged > 0 ? $"Preferences — {damaged} damaged file{(damaged == 1 ? "" : "s")} found (Library tab)"
-            : _updateDotWanted ? "Preferences — a newer version is available"
-            : "Preferences");
+            damaged > 0 ? $"Menu — {damaged} damaged file{(damaged == 1 ? "" : "s")} found (Preferences, Library)"
+            : _updateDotWanted ? "Menu — a newer version is available (Preferences, Updates)"
+            : "Menu: play mode, ReplayGain, Preferences");
     }
 }

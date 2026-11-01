@@ -56,6 +56,11 @@ public sealed class Settings
     public bool? ResumeSession { get; set; }
     public bool? AutoPlay { get; set; }
 
+    /// What happens when an album ends (MainWindow.PlayMode.cs): an AfterAlbum
+    /// name, NextAlbum, RandomAlbum or ShuffleSongs. Absent is Stop, as it
+    /// always was.
+    public string? AfterAlbum { get; set; }
+
     /// Whether to ask, once as it opens, if there is a newer version. On unless
     /// turned off. It is one small request to GitHub and nothing is ever
     /// downloaded or installed without being asked for in Preferences.

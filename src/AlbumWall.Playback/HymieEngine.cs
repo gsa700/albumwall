@@ -99,6 +99,14 @@ internal sealed class HymieEngine : IDisposable
     public event EventHandler<TrackChangedEventArgs>? TrackChanged;
     public event EventHandler? StateChanged;
     public event EventHandler? Finished;
+
+    /// End with the track playing now, as if the queue stopped there: it plays
+    /// out whole, then Finished. For a per-song play mode (AlbumWall's "shuffle
+    /// all songs" taking over from an album when the song ends). Read as the
+    /// track after is about to be opened, so set it before that: once the next
+    /// track has begun decoding (the last moments of this one) it is too late
+    /// for this boundary and takes effect at the next.
+    public volatile bool EndAfterCurrent;
     public event EventHandler? DurationChanged;
     public event EventHandler<TimeSpan>? Seeked;
 
@@ -439,6 +447,8 @@ internal sealed class HymieEngine : IDisposable
     /// channel count): then this one plays out first and Watch makes it.
     private bool NextTrack()
     {
+        // The app wants the record to end with this track (EndAfterCurrent).
+        if (EndAfterCurrent) { _decoding = null; return false; }
         var index = _decodingIndex + 1;
         IAudioTrack? next = null;
         while (index < _queue.Count && next is null)

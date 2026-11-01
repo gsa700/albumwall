@@ -110,6 +110,13 @@ public sealed class Player : IDisposable
     }
 
     public void PlayIndex(int index) => _hymie.PlayIndex(index);
+
+    /// End with the track playing now (HymieEngine.EndAfterCurrent).
+    public bool EndAfterCurrent
+    {
+        get => _hymie.EndAfterCurrent;
+        set => _hymie.EndAfterCurrent = value;
+    }
     public void Next() => _hymie.Next();
     public void Previous() => _hymie.Previous();
     public void TogglePause() => SetPaused(IsPlaying);

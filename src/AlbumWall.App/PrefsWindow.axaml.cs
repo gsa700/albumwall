@@ -95,6 +95,13 @@ public partial class PrefsWindow : Window
             if (_filling) return;
             host.GainMode = mode;
         }
+        void ChooseAfter(RadioButton button, AfterAlbum mode) =>
+            button.IsCheckedChanged += (_, _) => { if (!_filling && button.IsChecked == true) host.AfterAlbumMode = mode; };
+        ChooseAfter(AfterStop, AfterAlbum.Stop);
+        ChooseAfter(AfterNext, AfterAlbum.NextAlbum);
+        ChooseAfter(AfterRandom, AfterAlbum.RandomAlbum);
+        ChooseAfter(AfterSongs, AfterAlbum.ShuffleSongs);
+
         GainAlbum.IsCheckedChanged += (_, _) => { if (GainAlbum.IsChecked == true) ChooseGain(Playback.GainMode.Album); };
         GainTrack.IsCheckedChanged += (_, _) => { if (GainTrack.IsChecked == true) ChooseGain(Playback.GainMode.Track); };
         GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Playback.GainMode.Off); };
@@ -561,6 +568,11 @@ public partial class PrefsWindow : Window
         AutoPlay.IsChecked = _host.AppSettings.AutoPlay == true;
         AutoPlay.IsEnabled = Resume.IsChecked == true;
         var gain = _host.GainMode;
+        var after = _host.AfterAlbumMode;
+        AfterStop.IsChecked = after == AfterAlbum.Stop;
+        AfterNext.IsChecked = after == AfterAlbum.NextAlbum;
+        AfterRandom.IsChecked = after == AfterAlbum.RandomAlbum;
+        AfterSongs.IsChecked = after == AfterAlbum.ShuffleSongs;
         GainAlbum.IsChecked = gain == Playback.GainMode.Album;
         GainTrack.IsChecked = gain == Playback.GainMode.Track;
         GainOff.IsChecked = gain == Playback.GainMode.Off;

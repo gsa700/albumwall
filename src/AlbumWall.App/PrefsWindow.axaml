@@ -218,6 +218,32 @@
                                        Text="Off, it comes back paused and waits for you. Nothing is heard until you press play."/>
                         </StackPanel>
 
+                        <!-- WHEN AN ALBUM ENDS (MainWindow.PlayMode.cs). The same setting
+                             as the gear menu's and the play controls' button. -->
+                        <TextBlock Text="When an album ends" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="AfterStop" GroupName="afteralbum" Content="Stop"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="The music ends with the record, as it would on a turntable."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="AfterNext" GroupName="afteralbum" Content="Play the next album"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="The one after it on the wall, and on round to the first. With a search in the box, only the albums it shows."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="AfterRandom" GroupName="afteralbum" Content="Play a random album"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="Each album whole and in its own order; none comes round twice until every one on the wall has played."/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <RadioButton x:Name="AfterSongs" GroupName="afteralbum" Content="Shuffle all songs"/>
+                            <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
+                                       Text="Every song on the wall in a random order, each at its own level (by track, unless you have chosen a ReplayGain setting below)."/>
+                        </StackPanel>
+                        <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                   Text="While the music goes on, the wall opens each album as it starts, and in a shuffle the album of each song. If you scroll away in between, the wall goes back to what is playing a minute after you stop."/>
+
                         <!-- REPLAYGAIN, as three choices with the words the RG button
                              beside the volume has no room for. The button and these are
                              the same setting. Until one is chosen here or there, the

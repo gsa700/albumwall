@@ -48,8 +48,8 @@ public partial class MainWindow
             case "play-pause": _player.TogglePause(); break;
             case "play": _player.SetPaused(false); break;
             case "pause": _player.SetPaused(true); break;
-            case "next": _player.Next(); break;
-            case "previous": _player.Previous(); break;
+            case "next": PlayNext(); break;
+            case "previous": PlayPrevious(); break;
             case "stop": _player.Stop(); break;
         }
         return "";
