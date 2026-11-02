@@ -244,14 +244,13 @@
                         <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                    Text="While the music goes on, the wall opens each album as it starts, and in a shuffle the album of each song. If you scroll away in between, the wall goes back to what is playing a minute after you stop."/>
 
-                        <!-- REPLAYGAIN, as three choices with the words the RG button
-                             beside the volume has no room for. The button and these are
-                             the same setting. Until one is chosen here or there, the
+                        <!-- REPLAYGAIN, as three choices. The main menu's ReplayGain
+                             item is the same setting. Until one is chosen here or there, the
                              app picks by context: by album, and by track for a shuffle
                              (StartPlayback). -->
                         <TextBlock Text="Loudness" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
                         <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                                   Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The RG button beside the volume is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
+                                   Text="Records are mastered at different levels. ReplayGain evens them out using the loudness a tagger has measured and written into each file; a file without that plays as it is. The ReplayGain item in the main menu is this same choice. Until you choose, albums play by album and a shuffle plays by track."/>
                         <StackPanel Spacing="4">
                             <RadioButton x:Name="GainAlbum" GroupName="gain" Content="By album"/>
                             <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="28,0,0,0"
@@ -462,7 +461,7 @@
                             <CheckBox x:Name="CheckUpdates" Content="Look for a newer version when AlbumWall opens"/>
                             <TextBlock Classes="dim" FontSize="13" LineHeight="20" TextWrapping="Wrap"
                                        Margin="28,0,0,0"
-                                       Text="One small question to GitHub. If there is one, the gear gets a dot; nothing is downloaded or installed until you ask for it here."/>
+                                       Text="One small question to GitHub. If there is one, the menu button gets a dot and the menu says so; nothing is downloaded or installed until you ask for it here."/>
                         </StackPanel>
                         <StackPanel Spacing="4">
                             <CheckBox x:Name="EdgeUpdates" Content="Edge builds: every release as it comes out"/>

@@ -362,18 +362,32 @@ public partial class MainWindow
         return menu;
     }
 
+    /// The one menu (three lines on the top bar). What the dot on it is about
+    /// comes first, as an item that goes there: damaged files (Preferences,
+    /// Library) and a waiting update (Preferences, Updates). His call,
+    /// 2026-11-01: "an Update available item at the top of the menu".
     private MenuFlyout GearMenu()
     {
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+
+        var damaged = _integrity.Values.Sum(s => s.Problems);
+        if (damaged > 0)
+            menu.Items.Add(Command($"{damaged} damaged file{(damaged == 1 ? "" : "s")} found", () => ShowPrefs(PrefsWindow.Tab.Library)));
+        if (App.LatestUpdate is { UpdateAvailable: true } update)
+            menu.Items.Add(Command($"Update available: {update.LatestTag.TrimStart('v', 'V')}", () => ShowPrefs(PrefsWindow.Tab.Updates)));
+        else if (App.LastUpdateFailed)
+            menu.Items.Add(Command("The last update did not finish", () => ShowPrefs(PrefsWindow.Tab.Updates)));
+        if (menu.Items.Count > 0) menu.Items.Add(new Separator());
 
         var after = new MenuItem { Header = "When an album ends" };
         foreach (var item in PlayModeItems()) after.Items.Add(item);
         menu.Items.Add(after);
 
-        var gain = new MenuItem { Header = "ReplayGain" };
-        foreach (var (mode, words) in new[] { (Playback.GainMode.Album, "By album"), (Playback.GainMode.Track, "By track"), (Playback.GainMode.Off, "Off") })
+        // The mode in the words, so it reads at a glance with the RG button gone.
+        var gain = new MenuItem { Header = $"ReplayGain: {GainWords(GainMode)}" };
+        foreach (var mode in new[] { Playback.GainMode.Album, Playback.GainMode.Track, Playback.GainMode.Off })
         {
-            var item = new MenuItem { Header = words, ToggleType = MenuItemToggleType.Radio, GroupName = "gain", IsChecked = GainMode == mode };
+            var item = new MenuItem { Header = GainWords(mode), ToggleType = MenuItemToggleType.Radio, GroupName = "gain", IsChecked = GainMode == mode };
             item.Click += (_, _) => { GainMode = mode; _prefs?.Fill(); };
             gain.Items.Add(item);
         }
@@ -394,6 +408,13 @@ public partial class MainWindow
         menu.Items.Add(Command("Keys and search", () => ShowPrefs(PrefsWindow.Tab.Help)));
         menu.Items.Add(Command($"About {App.DisplayName}", () => ShowPrefs(PrefsWindow.Tab.About)));
         return menu;
+
+        static string GainWords(Playback.GainMode mode) => mode switch
+        {
+            Playback.GainMode.Album => "By album",
+            Playback.GainMode.Track => "By track",
+            _ => "Off",
+        };
 
         static MenuItem Command(string header, Action run, KeyGesture? key = null)
         {

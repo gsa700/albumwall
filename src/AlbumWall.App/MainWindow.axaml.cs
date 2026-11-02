@@ -2073,7 +2073,6 @@ public partial class MainWindow : Window
             _gainChosen = true;
             _settings.Gain = value.ToString();
             _settings.Save();
-            UpdateGainButton();
             if (_player is null || _player.Gain == value) return;
             _player.Gain = value;
             if (_playingAlbum is not null) UpdateNowPlaying();
@@ -4016,21 +4015,6 @@ public partial class MainWindow : Window
         NextButton.Click += (_, _) => PlayNext();
         PlayPauseButton.Click += (_, _) => _player?.TogglePause();
 
-        // On the top bar since 2026-10-27, so it can be pressed before anything has
-        // played: the setting changes, and the player takes it when there is one.
-        GainButton.Click += (_, _) =>
-        {
-            GainMode = GainMode switch
-            {
-                Playback.GainMode.Album => Playback.GainMode.Track,
-                Playback.GainMode.Track => Playback.GainMode.Off,
-                _ => Playback.GainMode.Album
-            };
-            UpdateGainButton();
-            _prefs?.Fill();     // Playback shows the same choice
-        };
-        UpdateGainButton();
-
         // A drag must not fight the position updates coming from the player, so
         // the ticker stops writing to the slider while the handle is held.
         PositionSlider.AddHandler(PointerPressedEvent, (_, _) => _draggingPosition = true,
@@ -4349,24 +4333,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// The RG button says the mode in force, playing or not.
-    private void UpdateGainButton()
-    {
-        var gain = GainMode;
-        GainButton.Content = gain switch
-        {
-            Playback.GainMode.Album => "RG ALBUM",
-            Playback.GainMode.Track => "RG TRACK",
-            _ => "RG OFF"
-        };
-        AutomationProperties.SetName(GainButton, gain switch
-        {
-            Playback.GainMode.Album => "ReplayGain: by album. Press to change",
-            Playback.GainMode.Track => "ReplayGain: by track. Press to change",
-            _ => "ReplayGain: off. Press to change"
-        });
-    }
-
     private void UpdateNowPlaying()
     {
         if (_player is null || _playingAlbum is null) { ShowTransport(false); RefreshMprisState(); return; }
@@ -4384,8 +4350,6 @@ public partial class MainWindow : Window
         TransportArt.Source = _playingAlbum.Cover;
 
         SetPlayGlyph(_player.IsPlaying);
-
-        UpdateGainButton();
 
         // The transport takes a LIGHT tone from the playing album's art. It both
         // ties the bar to what is playing and breaks the window out of being one

@@ -349,7 +349,7 @@ is ahead, the history is for what is behind.
     and *Show on the wall* for what is playing, and back to the wall with its
     Ctrl+M beside it. The before-or-after-ReplayGain setting goes here, not on
     the click, because a toggle that changes what the needles mean would just
-    look like the music got louder. ReplayGain's mode stays on the RG button
+    look like the music got louder. ReplayGain's mode stays in the main menu
     rather than here as well, and the wall's album menu stays on the wall.
 
   **Meters on the wall, in the play controls** (agreed 2026-10-27 on Hambench,
@@ -367,9 +367,9 @@ is ahead, the history is for what is behind.
      fill it. The title and the slider never move when the style changes.
   3. **RG leaves the play bar** to make room, so the title keeps about 380 px.
      It moves to the top bar, between the volume slider and the gear, the same
-     `RG ALBUM / RG TRACK / RG OFF` button with the same click. It stays VISIBLE,
-     as the comment on `GainButton` requires; Preferences › Playback is not
-     enough on its own.
+     `RG ALBUM / RG TRACK / RG OFF` button with the same click. (Gone from the
+     top bar too since 2026-11-02, his call: ReplayGain is in the menu, its mode
+     in the item's words, "ReplayGain: By album", and in Preferences › Playback.)
   4. On the light play bar the meters are dark ink: LED and RTA bars in the
      bar's dark text color, the top segments and the RTA's peak caps amber and
      red. The VU keeps its yellow faces.
