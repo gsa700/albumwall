@@ -24,7 +24,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
-using AlbumWall.Playback;
+using Spindle.Playback;
 
 namespace AlbumWall.App;
 

@@ -65,7 +65,7 @@ public partial class MainWindow : Window
     /// the mode by context: the spec says the setting is user-overridable, and an
     /// override that the next Play silently undoes is not an override.
     private bool _gainChosen;
-    private Playback.Player? _player;
+    private Spindle.Playback.Player? _player;
     private bool _playerFailed;
     private AlbumVm? _open;
 
@@ -2064,10 +2064,10 @@ public partial class MainWindow : Window
     /// ReplayGain, for Preferences > Playback: the same setting as the RG
     /// button on the play controls. Chosen either way, it stays chosen: the
     /// app stops picking by context (StartPlayback).
-    internal Playback.GainMode GainMode
+    internal Spindle.Playback.GainMode GainMode
     {
         get => _player?.Gain
-            ?? (Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved) ? saved : Playback.GainMode.Album);
+            ?? (Enum.TryParse<Spindle.Playback.GainMode>(_settings.Gain, out var saved) ? saved : Spindle.Playback.GainMode.Album);
         set
         {
             _gainChosen = true;
@@ -2817,7 +2817,7 @@ public partial class MainWindow : Window
         if (text.Equals("meter compact", StringComparison.OrdinalIgnoreCase)) { CycleCompactMeter(); return; }
         if (text.Equals("bands", StringComparison.OrdinalIgnoreCase))
         {
-            var b = new float[Playback.Spectrum.BandCount];
+            var b = new float[Spindle.Playback.Spectrum.BandCount];
             var ok = _player?.Bands(b, MetersAfterGain) == true;
             Console.WriteLine($"[meters] bands{(ok ? "" : " (none)")}: " + string.Join(" ", b.Select(v => v.ToString("0"))));
             return;
@@ -3389,7 +3389,7 @@ public partial class MainWindow : Window
         Unfold = unfold,
         PointsDown = _panelAbove,
         MorphFrom = morphFrom,
-        PlayFrom = Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null,
+        PlayFrom = Spindle.Playback.Player.IsAvailable && !_playerFailed ? StartPlayback : null,
         Position = () => _player is { } p ? (p.Position, p.Duration) : (TimeSpan.Zero, TimeSpan.Zero),
         Seek = at => _player?.Seek(at),
         ToggleLyrics = ToggleLyrics,
@@ -3409,7 +3409,7 @@ public partial class MainWindow : Window
 
             // Context picks the mode only while the user has not picked one: an
             // album by album (and "shuffle all songs" by track, MainWindow.PlayMode.cs).
-            if (!_gainChosen) _player.Gain = Playback.GainMode.Album;
+            if (!_gainChosen) _player.Gain = Spindle.Playback.GainMode.Album;
 
             _playingAlbum = album;
             _playingPaths = paths;
@@ -3442,10 +3442,10 @@ public partial class MainWindow : Window
     {
         if (_player is not null) return;
 
-        _player = new Playback.Player(
-            Enum.TryParse<Playback.GainMode>(_settings.Gain, out var saved)
+        _player = new Spindle.Playback.Player(
+            Enum.TryParse<Spindle.Playback.GainMode>(_settings.Gain, out var saved)
                 ? saved
-                : Playback.GainMode.Album);
+                : Spindle.Playback.GainMode.Album);
 
         // A player built now starts at whatever the slider already says,
         // and with the equalizer as kept (EqualizerWindow.cs).
@@ -3572,7 +3572,7 @@ public partial class MainWindow : Window
             Console.WriteLine($"[session] was open but is not in the library: {last.OpenAlbumArtist} - {last.OpenAlbum}");
 
         if (last.Queue.Count == 0) return;
-        if (!Playback.Player.IsAvailable || _playerFailed) return;
+        if (!Spindle.Playback.Player.IsAvailable || _playerFailed) return;
 
         var album = _all.FirstOrDefault(v => v.Artist == last.AlbumArtist && v.Title == last.Album);
         if (album is null)
@@ -3783,7 +3783,7 @@ public partial class MainWindow : Window
         }
     });
 
-    private void OnTrackChanged(object? sender, Playback.TrackChangedEventArgs e) =>
+    private void OnTrackChanged(object? sender, Spindle.Playback.TrackChangedEventArgs e) =>
         Dispatcher.UIThread.Post(() => { SongShuffleTrackChanged(); UpdateNowPlaying(); MarkPlayingTrack(); CompactTick(); SaveSession(); LyricsForPlaying(); });
 
     private void OnPlaybackState(object? sender, EventArgs e) =>

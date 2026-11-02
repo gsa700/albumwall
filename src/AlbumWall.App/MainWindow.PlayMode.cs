@@ -162,7 +162,7 @@ public partial class MainWindow
         {
             EnsurePlayer();
             Random.Shared.Shuffle(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(paths));
-            if (!_gainChosen) _player.Gain = Playback.GainMode.Track;
+            if (!_gainChosen) _player.Gain = Spindle.Playback.GainMode.Track;
             _songShuffle = true;
             _playingPaths = paths;
             _playingAlbum = AlbumOf(paths[0]) ?? _playingAlbum;
@@ -385,7 +385,7 @@ public partial class MainWindow
 
         // The mode in the words, so it reads at a glance with the RG button gone.
         var gain = new MenuItem { Header = $"ReplayGain: {GainWords(GainMode)}" };
-        foreach (var mode in new[] { Playback.GainMode.Album, Playback.GainMode.Track, Playback.GainMode.Off })
+        foreach (var mode in new[] { Spindle.Playback.GainMode.Album, Spindle.Playback.GainMode.Track, Spindle.Playback.GainMode.Off })
         {
             var item = new MenuItem { Header = GainWords(mode), ToggleType = MenuItemToggleType.Radio, GroupName = "gain", IsChecked = GainMode == mode };
             item.Click += (_, _) => { GainMode = mode; _prefs?.Fill(); };
@@ -409,10 +409,10 @@ public partial class MainWindow
         menu.Items.Add(Command($"About {App.DisplayName}", () => ShowPrefs(PrefsWindow.Tab.About)));
         return menu;
 
-        static string GainWords(Playback.GainMode mode) => mode switch
+        static string GainWords(Spindle.Playback.GainMode mode) => mode switch
         {
-            Playback.GainMode.Album => "By album",
-            Playback.GainMode.Track => "By track",
+            Spindle.Playback.GainMode.Album => "By album",
+            Spindle.Playback.GainMode.Track => "By track",
             _ => "Off",
         };
 
@@ -427,9 +427,9 @@ public partial class MainWindow
     // ---- THE EQUALIZER (Playback/Equalizer.cs, EqualizerWindow.cs) ------------
 
     /// As kept, four bands in range; off and flat when never set.
-    internal AlbumWall.Playback.EqSettings EqualizerSettings
+    internal Spindle.Playback.EqSettings EqualizerSettings
     {
-        get => (_settings.Equalizer ?? new AlbumWall.Playback.EqSettings()).Checked();
+        get => (_settings.Equalizer ?? new Spindle.Playback.EqSettings()).Checked();
         set
         {
             _settings.Equalizer = value;

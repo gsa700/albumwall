@@ -108,7 +108,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AlbumWall.Domain\AlbumWall.Domain.csproj" />
-    <ProjectReference Include="..\AlbumWall.Playback\AlbumWall.Playback.csproj" />
+    <!-- Hymie, the audio engine, from Spindle (the submodule at spindle/). -->
+    <ProjectReference Include="..\..\spindle\src\Spindle.Playback\Spindle.Playback.csproj" />
   </ItemGroup>
 
 </Project>

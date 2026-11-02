@@ -61,7 +61,7 @@ public partial class MainWindow
     /// search has narrowed the wall to.
     private string PlayFirstMatch(string words)
     {
-        if (!Playback.Player.IsAvailable || _playerFailed)
+        if (!Spindle.Playback.Player.IsAvailable || _playerFailed)
             return "! The player is not available on this computer.";
         if (_all.Count == 0)
             return _scanning ? "! The library is still being read; try again in a moment." : "! The library is empty.";

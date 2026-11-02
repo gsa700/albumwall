@@ -4,7 +4,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Threading;
-using AlbumWall.Playback;
+using Spindle.Playback;
 
 namespace AlbumWall.App;
 

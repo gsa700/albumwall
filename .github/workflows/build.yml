@@ -10,9 +10,9 @@ name: Build
 on:
   push:
     branches: [master]
-    paths: ["src/**", "tools/engine-check.cs", "AlbumWall.slnx", ".github/workflows/build.yml"]
+    paths: ["src/**", "spindle", ".gitmodules", "AlbumWall.slnx", ".github/workflows/build.yml"]
   pull_request:
-    paths: ["src/**", "tools/engine-check.cs", "AlbumWall.slnx", ".github/workflows/build.yml"]
+    paths: ["src/**", "spindle", ".gitmodules", "AlbumWall.slnx", ".github/workflows/build.yml"]
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
+      # With spindle/, the shared code (Hymie), at the commit this one pins.
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -76,7 +79,7 @@ jobs:
       - name: engine-check hostile (Native AOT)
         shell: bash
         run: |
-          dotnet publish tools/engine-check.cs -o ec -nologo -v quiet
+          dotnet publish spindle/tools/engine-check.cs -o ec -nologo -v quiet
           ./ec/engine-check hostile
 
       # Alive after ten seconds = the compiled program, Avalonia and its native libraries all

@@ -90,7 +90,7 @@ public partial class PrefsWindow : Window
         };
 
         // ReplayGain: the same setting as the RG button beside the volume.
-        void ChooseGain(Playback.GainMode mode)
+        void ChooseGain(Spindle.Playback.GainMode mode)
         {
             if (_filling) return;
             host.GainMode = mode;
@@ -102,9 +102,9 @@ public partial class PrefsWindow : Window
         ChooseAfter(AfterRandom, AfterAlbum.RandomAlbum);
         ChooseAfter(AfterSongs, AfterAlbum.ShuffleSongs);
 
-        GainAlbum.IsCheckedChanged += (_, _) => { if (GainAlbum.IsChecked == true) ChooseGain(Playback.GainMode.Album); };
-        GainTrack.IsCheckedChanged += (_, _) => { if (GainTrack.IsChecked == true) ChooseGain(Playback.GainMode.Track); };
-        GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Playback.GainMode.Off); };
+        GainAlbum.IsCheckedChanged += (_, _) => { if (GainAlbum.IsChecked == true) ChooseGain(Spindle.Playback.GainMode.Album); };
+        GainTrack.IsCheckedChanged += (_, _) => { if (GainTrack.IsChecked == true) ChooseGain(Spindle.Playback.GainMode.Track); };
+        GainOff.IsCheckedChanged += (_, _) => { if (GainOff.IsChecked == true) ChooseGain(Spindle.Playback.GainMode.Off); };
 
         BarMeters.IsCheckedChanged += (_, _) => { if (!_filling) host.BarMetersOn = BarMeters.IsChecked == true; };
         MeterPeakHold.IsCheckedChanged += (_, _) => { if (!_filling) host.MeterPeakHold = MeterPeakHold.IsChecked == true; };
@@ -582,9 +582,9 @@ public partial class PrefsWindow : Window
         AfterNext.IsChecked = after == AfterAlbum.NextAlbum;
         AfterRandom.IsChecked = after == AfterAlbum.RandomAlbum;
         AfterSongs.IsChecked = after == AfterAlbum.ShuffleSongs;
-        GainAlbum.IsChecked = gain == Playback.GainMode.Album;
-        GainTrack.IsChecked = gain == Playback.GainMode.Track;
-        GainOff.IsChecked = gain == Playback.GainMode.Off;
+        GainAlbum.IsChecked = gain == Spindle.Playback.GainMode.Album;
+        GainTrack.IsChecked = gain == Spindle.Playback.GainMode.Track;
+        GainOff.IsChecked = gain == Spindle.Playback.GainMode.Off;
         BarMeters.IsChecked = _host.BarMetersOn;
         MetersAfterGain.IsChecked = _host.MetersAfterGain;
         EqualizerOn.IsChecked = _host.EqualizerSettings.On;

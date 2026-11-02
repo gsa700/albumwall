@@ -50,9 +50,10 @@ it at release time; the rules above are for every push.
   are never offered (ReleaseFeed).
 - The app: `scripts/release.sh X.Y.Z` without `--publish` makes a draft
   (`--dry-run` to build only). Bump `<Version>` in its own commit first.
-- The audio engine, Hymie, is C# in the app since 0.7.0 (libmpv before):
-  nothing to release separately. Check decoders with `tools/engine-check.cs`
-  (decode, compare against ffmpeg, seek, muted play).
+- The audio engine, Hymie, is C# since 0.7.0 (libmpv before), and since
+  2026-11-02 lives in Spindle (below): nothing to release separately. Check
+  decoders with `spindle/tools/engine-check.cs` (decode, compare against
+  ffmpeg, seek, muted play) and Spindle's own tests.
 - Publishing an app release offers it to every installed copy. It is his call,
   every time.
 
@@ -61,6 +62,24 @@ it at release time; the rules above are for every push.
 The design record is `docs/roadmap.md` (what is wanted and decided) and the
 commit messages (what was learned). Windows specifics: `docs/windows-notes.md`.
 
-Hymie's FLAC decoder (`src/AlbumWall.Codecs/Flac.cs`) is a copy of Deadwax's
-(`~/Projects/deadwax`, `src/Deadwax.Output/FlacDecoder.cs` and `FlacBits.cs`).
-The frame decoding is kept identical in both: a fix to it here goes there too.
+## Spindle, the code the apps share
+
+`spindle/` is a git submodule: https://github.com/gsa700/spindle (public, GPLv3),
+the code AlbumWall, Deadwax and Marginal share, compiled into each app. Today
+it holds Hymie (`Spindle.Codecs`, `Spindle.Playback`), moved out of this repo
+on 2026-11-02 (history before that is here, under `src/AlbumWall.Codecs` and
+`src/AlbumWall.Playback`).
+
+- Clone with `git clone --recurse-submodules`, or run `git submodule update
+  --init` in a clone made without it. Set the no-reply author in `spindle/`
+  too (its own CLAUDE.md).
+- A change to Hymie is made in Spindle (tested there), pushed there, then
+  taken here by moving the pin: `git -C spindle pull`, build and check, commit
+  the `spindle` change. Marginal takes it the same way, in its own time.
+- `scripts/release.sh` refuses unless `spindle/` is at its pinned commit and
+  that commit is on GitHub; pinned behind Spindle's main it says so.
+
+Hymie's FLAC decoder (`spindle/src/Spindle.Codecs/Flac.cs`) is a copy of
+Deadwax's (`~/Projects/deadwax`, `src/Deadwax.Output/FlacDecoder.cs` and
+`FlacBits.cs`). The frame decoding is kept identical in both until Deadwax
+takes it from Spindle too.

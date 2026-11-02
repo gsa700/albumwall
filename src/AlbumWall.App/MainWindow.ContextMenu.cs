@@ -95,7 +95,7 @@ public partial class MainWindow
     private static PanelRow? PanelOf(Control source) =>
         source.GetVisualAncestors().OfType<Control>().Select(c => c.DataContext).OfType<PanelRow>().FirstOrDefault();
 
-    private bool CanPlayNow => Playback.Player.IsAvailable && !_playerFailed;
+    private bool CanPlayNow => Spindle.Playback.Player.IsAvailable && !_playerFailed;
 
     private MenuFlyout AlbumMenu(AlbumVm album)
     {

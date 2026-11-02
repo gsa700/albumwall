@@ -63,7 +63,7 @@ public sealed class Settings
 
     /// The parametric equalizer between Hymie and the output (Playback/
     /// Equalizer.cs, EqualizerWindow.cs). Absent is off and flat.
-    public AlbumWall.Playback.EqSettings? Equalizer { get; set; }
+    public Spindle.Playback.EqSettings? Equalizer { get; set; }
 
     /// Whether to ask, once as it opens, if there is a newer version. On unless
     /// turned off. It is one small request to GitHub and nothing is ever

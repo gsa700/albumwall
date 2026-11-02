@@ -40,7 +40,7 @@ the sleeve over to show.
   followed by the first of the next. Each file plays at its own sample rate,
   with ReplayGain by album, by track or off, chosen under Preferences ›
   Playback or from the menu on the top bar. Every decoder is
-  checked sample for sample against ffmpeg (`tools/engine-check.cs`); FLAC,
+  checked sample for sample against ffmpeg (`spindle/tools/engine-check.cs`); FLAC,
   ALAC and WAV come out bit-exact. Nothing to install: it plays through
   CoreAudio on the Mac, WASAPI on Windows, and PulseAudio or PipeWire on Linux.
 - **It picks up where you left off**: the album, the track, how far in, and the

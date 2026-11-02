@@ -19,7 +19,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform;
-using AlbumWall.Playback;
+using Spindle.Playback;
 
 namespace AlbumWall.App;
 
