@@ -17,6 +17,7 @@
 // Exit code 0 when everything holds.
 
 using AlbumWall.Domain;
+using Spindle;
 
 var failures = 0;
 void Check(bool ok, string what) { if (!ok) { failures++; Console.WriteLine("FAIL  " + what); } }

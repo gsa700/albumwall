@@ -112,4 +112,8 @@
     <ProjectReference Include="..\..\spindle\src\Spindle.Playback\Spindle.Playback.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Spindle" />
+  </ItemGroup>
+
 </Project>

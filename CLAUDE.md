@@ -76,9 +76,10 @@ ALBUMWALL_CONFIG_DIR at a scratch folder before anything reads settings
 ## Spindle, the code the apps share
 
 `spindle/` is a git submodule: https://github.com/gsa700/spindle (public, GPLv3),
-the code AlbumWall, Deadwax and Marginal share, compiled into each app. Today
-it holds Hymie (`Spindle.Codecs`, `Spindle.Playback`), moved out of this repo
-on 2026-11-02 (history before that is here, under `src/AlbumWall.Codecs` and
+the code AlbumWall, Deadwax and Marginal share, compiled into each app.
+AlbumWall takes Hymie (`Spindle.Codecs`, `Spindle.Playback`) and the helpers
+in `Spindle.Core` (VersionOrder, ReleaseFeed, LogFile, Diagnostics; namespace
+`Spindle`) from it, both moved out of this repo on 2026-11-02 (history before that is here, under `src/AlbumWall.Codecs` and
 `src/AlbumWall.Playback`).
 
 - Clone with `git clone --recurse-submodules`, or run `git submodule update

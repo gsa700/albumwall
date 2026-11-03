@@ -37,8 +37,9 @@ class Program
         if (Install.InstallCommandLine.Parse(args).Action == Install.InstallAction.None && !RunsHere(args))
             return;
 
-        LogFile.Start();
-        Diagnostics.CatchCrashes();
+        LogFile.Start(Path.GetDirectoryName(Settings.Path)!, "albumwall.log");
+        Diagnostics.CatchCrashes(App.DisplayName, Install.InstallService.CurrentVersion,
+                                 () => NativeWayland ? "native Wayland" : "X11");
         FrontPanel = args.Any(a => a.Equals("--front-panel", StringComparison.OrdinalIgnoreCase));
 
         // --install and --uninstall, the family's switches. Handled here, before
