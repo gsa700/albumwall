@@ -10,9 +10,9 @@ name: Build
 on:
   push:
     branches: [master]
-    paths: ["src/**", "spindle", ".gitmodules", "AlbumWall.slnx", ".github/workflows/build.yml"]
+    paths: ["src/**", "tests/**", "spindle", ".gitmodules", "AlbumWall.slnx", ".github/workflows/build.yml"]
   pull_request:
-    paths: ["src/**", "spindle", ".gitmodules", "AlbumWall.slnx", ".github/workflows/build.yml"]
+    paths: ["src/**", "tests/**", "spindle", ".gitmodules", "AlbumWall.slnx", ".github/workflows/build.yml"]
   workflow_dispatch:
 
 permissions:
@@ -49,6 +49,13 @@ jobs:
 
       - name: Build
         run: dotnet build src/AlbumWall.App -c Release -nologo -v quiet
+
+      # AlbumWall's own tests (tests/AlbumWall.Tests) and Spindle's, for the Hymie this
+      # commit pins. A failure stops the run: no artifact, so release.sh has nothing to take.
+      - name: Test
+        run: |
+          dotnet test tests/AlbumWall.Tests -c Release -nologo
+          dotnet test spindle/tests/Spindle.Tests -c Release -nologo
 
       # clang and zlib for the AOT link; Xvfb, a display for the smoke test.
       - name: Native AOT tools (Linux)

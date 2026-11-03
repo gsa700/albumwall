@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- AlbumWall's own code. What the apps share (Hymie) is tested in Spindle
+       (spindle/tests), once for all of them. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <!-- A small library made with ffmpeg 9.0: 0.2 s FLACs tagged for each rule
+       the scanner keeps, 16-32 px covers. See LibraryScannerTests. -->
+  <ItemGroup>
+    <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AlbumWall.Domain\AlbumWall.Domain.csproj" />
+    <!-- Settings and Session, saved as the app saves them. -->
+    <ProjectReference Include="..\..\src\AlbumWall.App\AlbumWall.App.csproj" />
+  </ItemGroup>
+
+</Project>

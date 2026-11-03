@@ -62,6 +62,17 @@ it at release time; the rules above are for every push.
 The design record is `docs/roadmap.md` (what is wanted and decided) and the
 commit messages (what was learned). Windows specifics: `docs/windows-notes.md`.
 
+## Tests
+
+`dotnet test tests/AlbumWall.Tests` (since 2026-11-02): AlbumWall's own code:
+the library scan and its index (a small tagged library in Fixtures/Library,
+made with ffmpeg), the sort order, lyrics, Navidrome against a fake Subsonic
+server on 127.0.0.1, and settings and session as the app saves them. Hymie's
+tests are Spindle's (`dotnet test spindle/tests/Spindle.Tests`). CI runs both on
+every build; a failure means no artifact, so no release. The tests point
+ALBUMWALL_CONFIG_DIR at a scratch folder before anything reads settings
+(ScratchConfig.cs): they never touch the settings of whoever runs them.
+
 ## Spindle, the code the apps share
 
 `spindle/` is a git submodule: https://github.com/gsa700/spindle (public, GPLv3),
