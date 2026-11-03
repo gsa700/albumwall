@@ -44,6 +44,7 @@ public class Program
     public static void Main(string[] args)
     {
         AppInfo.Use(Identity);
+        WindowSystem.NativeWayland = NativeWayland;     // for Spindle.Ui (WaylandShell, WindowPlacement, DrawnCaptions)
 
         // Before the log: a second launch must not rotate the running copy's log away.
         if (CommandLine.AsksHelp(args) || CommandLine.AsksVersion(args))

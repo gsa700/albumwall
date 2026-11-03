@@ -79,7 +79,9 @@ ALBUMWALL_CONFIG_DIR at a scratch folder before anything reads settings
 the code AlbumWall, Deadwax and Marginal share, compiled into each app.
 AlbumWall takes Hymie (`Spindle.Codecs`, `Spindle.Playback`), the helpers in
 `Spindle.Core` (VersionOrder, ReleaseFeed, LogFile, Diagnostics; namespace
-`Spindle`) and the install and update code in `Spindle.Install` from it, all
+`Spindle`), the install and update code in `Spindle.Install` and the window
+code in `Spindle.Ui` (WindowButtons, DrawnCaptions, WaylandShell,
+ConsoleLogSink; `WindowSystem.NativeWayland` set in Main) from it, all
 moved out of this repo on 2026-11-02 (history before that is here, under
 `src/AlbumWall.Codecs`, `src/AlbumWall.Playback`, `src/AlbumWall.App/Install`,
 `src/AlbumWall.Domain/UpdateApplyScript.cs` and `tools/update-check.cs`).
