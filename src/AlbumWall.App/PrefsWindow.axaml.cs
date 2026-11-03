@@ -174,7 +174,7 @@ public partial class PrefsWindow : Window
         InstallButton.Click += async (_, _) =>
         {
             if (_host is null) return;
-            if (Install.InstallService.Mode == Install.InstallMode.Installed)
+            if (InstallService.Mode == InstallMode.Installed)
                 await App.RunUninstallAsync(_host, asked: true);
             else
                 await App.OfferInstallAsync(_host);
@@ -242,14 +242,14 @@ public partial class PrefsWindow : Window
     /// answered already, and the last update may have failed to apply.
     private void FillUpdate()
     {
-        UpdateSection.IsVisible = Install.UpdateService.CanUpdate;
-        var blocker = Install.UpdateService.MacBlocker;
+        UpdateSection.IsVisible = UpdateService.CanUpdate;
+        var blocker = UpdateService.MacBlocker;
         UpdateMacNote.Text = blocker is null ? "" : blocker + " New versions are on GitHub, at github.com/gsa700/albumwall/releases.";
         UpdateMacNote.IsVisible = blocker is not null;
         UpdateChoices.IsVisible = blocker is null;
         if (!UpdateSection.IsVisible || _updating) return;
 
-        var have = Install.UpdateService.CurrentVersion;
+        var have = UpdateService.CurrentVersion;
         var info = App.LatestUpdate;
 
         UpdateNotes.IsVisible = info is { UpdateAvailable: true };
@@ -278,7 +278,7 @@ public partial class PrefsWindow : Window
         {
             UpdateButton.IsEnabled = false;
             UpdateStatus.Text = "Looking…";
-            App.LatestUpdate = await Install.UpdateService.CheckAsync(_host.AppSettings.EdgeChannel == true);
+            App.LatestUpdate = await UpdateService.CheckAsync(_host.AppSettings.EdgeChannel == true);
             _host.ShowUpdateDot(App.LatestUpdate.UpdateAvailable);
             FillUpdate();
             return;
@@ -296,10 +296,10 @@ public partial class PrefsWindow : Window
                 UpdateFill.Width = f * UpdateBar.Bounds.Width;
                 UpdateStatus.Text = $"Downloading {App.LatestUpdate.LatestTag.TrimStart('v', 'V')}… {f:P0}";
             });
-            var staged = await Install.UpdateService.DownloadAndStageAsync(App.LatestUpdate, progress);
+            var staged = await UpdateService.DownloadAndStageAsync(App.LatestUpdate, progress);
 
             UpdateStatus.Text = "Checked. Restarting into the new version…";
-            Install.UpdateService.ApplyAndRestart(staged);
+            UpdateService.ApplyAndRestart(staged);
             App.ExitForUpdate(_host);
         }
         catch (Exception ex)
@@ -628,7 +628,7 @@ public partial class PrefsWindow : Window
         FillInstall();
         FillUpdate();
 
-        var installed = Install.InstallService.Mode == Install.InstallMode.Installed;
+        var installed = InstallService.Mode == InstallMode.Installed;
         ShortcutSection.IsVisible = OperatingSystem.IsWindows() && !installed;
         if (ShortcutSection.IsVisible)
         {
@@ -650,7 +650,7 @@ public partial class PrefsWindow : Window
             ShortcutStatus.Text = _shortcutNote
                 ?? (!has ? "No shortcut yet. With one, Start search finds it and you can pin it to the taskbar."
                     : current ? "In the Start Menu, and pointing at this copy."
-                    : theirs ? $"The Start Menu shortcut belongs to the installed copy, in {Install.InstallService.InstallDirectory}. "
+                    : theirs ? $"The Start Menu shortcut belongs to the installed copy, in {InstallService.InstallDirectory}. "
                              + "This copy leaves it alone."
                     : "There is a shortcut, but it points at a different copy of the program — one that was moved or rebuilt somewhere else.");
         }
@@ -710,32 +710,32 @@ public partial class PrefsWindow : Window
     /// build, which is many files and cannot be installed by copying one.
     private void FillInstall()
     {
-        var dir = Install.InstallService.ExeDirectory;
+        var dir = InstallService.ExeDirectory;
 
-        switch (Install.InstallService.Mode)
+        switch (InstallService.Mode)
         {
-            case Install.InstallMode.Installed:
+            case InstallMode.Installed:
                 InstallStatus.Text = $"Installed in {dir}.";
                 InstallButton.Content = "Uninstall\u2026";
                 InstallButton.IsVisible = true;
                 break;
 
-            case Install.InstallMode.Portable:
+            case InstallMode.Portable:
                 InstallStatus.Text = $"Portable: runs from {dir} and registers nothing with this computer "
-                                   + $"({Install.InstallLayout.PortableMarker} is beside the program).";
+                                   + $"({InstallLayout.PortableMarker} is beside the program).";
                 InstallButton.IsVisible = false;
                 break;
 
             default:
-                if (!Install.InstallService.CanInstall)
+                if (!InstallService.CanInstall)
                 {
                     InstallStatus.Text = $"Running from {dir}. Installing is not available on macOS yet.";
                     InstallButton.IsVisible = false;
                 }
-                else if (Install.InstallService.IsSingleFile)
+                else if (InstallService.IsSingleFile)
                 {
                     InstallStatus.Text = $"Running from {dir}, not installed. Installing copies it to "
-                                       + $"{Install.InstallService.InstallDirectory} and adds it to your menus.";
+                                       + $"{InstallService.InstallDirectory} and adds it to your menus.";
                     InstallButton.Content = "Install\u2026";
                     InstallButton.IsVisible = true;
                 }

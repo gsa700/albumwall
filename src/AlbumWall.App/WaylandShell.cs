@@ -24,7 +24,7 @@ namespace AlbumWall.App;
 internal static class WaylandShell
 {
     /// The .desktop file's name without the extension, which is what GNOME matches on.
-    public static string AppId => Path.GetFileNameWithoutExtension(Install.DesktopEntry.FileName);
+    public static string AppId => Path.GetFileNameWithoutExtension(DesktopEntry.FileName);
 
     // Each member reached below, kept by name so a trimmed or Native AOT build
     // still has it; a member Avalonia renames is still caught by the checks.

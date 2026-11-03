@@ -372,11 +372,11 @@ public partial class MainWindow
 
         var damaged = _integrity.Values.Sum(s => s.Problems);
         if (damaged > 0)
-            menu.Items.Add(Command($"{damaged} damaged file{(damaged == 1 ? "" : "s")} found", () => ShowPrefs(PrefsWindow.Tab.Library)));
+            menu.Items.Add(Attention(Command($"{damaged} damaged file{(damaged == 1 ? "" : "s")} found", () => ShowPrefs(PrefsWindow.Tab.Library)), warning: true));
         if (App.LatestUpdate is { UpdateAvailable: true } update)
-            menu.Items.Add(Command($"Update available: {update.LatestTag.TrimStart('v', 'V')}", () => ShowPrefs(PrefsWindow.Tab.Updates)));
+            menu.Items.Add(Attention(Command($"Update available: {update.LatestTag.TrimStart('v', 'V')}", () => ShowPrefs(PrefsWindow.Tab.Updates)), warning: false));
         else if (App.LastUpdateFailed)
-            menu.Items.Add(Command("The last update did not finish", () => ShowPrefs(PrefsWindow.Tab.Updates)));
+            menu.Items.Add(Attention(Command("The last update did not finish", () => ShowPrefs(PrefsWindow.Tab.Updates)), warning: true));
         if (menu.Items.Count > 0) menu.Items.Add(new Separator());
 
         var after = new MenuItem { Header = "When an album ends" };
@@ -415,6 +415,29 @@ public partial class MainWindow
             Spindle.Playback.GainMode.Track => "By track",
             _ => "Off",
         };
+
+        // What the dot is about stands out from the rest of the menu (his ask,
+        // 2026-11-02: "a green arrow or something to call attention to the menu
+        // update text"): bold, with a green download arrow for an update, an
+        // amber warning sign for damaged files or an update that did not finish.
+        static MenuItem Attention(MenuItem item, bool warning)
+        {
+            item.FontWeight = FontWeight.SemiBold;
+            item.Icon = new Avalonia.Controls.Shapes.Path
+            {
+                Data = Geometry.Parse(warning
+                    ? "M 8 1.5 L 15 14 L 1 14 Z M 8 6 L 8 9.5 M 8 11.6 L 8 11.8"
+                    : "M 8 1.5 L 8 10.5 M 4 6.8 L 8 10.8 L 12 6.8 M 2.5 14 L 13.5 14"),
+                Stroke = new SolidColorBrush(warning ? Color.Parse("#C77700") : Color.Parse("#1E8E3E")),
+                StrokeThickness = 1.8,
+                StrokeLineCap = PenLineCap.Round,
+                StrokeJoin = PenLineJoin.Round,
+                Width = 16,
+                Height = 16,
+                Stretch = Stretch.Uniform,
+            };
+            return item;
+        }
 
         static MenuItem Command(string header, Action run, KeyGesture? key = null)
         {

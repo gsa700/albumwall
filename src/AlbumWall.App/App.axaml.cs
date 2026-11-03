@@ -62,7 +62,7 @@ public partial class App : Application
 
     /// What the last update check found, if there has been one: shared by the dot
     /// on the gear and the About tab, so that opening About does not ask again.
-    public static Install.UpdateInfo? LatestUpdate { get; set; }
+    public static UpdateInfo? LatestUpdate { get; set; }
 
     /// True for this run if the previous update's helper could not swap the exe
     /// and relaunched the old one. Read once at startup; the marker is gone.
@@ -175,21 +175,21 @@ public partial class App : Application
                 // Re-asserted at EVERY start, never check-and-skip — the family's
                 // rule, learned when a lost registration stayed lost. A no-op
                 // unless this copy is the installed one.
-                Install.InstallService.EnsureRegistered();
+                InstallService.EnsureRegistered();
 
                 // The unpacked native libraries of builds that are no longer running, see
                 // InstallService.SweepStaleExtractions. Off the UI thread: 46 folders once.
-                _ = Task.Run(Install.InstallService.SweepStaleExtractions);
+                _ = Task.Run(InstallService.SweepStaleExtractions);
 
-                LastUpdateFailed = Install.UpdateService.ConsumeUpdateFailed();
+                LastUpdateFailed = UpdateService.ConsumeUpdateFailed();
                 if (LastUpdateFailed) Console.WriteLine("[update] the last update was NOT applied; this is the old exe");
 
                 // Once, a few seconds in, and only for a copy that could act on the
                 // answer. All it ever does is light the dot on the gear.
-                if (Install.UpdateService.CanUpdate && window.AppSettings.CheckForUpdates != false)
+                if (UpdateService.CanUpdate && window.AppSettings.CheckForUpdates != false)
                     _ = Task.Delay(TimeSpan.FromSeconds(6)).ContinueWith(async _ =>
                     {
-                        var info = await Install.UpdateService.CheckAsync(window.AppSettings.EdgeChannel == true);
+                        var info = await UpdateService.CheckAsync(window.AppSettings.EdgeChannel == true);
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
                             LatestUpdate = info;
@@ -201,7 +201,7 @@ public partial class App : Application
                 // itself. Never a development build (see InstallService), and
                 // never a test run with its settings redirected.
                 var testRun = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ALBUMWALL_CONFIG_DIR"));
-                if (Install.InstallService.ShouldOfferInstall && !testRun)
+                if (InstallService.ShouldOfferInstall && !testRun)
                     await OfferInstallAsync(window);
             };
         }
@@ -213,7 +213,7 @@ public partial class App : Application
     /// copy and closes this one.
     public static async Task OfferInstallAsync(Avalonia.Controls.Window owner)
     {
-        var where = Install.InstallService.InstallDirectory;
+        var where = InstallService.InstallDirectory;
         var lists = OperatingSystem.IsWindows()
             ? "lists it in Settings \u2192 Apps \u2192 Installed apps, with a Start Menu shortcut"
             : "adds it to your applications menu";
@@ -225,13 +225,13 @@ public partial class App : Application
             detail: $"Copies the program to {where} and {lists}. Your music, your settings and "
                   + "everything else are untouched either way.\n\n"
                   + "To run from here permanently without being asked again, put a file named "
-                  + $"{Install.InstallLayout.PortableMarker} beside the program.")
+                  + $"{InstallLayout.PortableMarker} beside the program.")
             .ShowDialog<bool>(owner);
         if (!accepted) return;
 
         try
         {
-            var installed = Install.InstallService.Install();
+            var installed = InstallService.Install();
 
             // Installed but not listed is a real outcome, not a detail: the program
             // works, yet the usual way to remove it is missing. Say so here rather
@@ -250,7 +250,7 @@ public partial class App : Application
             // The installed copy must find the lock free, or it hands itself to
             // this window, which is about to close (SingleInstance.Release).
             SingleInstance.Release();
-            Install.InstallService.LaunchDetached(installed.ExePath);
+            InstallService.LaunchDetached(installed.ExePath);
 
             // Closing runs the normal save path on purpose, so the session carries
             // over to the installed copy, which reads the same data directory.
@@ -273,7 +273,7 @@ public partial class App : Application
     public static async Task RunUninstallAsync(Avalonia.Controls.Window owner, bool asked = false)
     {
         // No installer here (the Mac): say how this system removes an app, and remove nothing.
-        if (!Install.InstallService.CanInstall)
+        if (!InstallService.CanInstall)
         {
             await new ConfirmWindow($"Uninstall {DisplayName}",
                 $"Drag {DisplayName} from Applications to the Bin.",
@@ -294,7 +294,7 @@ public partial class App : Application
         var accepted = await dialog.ShowDialog<bool>(owner);
         if (accepted)
         {
-            Install.InstallService.Uninstall(new Install.UninstallOptions(dialog.OptionChecked));
+            InstallService.Uninstall(new UninstallOptions(dialog.OptionChecked));
 
             // A backstop, from LP-100A: the helper is now waiting on this process id, and nothing
             // in this process is worth preserving. If closing the window below does not end it —

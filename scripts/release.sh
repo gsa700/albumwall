@@ -21,7 +21,7 @@
 #   scripts/release.sh 0.2.0 --single-file       the old single-file builds instead (made here),
 #                                                AlbumWall-<rid>.zip: only to go back on purpose.
 #
-# WHAT A RELEASE IS, because the updater (Install/UpdateService.cs) reads exactly
+# WHAT A RELEASE IS, because the updater (spindle/src/Spindle.Install/UpdateService.cs) reads exactly
 # this and nothing else: a GitHub release tagged vX.Y.Z, carrying
 # AlbumWall-<rid>-aot.zip for linux-x64, linux-arm64 and win-x64 - each zip
 # holding the Native AOT program and its libraries (AlbumWall-<rid>.zip, the

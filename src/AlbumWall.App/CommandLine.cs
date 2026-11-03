@@ -54,7 +54,7 @@ public static class CommandLine
         var width = Commands.Max(c => c.Flag.Length) + 3;
         var lines = new List<string>
         {
-            $"{App.DisplayName} {Install.InstallService.CurrentVersion}",
+            $"{App.DisplayName} {InstallService.CurrentVersion}",
             "",
             "Run with nothing to open the wall, or to bring it forward if it is already open.",
             "Given to the copy that is running (they never start one):",

@@ -3,7 +3,7 @@ using System;
 
 namespace AlbumWall.App;
 
-class Program
+public class Program
 {
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -24,21 +24,39 @@ class Program
         Environment.GetCommandLineArgs().Any(a => a.Equals("--kiosk", StringComparison.OrdinalIgnoreCase))
         || Environment.GetEnvironmentVariable("ALBUMWALL_SUPERVISED") == "1";
 
+    /// Which app this is, for Spindle's install and update code: everything
+    /// else (folders, files, repository, bundle id, ALBUMWALL_SUPERVISED,
+    /// ALBUMWALL_UPDATE_FEED) follows from the name.
+    public static AppInfo Identity => new()
+    {
+        Name = App.DisplayName,
+        Description = "A player for a music library you own",
+        DataDir = Path.GetDirectoryName(Settings.Path)!,
+        AppAssembly = typeof(Program).Assembly,
+        DesktopCategories = ["AudioVideo", "Audio", "Player"],
+        NativeLibrariesWindows = ["libSkiaSharp.dll", "libHarfBuzzSharp.dll", "e_sqlite3.dll", "av_libglesv2.dll"],
+        NativeLibrariesUnix = ["libSkiaSharp.so", "libHarfBuzzSharp.so", "libe_sqlite3.so"],
+        MoreDataFiles = ["session.json", "index.db", "index.db-journal"],
+        CommandLink = true,         // `albumwall` from a terminal, on Linux
+    };
+
     [STAThread]
     public static void Main(string[] args)
     {
+        AppInfo.Use(Identity);
+
         // Before the log: a second launch must not rotate the running copy's log away.
         if (CommandLine.AsksHelp(args) || CommandLine.AsksVersion(args))
         {
             CommandLine.AttachConsole();
-            Console.WriteLine(CommandLine.AsksHelp(args) ? CommandLine.Help() : Install.InstallService.CurrentVersion);
+            Console.WriteLine(CommandLine.AsksHelp(args) ? CommandLine.Help() : InstallService.CurrentVersion);
             return;
         }
-        if (Install.InstallCommandLine.Parse(args).Action == Install.InstallAction.None && !RunsHere(args))
+        if (InstallCommandLine.Parse(args).Action == InstallAction.None && !RunsHere(args))
             return;
 
         LogFile.Start(Path.GetDirectoryName(Settings.Path)!, "albumwall.log");
-        Diagnostics.CatchCrashes(App.DisplayName, Install.InstallService.CurrentVersion,
+        Diagnostics.CatchCrashes(App.DisplayName, InstallService.CurrentVersion,
                                  () => NativeWayland ? "native Wayland" : "X11");
         FrontPanel = args.Any(a => a.Equals("--front-panel", StringComparison.OrdinalIgnoreCase));
 
@@ -53,30 +71,30 @@ class Program
         // other one: UninstallString, plain `--uninstall`, which comes up far
         // enough to ask about the settings. Read back out of the registry on
         // Hambench, 2026-09-20, when both were run for real.
-        var request = Install.InstallCommandLine.Parse(args);
+        var request = InstallCommandLine.Parse(args);
         try
         {
             switch (request.Action)
             {
-                case Install.InstallAction.Install:
-                    var installed = Install.InstallService.Install();
+                case InstallAction.Install:
+                    var installed = InstallService.Install();
                     Console.WriteLine($"Installed to {installed.ExePath}");
-                    if (!request.Quiet) Install.InstallService.LaunchDetached(installed.ExePath);
+                    if (!request.Quiet) InstallService.LaunchDetached(installed.ExePath);
                     return;
 
-                case Install.InstallAction.Uninstall when request.Quiet:
+                case InstallAction.Uninstall when request.Quiet:
                     // Quiet keeps the settings: only a person answering a question
                     // gets to throw their preferences away.
-                    Install.InstallService.Uninstall(new Install.UninstallOptions(RemoveSettings: false));
+                    InstallService.Uninstall(new UninstallOptions(RemoveSettings: false));
                     return;
 
-                case Install.InstallAction.Uninstall:
+                case InstallAction.Uninstall:
                     // Interactive: the window comes up just far enough to ask.
                     PendingUninstall = true;
                     break;
             }
         }
-        catch (Install.InstallBlockedException ex)
+        catch (InstallBlockedException ex)
         {
             Console.Error.WriteLine(ex.Message);
             Environment.ExitCode = 1;

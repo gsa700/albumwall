@@ -77,10 +77,18 @@ ALBUMWALL_CONFIG_DIR at a scratch folder before anything reads settings
 
 `spindle/` is a git submodule: https://github.com/gsa700/spindle (public, GPLv3),
 the code AlbumWall, Deadwax and Marginal share, compiled into each app.
-AlbumWall takes Hymie (`Spindle.Codecs`, `Spindle.Playback`) and the helpers
-in `Spindle.Core` (VersionOrder, ReleaseFeed, LogFile, Diagnostics; namespace
-`Spindle`) from it, both moved out of this repo on 2026-11-02 (history before that is here, under `src/AlbumWall.Codecs` and
-`src/AlbumWall.Playback`).
+AlbumWall takes Hymie (`Spindle.Codecs`, `Spindle.Playback`), the helpers in
+`Spindle.Core` (VersionOrder, ReleaseFeed, LogFile, Diagnostics; namespace
+`Spindle`) and the install and update code in `Spindle.Install` from it, all
+moved out of this repo on 2026-11-02 (history before that is here, under
+`src/AlbumWall.Codecs`, `src/AlbumWall.Playback`, `src/AlbumWall.App/Install`,
+`src/AlbumWall.Domain/UpdateApplyScript.cs` and `tools/update-check.cs`).
+`Program.Identity` (an `AppInfo`) tells Spindle this is AlbumWall, first thing
+in Main: its description, settings folder, SQLite among the native libraries,
+the extra files Uninstall removes, and the `albumwall` terminal link on Linux.
+The kiosk's supervised update (`ALBUMWALL_SUPERVISED=1`, `previous/`) is
+Spindle's now too; the launcher, `kiosk/albumwall-kiosk`, stays here and its
+rollback is tested in `tests/AlbumWall.Tests/KioskLauncherTests.cs`.
 
 - Clone with `git clone --recurse-submodules`, or run `git submodule update
   --init` in a clone made without it. Set the no-reply author in `spindle/`

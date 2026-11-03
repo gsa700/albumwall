@@ -136,7 +136,8 @@ is ahead, the history is for what is behind.
      libraries first, the program last; back up, start check, put back);
      supervised, the app puts it in place itself and keeps previous/, and
      albumwall-kiosk puts that back after two quick exits. tools/update-check.cs
-     runs the Linux helper and the launcher for real (PASS on Control and
+     ran the Linux helper and the launcher for real (since 2026-11-02 the helper
+     is Spindle's and tested there, the launcher in tests/AlbumWall.Tests) (PASS on Control and
      Techbench). END TO END on Techbench (2026-10-27): the bridge, installed
      as a single file, offered CI's linux-x64 AOT package by a local feed beside
      a single-file zip, took the -aot one, staged it with its three libraries,
