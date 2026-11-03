@@ -4,7 +4,13 @@
        (spindle/tests), once for all of them. -->
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- The app's own target on each system (AlbumWall.App.csproj, ForWindows):
+         a net10.0 project cannot reference the Windows build of the app. -->
+    <ForWindows Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier.StartsWith('win'))</ForWindows>
+    <ForWindows Condition="'$(RuntimeIdentifier)' == ''">$([MSBuild]::IsOSPlatform('Windows'))</ForWindows>
+    <TargetFramework Condition="'$(ForWindows)' == 'True'">net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework Condition="'$(ForWindows)' != 'True'">net10.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>

@@ -52,8 +52,12 @@ jobs:
 
       # AlbumWall's own tests (tests/AlbumWall.Tests) and Spindle's, for the Hymie this
       # commit pins. A failure stops the run: no artifact, so release.sh has nothing to take.
+      # bash on Windows too: PowerShell would carry on past a failed first command and
+      # report the step green (it did, 2026-11-02: the tests had not even restored).
       - name: Test
+        shell: bash
         run: |
+          set -e
           dotnet test tests/AlbumWall.Tests -c Release -nologo
           dotnet test spindle/tests/Spindle.Tests -c Release -nologo
 
