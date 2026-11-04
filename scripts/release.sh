@@ -95,6 +95,7 @@ done
 [ -n "$PY" ] || die "Python 3 is needed (python3, or python on Windows)"
 command -v dotnet >/dev/null || die "dotnet is not on PATH (DOTNET_ROOT=\$HOME/.dotnet PATH=\$HOME/.dotnet:\$PATH)"
 [ -n "$NOTES" ] && [ ! -f "$NOTES" ] && die "no such notes file: $NOTES"
+[ -f "$ROOT/licenses/README.md" ] || die "licenses/ is missing: run tools/fetch-licenses.py"
 if [ $MAC -eq 1 ]; then
     [ "$(uname -s)" = Darwin ] || die "the Mac's dmg is made on a Mac: run this on Control, or pass --no-mac"
 fi
@@ -208,15 +209,23 @@ for rid in "${RIDS[@]}"; do
         # Built from this commit as this version: the informational version (X.Y.Z+<commit>)
         # is in the program as plain text.
         grep -qaF "$VERSION+$(git rev-parse HEAD)" "$from/$exe" || must "$rid: $exe does not say it is $VERSION+$(git rev-parse HEAD)"
-        "$PY" - "$WORK/AlbumWall-$rid-aot.zip" "$from" $exe $libs <<'PY'
+        # The program, its libraries, and beside them its license, the third-party notices and
+        # the license texts (tools/fetch-licenses.py): what the licenses ask to travel with it.
+        # Install and update copy them into the installed copy (Spindle's InstallLayout.CopyLicenses;
+        # until 0.9.3 no AlbumWall zip had them, Techbench 2026-11-03).
+        "$PY" - "$WORK/AlbumWall-$rid-aot.zip" "$from" "$ROOT" $exe $libs <<'PY'
 import sys, zipfile, os
-out, src, *files = sys.argv[1:]
+out, src, root, *files = sys.argv[1:]
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for name in files:                          # the program first, then its libraries
         info = zipfile.ZipInfo.from_file(os.path.join(src, name), name)
         info.external_attr = 0o755 << 16        # executable when unpacked on Linux
         info.compress_type = zipfile.ZIP_DEFLATED
         with open(os.path.join(src, name), "rb") as f: z.writestr(info, f.read())
+    for name in ["LICENSE", "THIRD-PARTY-NOTICES.md"]:
+        z.write(os.path.join(root, name), name)
+    for name in sorted(os.listdir(os.path.join(root, "licenses"))):
+        z.write(os.path.join(root, "licenses", name), "licenses/" + name)
 PY
         echo "   AlbumWall-$rid-aot.zip  $(du -h "$WORK/AlbumWall-$rid-aot.zip" | cut -f1)"
         continue
@@ -229,14 +238,18 @@ PY
     [ -f "$out/$exe" ] || die "$rid: no $exe after publish"
     head -c 4 "$out/$exe" | od -An -tx1 | tr -d ' \n' | grep -q "^$magic" || die "$rid: $exe is not a $rid executable"
     [ "$(wc -c < "$out/$exe")" -gt 50000000 ] || die "$rid: $exe is too small to be the single-file build"
-    "$PY" - "$WORK/AlbumWall-$rid.zip" "$out/$exe" <<'PY'
+    "$PY" - "$WORK/AlbumWall-$rid.zip" "$out/$exe" "$ROOT" <<'PY'
 import sys, zipfile, os
-out, exe = sys.argv[1:]
+out, exe, root = sys.argv[1:]
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     info = zipfile.ZipInfo.from_file(exe, os.path.basename(exe))
     info.external_attr = 0o755 << 16          # executable when unpacked on Linux
     info.compress_type = zipfile.ZIP_DEFLATED
     with open(exe, "rb") as f: z.writestr(info, f.read())
+    for name in ["LICENSE", "THIRD-PARTY-NOTICES.md"]:
+        z.write(os.path.join(root, name), name)
+    for name in sorted(os.listdir(os.path.join(root, "licenses"))):
+        z.write(os.path.join(root, "licenses", name), "licenses/" + name)
 PY
     echo "   AlbumWall-$rid.zip  $(du -h "$WORK/AlbumWall-$rid.zip" | cut -f1)"
 done

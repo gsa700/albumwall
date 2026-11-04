@@ -114,6 +114,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$WORK/pub/AlbumWall" "$APP/Contents/MacOS/AlbumWall"
 cp "$WORK/pub/"*.dylib "$APP/Contents/MacOS/"
 cp "$WORK/AlbumWall.icns" "$APP/Contents/Resources/AlbumWall.icns"
+# What the licenses ask to travel with the program, as in a release zip (Deadwax's).
+cp "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" "$APP/Contents/Resources/"
+cp -R "$ROOT/licenses" "$APP/Contents/Resources/licenses"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 # NSLocalNetworkUsageDescription is the line macOS shows when it asks to let
 # AlbumWall reach the local network (a Navidrome server there). It asks again
