@@ -212,20 +212,26 @@ for rid in "${RIDS[@]}"; do
         # The program, its libraries, and beside them its license, the third-party notices and
         # the license texts (tools/fetch-licenses.py): what the licenses ask to travel with it.
         # Install and update copy them into the installed copy (Spindle's InstallLayout.CopyLicenses;
-        # until 0.9.3 no AlbumWall zip had them, Techbench 2026-11-03).
+        # until 0.9.3 no AlbumWall zip had them, Techbench 2026-11-03). All of it inside one
+        # folder, AlbumWall/: a zip unpacked straight into Downloads put the program beside
+        # whatever a web page had saved there, and a library of the right name there would be
+        # loaded (Marginal's security review 2026-10-31, C2). Spindle's UpdateService.FindProgram
+        # looks below the top, and every copy from the bridge (0.7.14) on takes the libraries
+        # and licenses from the program's own folder. The --single-file zip stays flat: it is
+        # for copies from before the bridge, which look only at the top.
         "$PY" - "$WORK/AlbumWall-$rid-aot.zip" "$from" "$ROOT" $exe $libs <<'PY'
 import sys, zipfile, os
 out, src, root, *files = sys.argv[1:]
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for name in files:                          # the program first, then its libraries
-        info = zipfile.ZipInfo.from_file(os.path.join(src, name), name)
+        info = zipfile.ZipInfo.from_file(os.path.join(src, name), "AlbumWall/" + name)
         info.external_attr = 0o755 << 16        # executable when unpacked on Linux
         info.compress_type = zipfile.ZIP_DEFLATED
         with open(os.path.join(src, name), "rb") as f: z.writestr(info, f.read())
     for name in ["LICENSE", "THIRD-PARTY-NOTICES.md"]:
-        z.write(os.path.join(root, name), name)
+        z.write(os.path.join(root, name), "AlbumWall/" + name)
     for name in sorted(os.listdir(os.path.join(root, "licenses"))):
-        z.write(os.path.join(root, "licenses", name), "licenses/" + name)
+        z.write(os.path.join(root, "licenses", name), "AlbumWall/licenses/" + name)
 PY
         echo "   AlbumWall-$rid-aot.zip  $(du -h "$WORK/AlbumWall-$rid-aot.zip" | cut -f1)"
         continue
@@ -302,9 +308,9 @@ if [ -z "$NOTES" ]; then
         if [ $MAC -eq 1 ]; then
             echo "Mac: open AlbumWall.dmg and drag AlbumWall to Applications. Signed with a Developer ID and notarized by Apple, so it opens with no warning. In Applications it updates itself from the Updates tab in Preferences (since 0.7.12; a copy of 0.7.11 or before needs this dmg once)."
             echo
-            echo "Linux and Windows: download the zip for your system, unpack it and run the program: it offers to install itself."
+            echo "Linux and Windows: download the zip for your system, unpack it and run AlbumWall in the AlbumWall folder it makes: it offers to install itself."
         else
-            echo "Download the zip for your system, unpack it and run the program: it offers to install itself."
+            echo "Download the zip for your system, unpack it and run AlbumWall in the AlbumWall folder it makes: it offers to install itself."
         fi
         echo "An installed copy updates itself from the Updates tab in Preferences."
         echo

@@ -44,6 +44,10 @@ public class Program
     public static void Main(string[] args)
     {
         AppInfo.Use(Identity);
+        // System libraries from the system's places, before anything loads one
+        // (Spindle's NativeLoading; AlbumWall.Domain has its own resolver).
+        NativeLoading.Install([.. Identity.NativeLibrariesUnix, .. Identity.NativeLibrariesWindows], typeof(Program).Assembly.GetName().Name!);
+        AlbumWall.Domain.FlacIntegrity.InstallResolver();
         WindowSystem.NativeWayland = NativeWayland;     // for Spindle.Ui (WaylandShell, WindowPlacement, DrawnCaptions)
 
         // Before the log: a second launch must not rotate the running copy's log away.

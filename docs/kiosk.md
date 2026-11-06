@@ -19,8 +19,8 @@ The normal desktop and its settings are not touched.
 - `wlr-randr` (sets the screens up; `sudo apt install wlr-randr`), `dbus-send`
   and `wpctl` (already on a Pi OS desktop).
 - AlbumWall installed for the user the machine logs in as: download
-  `AlbumWall-linux-arm64.zip` from the releases, unzip it, run it once and let it
-  install itself.
+  `AlbumWall-linux-arm64-aot.zip` from the releases, unzip it, run `AlbumWall` in
+  the `AlbumWall` folder it makes once and let it install itself.
 - **Automatic login** in lightdm (`raspi-config` → System → Boot / Auto login →
   Desktop Autologin), so there is an `autologin-session=` line to switch.
 

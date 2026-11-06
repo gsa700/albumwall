@@ -27,15 +27,32 @@ public static class FlacIntegrity
 
     private const string Lib = "FLAC";
 
-    static FlacIntegrity()
+    static FlacIntegrity() => InstallResolver();
+
+    private static int _resolverSet;
+
+    /// This assembly's one resolver: libFLAC by its versioned names, and every
+    /// library this assembly asks for (FolderWalk's libc too) from the system's
+    /// places before the program's folder, so a library planted beside a copy
+    /// run from Downloads is not taken (Spindle's NativeLoading; Marginal's
+    /// review 2026-10-31, C2). Program.Main calls it first thing, before
+    /// FolderWalk can load anything; it is set once.
+    public static void InstallResolver()
     {
-        NativeLibrary.SetDllImportResolver(typeof(FlacIntegrity).Assembly, (name, assembly, path) =>
+        if (Interlocked.Exchange(ref _resolverSet, 1) == 1) return;
+        try
         {
-            if (name != Lib) return IntPtr.Zero;
-            foreach (var candidate in Candidates())
-                if (NativeLibrary.TryLoad(candidate, assembly, path, out var handle)) return handle;
-            return IntPtr.Zero;
-        });
+            NativeLibrary.SetDllImportResolver(typeof(FlacIntegrity).Assembly, (name, assembly, path) =>
+            {
+                if (name != Lib) return Spindle.NativeLoading.Resolve(name, assembly, path);
+                foreach (var candidate in Candidates())
+                    if (Spindle.NativeLoading.FromSystem(candidate, assembly) is var system && system != IntPtr.Zero) return system;
+                foreach (var candidate in Candidates())
+                    if (NativeLibrary.TryLoad(candidate, assembly, path, out var handle)) return handle;
+                return IntPtr.Zero;
+            });
+        }
+        catch (InvalidOperationException) { }   // already set
     }
 
     private static IEnumerable<string> Candidates() => OperatingSystem.IsWindows()

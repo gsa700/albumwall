@@ -213,15 +213,16 @@ Download the zip for your machine from the
 
 | your machine | the file |
 |---|---|
-| Windows 10 or 11 (64-bit) | `AlbumWall-win-x64.zip` |
-| a Linux PC | `AlbumWall-linux-x64.zip` |
-| a Raspberry Pi 4 or 5, 64-bit OS | `AlbumWall-linux-arm64.zip` |
+| Windows 10 or 11 (64-bit) | `AlbumWall-win-x64-aot.zip` |
+| a Linux PC | `AlbumWall-linux-x64-aot.zip` |
+| a Raspberry Pi 4 or 5, 64-bit OS | `AlbumWall-linux-arm64-aot.zip` |
 
-Unzip it and run `AlbumWall` (`AlbumWall.exe` on Windows). The older releases
+Unzip it and run `AlbumWall` (`AlbumWall.exe` on Windows) in the `AlbumWall`
+folder it makes; the library files beside it are part of it. The older releases
 named `libmpv-*` are the audio engine the app was built with until 0.7.0, not
 something to download.
 
-A release is one file. Run it from wherever you unzipped it and it offers to
+Run it from wherever you unzipped it and it offers to
 install itself — per user, no administrator rights: into
 `%LocalAppData%\Programs\AlbumWall` on Windows (listed in Installed apps, with a
 Start Menu shortcut), or `~/.local/share/albumwall` on Linux (in your
