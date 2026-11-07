@@ -195,7 +195,7 @@ public class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => WithBackend(AppBuilder.Configure<App>()
-            .UsePlatformDetect())
+            .UseSystemPlatform())          // Spindle.Ui: UsePlatformDetect, plus FreeBSD (X11, Skia, HarfBuzz)
 #if DEBUG
             .WithDeveloperTools()
 #endif
