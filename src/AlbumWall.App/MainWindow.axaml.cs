@@ -94,6 +94,7 @@ public partial class MainWindow : Window
         Motion.Choose(_settings.ReduceMotion);
         TextSize.Choose(_settings.TextSize);
         FollowTextSize();       // the main window's text too (MainWindow.TextSize.cs)
+        ScaleFollow.Keep(this);  // keeps its size across a monitor scale change (X11, Spindle.Ui)
 
         // The markup says "AlbumWall" so the previewer has something to show;
         // what he actually sees comes from one place. See App.DisplayName.
