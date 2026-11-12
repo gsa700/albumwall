@@ -152,26 +152,18 @@ public class Program
     ///
     /// The price is the window's position. A Wayland client cannot place its window or learn where
     /// it is (Position always reads 0,0), so the compositor decides where it opens, and the saved
-    /// position is left alone rather than overwritten, ready for when GNOME can honour it.
-    /// <c>ALBUMWALL_X11=1</c> goes back through XWayland, for testing whether mutter is fixed.
+    /// position is left alone rather than overwritten.
     ///
-    /// <c>"Backend": "x11"</c> in settings.json does the same for good, on one machine. His call,
-    /// 2026-09-28, for positions: under XWayland the app can place its window and learn where it
-    /// is, so the wall reopens where it was left and the compact strip keeps its own spot. "until
-    /// they figure out window management": native Wayland stays the default for everyone else,
-    /// and deleting the line goes back. Not in Preferences: it is a workaround, not a choice
-    /// anyone should have to understand.
-    ///
-    /// The setting is honoured on GNOME only, because mutter's window placement is the whole
-    /// reason for it. COSMIC (1.8, Fedora 45, 2026-09-30) does not scale XWayland clients and
-    /// sets no Xft.dpi, so through XWayland on the 6K at 200% the app saw scaling=1 and drew at
-    /// half size. Native Wayland gets the output scale. ALBUMWALL_X11=1 still applies everywhere.
+    /// DROPPED 2026-11-11 (Dave): the "Backend": "x11" setting (2026-09-28, GNOME only, so
+    /// the wall reopened where it was left under XWayland) and ALBUMWALL_X11=1. They were a
+    /// workaround for window memory on GNOME; Vergence, Windows and the Mac never needed it.
+    /// X11 is now only the fallback: no Wayland session, or a screen reader running (below).
+    /// Not FreeBSD yet: Avalonia 12.1's Wayland backend fails there at start (WakeupFd, pipe2 with
+    /// Linux flag values; tried on kepler under Vergence, 2026-11-11), so FreeBSD stays on X11.
     /// </summary>
     public static readonly bool NativeWayland =
         OperatingSystem.IsLinux()
         && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
-        && Environment.GetEnvironmentVariable("ALBUMWALL_X11") != "1"
-        && !(OnGnome && SettingsAskX11)
         && !ScreenReaderRunning;
 
     /// A screen reader (Orca) is running as the app starts. Avalonia 12 speaks to
@@ -183,14 +175,6 @@ public class Program
     /// someone working by keyboard. The check is Spindle's (ScreenReader, from
     /// here, 2026-11-03), so Deadwax and Marginal ask the same way.
     private static bool ScreenReaderRunning => ScreenReader.Running;
-
-    private static bool SettingsAskX11 =>
-        string.Equals(Settings.Load().Backend, "x11", StringComparison.OrdinalIgnoreCase);
-
-    /// XDG_CURRENT_DESKTOP is a colon-separated list ("GNOME", "ubuntu:GNOME").
-    private static bool OnGnome =>
-        (Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "")
-            .Split(':').Contains("GNOME", StringComparer.OrdinalIgnoreCase);
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
@@ -221,15 +205,11 @@ public class Program
     {
         if (!NativeWayland)
         {
-            if (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
-                Console.WriteLine("[wall] backend: X11 through XWayland ("
-                                + (Environment.GetEnvironmentVariable("ALBUMWALL_X11") == "1" ? "ALBUMWALL_X11=1"
-                                   : ScreenReaderRunning ? "a screen reader is running"
-                                   : "settings \"Backend\": \"x11\"") + ")");
+            if (ScreenReaderRunning)
+                Console.WriteLine("[wall] backend: X11 through XWayland (a screen reader is running)");
             return builder;
         }
-        Console.WriteLine("[wall] backend: native Wayland"
-                        + (SettingsAskX11 ? " (settings \"Backend\": \"x11\" is for GNOME only)" : ""));
+        Console.WriteLine("[wall] backend: native Wayland");
         // Marked experimental ("used mostly for testing"). If a future Avalonia drops it, this
         // stops compiling rather than silently regressing, and COSMIC is the desktop to recheck.
 #pragma warning disable AVALONIA_WAYLAND_FORCE_CSD

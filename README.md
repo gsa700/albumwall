@@ -244,16 +244,8 @@ PipeWire or PulseAudio, which every desktop already has.
 
 On a Wayland desktop an application is not allowed to know or choose where its
 window is, so AlbumWall opens wherever the desktop puts it, and the wall and the
-compact strip share one position. To have the app remember its own places, run
-it through XWayland instead: with AlbumWall closed, open its settings file
-(`~/.config/albumwall/settings.json`) and change the `Backend` line to
-
-```json
-"Backend": "x11",
-```
-
-Set it back to `null` to return to Wayland. On Windows, and on an X11 desktop, the window
-remembers where it was, and compact mode keeps a place of its own.
+compact strip share one position. On Windows, the Mac, and an X11 desktop, the
+window remembers where it was, and compact mode keeps a place of its own.
 
 ### A dedicated player
 
