@@ -213,6 +213,11 @@ public partial class MainWindow : Window
             CheckSnapshotRequest();
 #endif
 
+            if (_noSound is not null)
+            {
+                StatusText.Text = _noSound;
+                return true;
+            }
             if (_all.Count == 0 || _filter.Length > 0 || _scanning) return true;
             if (_unreachable is not null)
             {
@@ -509,6 +514,14 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
+        // No output on this machine at all (Linux without PulseAudio's client
+        // library): the transport stays hidden (WallRows), so say why once.
+        if (!Spindle.Playback.Player.IsAvailable && Spindle.Playback.Player.UnavailableReason is { } none)
+        {
+            _noSound = none;
+            Console.WriteLine($"[wall] no sound: {none}");
+        }
+
         // Borderless windows are a per-platform negotiation, not a setting that
         // simply takes. Report what the window manager actually granted.
         Console.WriteLine($"[wall] transparency={ActualTransparencyLevel} "
@@ -1027,6 +1040,14 @@ public partial class MainWindow : Window
 
     /// The status line while the library on the wall cannot be reached, or null.
     private string? _unreachable;
+
+    /// Why there is no sound, while there is none: the output would not open or
+    /// stopped (Player.OutputFailed), or this machine has none at all
+    /// (Player.UnavailableReason). Held in the status line, ahead of the counts,
+    /// until music plays again. Before, a refused output was only a log line
+    /// and the person heard silence with nothing said (Vergence on techbench,
+    /// no sound server, 2026-11-22).
+    private string? _noSound;
 
     /// While a library cannot be reached, it is looked for again every 30
     /// seconds: a NAS wakes, a drive is plugged back in, a share mounts late,
@@ -3461,6 +3482,14 @@ public partial class MainWindow : Window
         // Hymie knows it at once, and says so here all the same.
         _player.DurationChanged += (_, _) => Dispatcher.UIThread.Post(RefreshMprisState);
         _player.Seeked += (_, at) => _mpris?.NotifySeeked(at);
+        // The output would not open or stopped: said where the person can see
+        // it. The player has stopped and kept its place; Play tries again.
+        _player.OutputFailed += (_, why) => Dispatcher.UIThread.Post(() =>
+        {
+            _noSound = why;
+            StatusText.Text = why;
+            Console.WriteLine($"[wall] no sound: {why}");
+        });
 
         // The record ran out: there is nothing left to pick up next time.
         //
@@ -3792,6 +3821,12 @@ public partial class MainWindow : Window
         {
             UpdateNowPlaying(); CompactTick(); SaveSession(); UpdateAwake();
             Classes.Set("paused", _player?.IsPlaying != true);
+            // Sound again: the reason it was missing goes from the status line.
+            if (_player?.IsPlaying == true && _noSound is not null)
+            {
+                _noSound = null;
+                StatusText.Text = "";
+            }
             Pulse();
             // The meters' timer sleeps through a pause (StartMeters); playing wakes it.
             WakeMeters();
